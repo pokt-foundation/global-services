@@ -2,7 +2,7 @@
 
 build: gomodgen
 	export GO111MODULE=on
-	env GOARCH=amd64 GOOS=linux go build -ldflags="-s -w" -o bin/dispatch-globally functions/dispatch-globally/main.go
+	env GOARCH=amd64 GOOS=linux go build -ldflags="-s -w" -o bin/dispatch-globally cmd/functions/dispatch-globally/main.go
 
 clean:
 	rm -rf ./bin ./vendor go.sum
