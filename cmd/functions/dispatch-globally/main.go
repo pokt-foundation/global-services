@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/Pocket/global-dispatcher/internal/database"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 )
@@ -20,7 +21,11 @@ type Response events.APIGatewayProxyResponse
 func LambdaHandler(ctx context.Context) (Response, error) {
 	var buf bytes.Buffer
 
-	fmt.Println("testing local logging with change made")
+	err := Handler()
+
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	body, err := json.Marshal(map[string]interface{}{
 		"message": "Go Serverless v1.0! Your function executed successfully!",
@@ -43,13 +48,27 @@ func LambdaHandler(ctx context.Context) (Response, error) {
 	return resp, nil
 }
 
-func Handler() {
+func Handler() error {
 	// 1 - Connect to mongodb
 	// 2 - Get the production commit hash
 	// 3 - Get all staked applications
 	// 4 - Validate them
 	// 5 - for each app and blockchain, call the dispatch on a goroutine
 	// 5.1 - set the redis value for the dispatch given
+
+	db, err := database.ClientFromURI(context.TODO(), "mongodb://mongouser:mongopassword@db:27017/gateway?authSource=admin", "gateway")
+	if err != nil {
+		return err
+	}
+
+	apps, err := db.GetAllStakedApplications(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Apps: %d\n", len(apps))
+
+	return nil
 }
 
 func main() {

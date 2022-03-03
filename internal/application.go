@@ -1,23 +1,22 @@
 package internal
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 type Application struct {
-	ID              string `json:"id"`
+	ID              string `json:"_id"`
 	GatewaySettings struct {
 		WhitelistOrigins    []interface{} `json:"whitelistOrigins"`
 		WhitelistUserAgents []interface{} `json:"whitelistUserAgents"`
 		SecretKeyRequired   bool          `json:"secretKeyRequired"`
 		SecretKey           string        `json:"secretKey"`
 	} `json:"gatewaySettings"`
-	CreatedAt                  time.Time `json:"createdAt"`
-	UpdatedAt                  time.Time `json:"updatedAt"`
-	Chain                      string    `json:"chain"`
-	Name                       string    `json:"name"`
-	User                       string    `json:"user"`
-	Status                     string    `json:"status"`
-	LastChangedStatusAt        time.Time `json:"lastChangedStatusAt"`
-	FreeTier                   bool      `json:"freeTier"`
+	Name                       string `json:"name"`
+	User                       string `json:"user"`
+	Status                     string `json:"status"`
+	FreeTier                   bool   `json:"freeTier"`
 	FreeTierApplicationAccount struct {
 		Address    string `json:"address"`
 		PublicKey  string `json:"publicKey"`
@@ -52,5 +51,5 @@ type NetworkApplication struct {
 }
 
 type ApplicationQuery interface {
-	GetAllStakedApplications() []Application
+	GetAllStakedApplications(ctx context.Context) []Application
 }
