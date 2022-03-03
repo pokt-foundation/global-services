@@ -9,5 +9,6 @@ const (
 type V1RPCRoutes string
 
 const (
-	QueryApps V1RPCRoutes = V1RPCRoutes(V1) + "/query/apps"
+	QueryApps      V1RPCRoutes = V1RPCRoutes(V1) + "/query/apps"
+	ClientDispatch             = V1RPCRoutes(V1) + "/client/dispatch"
 )

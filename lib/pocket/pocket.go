@@ -14,23 +14,19 @@ import (
 
 // Pocket is a struct containing rpc calls to the Pocket's blockchain network
 type Pocket struct {
+	RPCProvider *url.URL
 	Dispatchers []*url.URL
 	client      http.Client
 }
 
-type GetNetworkApplicationsInput struct {
-	AppsPerPage int `json:"per_page"`
-	Page        int `json:"page"`
+type performRequestOptions struct {
+	route  V1RPCRoutes
+	rpcURL string
+	body   interface{}
 }
 
-type NetworkApplicationsResponse struct {
-	Result     []common.NetworkApplication
-	TotalPages int `json:"total_pages"`
-	Page       int `json:"page"`
-}
-
-func NewPocket(dispatchers []string, timeoutSeconds int) (*Pocket, error) {
-	var urls []*url.URL
+func NewPocketClient(httpRpcURL string, dispatchers []string, timeoutSeconds int) (*Pocket, error) {
+	var dispatcherURLs []*url.URL
 
 	if len(dispatchers) <= 0 {
 		return nil, errors.New("error: a dispatcher URL must be provided")
@@ -41,11 +37,17 @@ func NewPocket(dispatchers []string, timeoutSeconds int) (*Pocket, error) {
 		if err != nil {
 			return nil, err
 		}
-		urls = append(urls, u)
+		dispatcherURLs = append(dispatcherURLs, u)
+	}
+
+	parsedRpcURL, err := url.Parse(httpRpcURL)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Pocket{
-		Dispatchers: urls,
+		Dispatchers: dispatcherURLs,
+		RPCProvider: parsedRpcURL,
 		client: http.Client{
 			Timeout: time.Second * time.Duration(timeoutSeconds),
 		},
@@ -62,12 +64,42 @@ func (p *Pocket) GetNetworkApplications(input GetNetworkApplicationsInput) ([]co
 	}{
 		Opts: input,
 	}
-	body, err := json.Marshal(options)
+
+	res, err := p.perform(performRequestOptions{
+		route: QueryApps,
+		body:  options,
+	})
 	if err != nil {
 		return nil, err
 	}
-	url := p.getRandomDispatcher() + string(QueryApps)
 
+	var applications *GetNetworkApplicationsOutput
+	err = json.NewDecoder(res.Body).Decode(&applications)
+	if err != nil {
+		return nil, err
+	}
+
+	return applications.Result, nil
+}
+
+func (p *Pocket) perform(options performRequestOptions) (*http.Response, error) {
+	var finalRpcURL string
+	if options.rpcURL != "" {
+		finalRpcURL = options.rpcURL
+	} else {
+		if options.route == ClientDispatch {
+			finalRpcURL = p.getRandomDispatcher()
+		} else {
+			finalRpcURL = p.RPCProvider.String()
+		}
+	}
+
+	body, err := json.Marshal(options.body)
+	if err != nil {
+		return nil, err
+	}
+
+	url := finalRpcURL + string(options.route)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBufferString(string(body)))
 	if err != nil {
 		return nil, err
@@ -77,11 +109,5 @@ func (p *Pocket) GetNetworkApplications(input GetNetworkApplicationsInput) ([]co
 		return nil, err
 	}
 
-	var applications *NetworkApplicationsResponse
-	err = json.NewDecoder(res.Body).Decode(&applications)
-	if err != nil {
-		return nil, err
-	}
-
-	return applications.Result, nil
+	return res, nil
 }
