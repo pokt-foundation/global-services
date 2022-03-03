@@ -63,29 +63,29 @@ func Handler() error {
 		return err
 	}
 
-	apps, err := getAllStakedApps(context.TODO(), db)
+	pocketClient, err := pocket.NewPocket([]string{"<>"}, 2)
+	if err != nil {
+		return err
+	}
+
+	apps, err := getAllStakedApplicationsOnDB(context.TODO(), db, *pocketClient)
+
+	fmt.Printf("After all, length: %d\n", len(apps))
 
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Apps: %d\n", len(apps))
-
 	return nil
 }
 
-func getAllStakedApps(ctx context.Context, store common.ApplicationStore) ([]*common.Application, error) {
-	apps, err := store.GetAllStakedApplications(ctx)
+func getAllStakedApplicationsOnDB(ctx context.Context, store common.ApplicationStore, pocketClient pocket.Pocket) ([]common.NetworkApplication, error) {
+	databaseApps, err := store.GetAllStakedApplications(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	pocketClient, err := pocket.NewPocket([]string{"<dispatch_url>"}, 2)
-	if err != nil {
-		return nil, err
-	}
-
-	ntApps, err := pocketClient.GetNetworkApplications(pocket.GetNetworkApplicationsInput{
+	networkApps, err := pocketClient.GetNetworkApplications(pocket.GetNetworkApplicationsInput{
 		AppsPerPage: 3000,
 		Page:        1,
 	})
@@ -93,11 +93,30 @@ func getAllStakedApps(ctx context.Context, store common.ApplicationStore) ([]*co
 		return nil, err
 	}
 
-	for _, app := range ntApps {
-		fmt.Printf("%v+", app)
+	return filterStakedAppsNotOnDB(databaseApps, networkApps), nil
+}
+
+func filterStakedAppsNotOnDB(dbApps []*common.Application, ntApps []common.NetworkApplication) []common.NetworkApplication {
+	var stakedAppsOnDB []common.NetworkApplication
+	publicKeyToApps := mapApplicationsToPublicKey(dbApps)
+
+	for _, ntApp := range ntApps {
+		if _, ok := publicKeyToApps[ntApp.PublicKey]; ok {
+			stakedAppsOnDB = append(stakedAppsOnDB, ntApp)
+		}
 	}
 
-	return apps, nil
+	return stakedAppsOnDB
+}
+
+func mapApplicationsToPublicKey(applications []*common.Application) map[string]*common.Application {
+	applicationsMap := make(map[string]*common.Application)
+
+	for _, application := range applications {
+		applicationsMap[application.GatewayAAT.ApplicationPublicKey] = application
+	}
+
+	return applicationsMap
 }
 
 func main() {
