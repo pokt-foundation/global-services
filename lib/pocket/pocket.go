@@ -7,16 +7,16 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/Pocket/global-dispatcher/common"
+	httpClient "github.com/Pocket/global-dispatcher/lib/http"
 )
 
 // Pocket is a struct containing rpc calls to the Pocket's blockchain network
 type Pocket struct {
 	RPCProvider *url.URL
 	Dispatchers []*url.URL
-	client      http.Client
+	client      httpClient.Client
 }
 
 type performRequestOptions struct {
@@ -48,9 +48,7 @@ func NewPocketClient(httpRpcURL string, dispatchers []string, timeoutSeconds int
 	return &Pocket{
 		Dispatchers: dispatcherURLs,
 		RPCProvider: parsedRpcURL,
-		client: http.Client{
-			Timeout: time.Second * time.Duration(timeoutSeconds),
-		},
+		client:      *httpClient.NewClient(),
 	}, nil
 }
 
@@ -120,7 +118,7 @@ func (p *Pocket) perform(options performRequestOptions) (*http.Response, error) 
 	if err != nil {
 		return nil, err
 	}
-	res, err := common.RequestWithRetry(p.client, 3, 1, req)
+	res, err := p.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
