@@ -63,12 +63,26 @@ func Handler() error {
 		return err
 	}
 
-	pocketClient, err := pocket.NewPocket([]string{"<>"}, 2)
+	pocketClient, err := pocket.NewPocketClient("", []string{""}, 2)
 	if err != nil {
 		return err
 	}
 
 	apps, err := getAllStakedApplicationsOnDB(context.TODO(), db, *pocketClient)
+	if err != nil {
+		return err
+	}
+
+	session, err := pocketClient.DispatchSession(pocket.DispatchInput{
+		AppPublicKey: apps[0].PublicKey,
+		Chain:        apps[0].Chains[0],
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%+v\n", apps[0])
+	fmt.Printf("%+v\n", session)
 
 	fmt.Printf("After all, length: %d\n", len(apps))
 

@@ -54,10 +54,6 @@ func NewPocketClient(httpRpcURL string, dispatchers []string, timeoutSeconds int
 	}, nil
 }
 
-func (p *Pocket) getRandomDispatcher() string {
-	return p.Dispatchers[rand.Intn(len(p.Dispatchers))].String()
-}
-
 func (p *Pocket) GetNetworkApplications(input GetNetworkApplicationsInput) ([]common.NetworkApplication, error) {
 	options := struct {
 		Opts GetNetworkApplicationsInput `json:"opts"`
@@ -74,12 +70,32 @@ func (p *Pocket) GetNetworkApplications(input GetNetworkApplicationsInput) ([]co
 	}
 
 	var applications *GetNetworkApplicationsOutput
-	err = json.NewDecoder(res.Body).Decode(&applications)
-	if err != nil {
+	if err = json.NewDecoder(res.Body).Decode(&applications); err != nil {
 		return nil, err
 	}
 
 	return applications.Result, nil
+}
+
+func (p *Pocket) getRandomDispatcher() string {
+	return p.Dispatchers[rand.Intn(len(p.Dispatchers))].String()
+}
+
+func (p *Pocket) DispatchSession(options DispatchInput) (*Session, error) {
+	res, err := p.perform(performRequestOptions{
+		route: ClientDispatch,
+		body:  options,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var dispatchOutput *DispatchOutput
+	if err = json.NewDecoder(res.Body).Decode(&dispatchOutput); err != nil {
+		return nil, err
+	}
+
+	return &dispatchOutput.Session, nil
 }
 
 func (p *Pocket) perform(options performRequestOptions) (*http.Response, error) {
@@ -104,7 +120,7 @@ func (p *Pocket) perform(options performRequestOptions) (*http.Response, error) 
 	if err != nil {
 		return nil, err
 	}
-	res, err := common.RequestWithRetry(p.client, 3, 0, req)
+	res, err := common.RequestWithRetry(p.client, 3, 1, req)
 	if err != nil {
 		return nil, err
 	}
