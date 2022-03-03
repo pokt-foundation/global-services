@@ -17,7 +17,7 @@ import (
 type Response events.APIGatewayProxyResponse
 
 // Handler is our lambda handler invoked by the `lambda.Start` function call
-func Handler(ctx context.Context) (Response, error) {
+func LambdaHandler(ctx context.Context) (Response, error) {
 	var buf bytes.Buffer
 
 	fmt.Println("testing local logging with change made")
@@ -43,6 +43,15 @@ func Handler(ctx context.Context) (Response, error) {
 	return resp, nil
 }
 
+func Handler() {
+	// 1 - Connect to mongodb
+	// 2 - Get the production commit hash
+	// 3 - Get all staked applications
+	// 4 - Validate them
+	// 5 - for each app and blockchain, call the dispatch on a goroutine
+	// 5.1 - set the redis value for the dispatch given
+}
+
 func main() {
-	lambda.Start(Handler)
+	lambda.Start(LambdaHandler)
 }
