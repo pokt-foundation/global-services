@@ -7,10 +7,12 @@ import (
 	"fmt"
 
 	"github.com/Pocket/global-dispatcher/common"
+	"github.com/Pocket/global-dispatcher/lib/cache"
 	"github.com/Pocket/global-dispatcher/lib/database"
 	"github.com/Pocket/global-dispatcher/lib/pocket"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/go-redis/redis/v8"
 )
 
 // Response is of type APIGatewayProxyResponse since we're leveraging the
@@ -63,7 +65,7 @@ func Handler() error {
 		return err
 	}
 
-	pocketClient, err := pocket.NewPocketClient("", []string{""}, 2)
+	pocketClient, err := pocket.NewPocketClient("", []string{"", ""}, 2)
 	if err != nil {
 		return err
 	}
@@ -81,10 +83,21 @@ func Handler() error {
 		return err
 	}
 
-	fmt.Printf("%+v\n", apps[0])
-	fmt.Printf("%+v\n", session)
+	redisClient, err := cache.NewRedisClient(cache.RedisClientOptions{
+		BaseOptions: &redis.Options{
+			Addr:     "cache:6379",
+			Password: "",
+			DB:       0,
+		},
+		KeyPrefix: "klk-",
+	})
+	if err != nil {
+		return err
+	}
 
-	fmt.Printf("After all, length: %d\n", len(apps))
+	if err := redisClient.SetJSON(context.TODO(), "session-test", session, 3600); err != nil {
+		return err
+	}
 
 	if err != nil {
 		return err
