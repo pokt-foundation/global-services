@@ -22,3 +22,6 @@ bin
 
 # Project dependencies
 vendor
+
+# Environment variables
+.env.json

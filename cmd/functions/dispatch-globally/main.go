@@ -5,14 +5,24 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/Pocket/global-dispatcher/common"
+	"github.com/Pocket/global-dispatcher/common/environment"
 	"github.com/Pocket/global-dispatcher/lib/cache"
 	"github.com/Pocket/global-dispatcher/lib/database"
 	"github.com/Pocket/global-dispatcher/lib/pocket"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/go-redis/redis/v8"
+)
+
+var (
+	rpcURL                = environment.GetString("RPC_URL", "")
+	dispatchURLS          = strings.Split(environment.GetString("DISPATCH_URLS", ""), ",")
+	redisConnectionString = environment.GetString("REDIS_CONNECTION_STRING", "")
+	mongoConnectionString = environment.GetString("MONGODB_CONNECTION_STRING", "")
+	mongoDatabase         = environment.GetString("MONGODB_DATABASE", "")
 )
 
 // Response is of type APIGatewayProxyResponse since we're leveraging the
@@ -60,12 +70,12 @@ func Handler() error {
 	// 5 - for each app and blockchain, call the dispatch on a goroutine
 	// 5.1 - set the redis value for the dispatch given
 
-	db, err := database.ClientFromURI(context.TODO(), "mongodb://mongouser:mongopassword@db:27017/gateway?authSource=admin", "gateway")
+	db, err := database.ClientFromURI(context.TODO(), mongoConnectionString, mongoDatabase)
 	if err != nil {
 		return err
 	}
 
-	pocketClient, err := pocket.NewPocketClient("", []string{"", ""}, 2)
+	pocketClient, err := pocket.NewPocketClient(rpcURL, dispatchURLS, 2)
 	if err != nil {
 		return err
 	}
@@ -85,7 +95,7 @@ func Handler() error {
 
 	redisClient, err := cache.NewRedisClient(cache.RedisClientOptions{
 		BaseOptions: &redis.Options{
-			Addr:     "cache:6379",
+			Addr:     redisConnectionString,
 			Password: "",
 			DB:       0,
 		},
