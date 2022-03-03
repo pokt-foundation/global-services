@@ -58,6 +58,7 @@ package:
 functions:
   dispatch-globally:
     handler: bin/dispatch-globally
+    environment: ${file(.env.json)}
 
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
