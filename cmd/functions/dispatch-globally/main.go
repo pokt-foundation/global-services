@@ -7,10 +7,12 @@ import (
 	"fmt"
 
 	"github.com/Pocket/global-dispatcher/common"
+	"github.com/Pocket/global-dispatcher/lib/cache"
 	"github.com/Pocket/global-dispatcher/lib/database"
 	"github.com/Pocket/global-dispatcher/lib/pocket"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/go-redis/redis/v8"
 )
 
 // Response is of type APIGatewayProxyResponse since we're leveraging the
@@ -63,29 +65,54 @@ func Handler() error {
 		return err
 	}
 
-	apps, err := getAllStakedApps(context.TODO(), db)
+	pocketClient, err := pocket.NewPocketClient("", []string{"", ""}, 2)
+	if err != nil {
+		return err
+	}
+
+	apps, err := getAllStakedApplicationsOnDB(context.TODO(), db, *pocketClient)
+	if err != nil {
+		return err
+	}
+
+	session, err := pocketClient.DispatchSession(pocket.DispatchInput{
+		AppPublicKey: apps[0].PublicKey,
+		Chain:        apps[0].Chains[0],
+	})
+	if err != nil {
+		return err
+	}
+
+	redisClient, err := cache.NewRedisClient(cache.RedisClientOptions{
+		BaseOptions: &redis.Options{
+			Addr:     "cache:6379",
+			Password: "",
+			DB:       0,
+		},
+		KeyPrefix: "klk-",
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := redisClient.SetJSON(context.TODO(), "session-test", session, 3600); err != nil {
+		return err
+	}
 
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Apps: %d\n", len(apps))
-
 	return nil
 }
 
-func getAllStakedApps(ctx context.Context, store common.ApplicationStore) ([]*common.Application, error) {
-	apps, err := store.GetAllStakedApplications(ctx)
+func getAllStakedApplicationsOnDB(ctx context.Context, store common.ApplicationStore, pocketClient pocket.Pocket) ([]common.NetworkApplication, error) {
+	databaseApps, err := store.GetAllStakedApplications(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	pocketClient, err := pocket.NewPocket([]string{"<dispatch_url>"}, 2)
-	if err != nil {
-		return nil, err
-	}
-
-	ntApps, err := pocketClient.GetNetworkApplications(pocket.GetNetworkApplicationsInput{
+	networkApps, err := pocketClient.GetNetworkApplications(pocket.GetNetworkApplicationsInput{
 		AppsPerPage: 3000,
 		Page:        1,
 	})
@@ -93,11 +120,30 @@ func getAllStakedApps(ctx context.Context, store common.ApplicationStore) ([]*co
 		return nil, err
 	}
 
-	for _, app := range ntApps {
-		fmt.Printf("%v+", app)
+	return filterStakedAppsNotOnDB(databaseApps, networkApps), nil
+}
+
+func filterStakedAppsNotOnDB(dbApps []*common.Application, ntApps []common.NetworkApplication) []common.NetworkApplication {
+	var stakedAppsOnDB []common.NetworkApplication
+	publicKeyToApps := mapApplicationsToPublicKey(dbApps)
+
+	for _, ntApp := range ntApps {
+		if _, ok := publicKeyToApps[ntApp.PublicKey]; ok {
+			stakedAppsOnDB = append(stakedAppsOnDB, ntApp)
+		}
 	}
 
-	return apps, nil
+	return stakedAppsOnDB
+}
+
+func mapApplicationsToPublicKey(applications []*common.Application) map[string]*common.Application {
+	applicationsMap := make(map[string]*common.Application)
+
+	for _, application := range applications {
+		applicationsMap[application.GatewayAAT.ApplicationPublicKey] = application
+	}
+
+	return applicationsMap
 }
 
 func main() {
