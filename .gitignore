@@ -19,3 +19,6 @@ bin
 
 # Auto generated file for deployment artifacts
 .serverless
+
+# Project dependencies
+vendor
