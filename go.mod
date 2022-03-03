@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/aws/aws-lambda-go v1.6.0
 	github.com/go-redis/redis/v8 v8.11.4
+	github.com/gojektech/heimdall v5.0.2+incompatible
 	go.mongodb.org/mongo-driver v1.8.4
 )
 
@@ -12,6 +13,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
+	github.com/gojektech/valkyrie v0.0.0-20190210220504-8f62c1e7ba45 // indirect
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/nitishm/go-rejson/v4 v4.1.0 // indirect
