@@ -6,7 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/Pocket/global-dispatcher/internal/database"
+	"github.com/Pocket/global-dispatcher/common"
+	"github.com/Pocket/global-dispatcher/lib/database"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 )
@@ -61,7 +62,8 @@ func Handler() error {
 		return err
 	}
 
-	apps, err := db.GetAllStakedApplications(context.TODO())
+	apps, err := getAllStakedApps(db)
+
 	if err != nil {
 		return err
 	}
@@ -69,6 +71,15 @@ func Handler() error {
 	fmt.Printf("Apps: %d\n", len(apps))
 
 	return nil
+}
+
+func getAllStakedApps(store common.ApplicationStore) ([]*common.Application, error) {
+	dbApps, err := store.GetAllStakedApplications(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+
+	return dbApps, nil
 }
 
 func main() {

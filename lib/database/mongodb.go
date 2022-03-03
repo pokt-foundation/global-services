@@ -3,7 +3,7 @@ package database
 import (
 	"context"
 
-	"github.com/Pocket/global-dispatcher/internal"
+	"github.com/Pocket/global-dispatcher/common"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -14,8 +14,8 @@ type Mongo struct {
 	Database string
 }
 
-func (m *Mongo) GetAllStakedApplications(ctx context.Context) ([]*internal.Application, error) {
-	var applications []*internal.Application
+func (m *Mongo) GetAllStakedApplications(ctx context.Context) ([]*common.Application, error) {
+	var applications []*common.Application
 	collection := m.client.Database(m.Database).Collection("Applications")
 
 	filter := bson.D{
@@ -30,7 +30,7 @@ func (m *Mongo) GetAllStakedApplications(ctx context.Context) ([]*internal.Appli
 		return nil, err
 	}
 	for cursor.Next(ctx) {
-		var application internal.Application
+		var application common.Application
 		err := cursor.Decode(&application)
 		if err != nil {
 			return nil, err

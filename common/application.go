@@ -1,4 +1,4 @@
-package internal
+package common
 
 import (
 	"context"
@@ -50,6 +50,6 @@ type NetworkApplication struct {
 	UnstakingTime time.Time `json:"unstaking_time"`
 }
 
-type ApplicationQuery interface {
-	GetAllStakedApplications(ctx context.Context) []Application
+type ApplicationStore interface {
+	GetAllStakedApplications(ctx context.Context) ([]*Application, error)
 }
