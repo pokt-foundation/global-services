@@ -8,6 +8,7 @@ import (
 
 	"github.com/Pocket/global-dispatcher/common"
 	"github.com/Pocket/global-dispatcher/lib/database"
+	"github.com/Pocket/global-dispatcher/lib/pocket"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 )
@@ -62,7 +63,7 @@ func Handler() error {
 		return err
 	}
 
-	apps, err := getAllStakedApps(db)
+	apps, err := getAllStakedApps(context.TODO(), db)
 
 	if err != nil {
 		return err
@@ -73,13 +74,30 @@ func Handler() error {
 	return nil
 }
 
-func getAllStakedApps(store common.ApplicationStore) ([]*common.Application, error) {
-	dbApps, err := store.GetAllStakedApplications(context.TODO())
+func getAllStakedApps(ctx context.Context, store common.ApplicationStore) ([]*common.Application, error) {
+	apps, err := store.GetAllStakedApplications(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return dbApps, nil
+	pocketClient, err := pocket.NewPocket([]string{"<dispatch_url>"}, 2)
+	if err != nil {
+		return nil, err
+	}
+
+	ntApps, err := pocketClient.GetNetworkApplications(pocket.GetNetworkApplicationsInput{
+		AppsPerPage: 3000,
+		Page:        1,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, app := range ntApps {
+		fmt.Printf("%v+", app)
+	}
+
+	return apps, nil
 }
 
 func main() {
