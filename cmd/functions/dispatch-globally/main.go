@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/Pocket/global-dispatcher/common/application"
 	"github.com/Pocket/global-dispatcher/common/environment"
@@ -15,6 +18,7 @@ import (
 	"github.com/Pocket/global-dispatcher/lib/pocket"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -34,15 +38,18 @@ type Response events.APIGatewayProxyResponse
 // Handler is our lambda handler invoked by the `lambda.Start` function call
 func LambdaHandler(ctx context.Context) (Response, error) {
 	var buf bytes.Buffer
+	ok := true
 
-	err := Handler()
+	failedDispatcherCalls, err := Handler()
 
 	if err != nil {
+		ok = false
 		fmt.Println(err)
 	}
 
 	body, err := json.Marshal(map[string]interface{}{
-		"message": "Go Serverless v1.0! Your function executed successfully!",
+		"ok":                    ok,
+		"failedDispatcherCalls": failedDispatcherCalls,
 	})
 	if err != nil {
 		return Response{StatusCode: 404}, err
@@ -62,53 +69,84 @@ func LambdaHandler(ctx context.Context) (Response, error) {
 	return resp, nil
 }
 
-func Handler() error {
-	fmt.Println("Starting")
+func Handler() (uint32, error) {
 	ctx := context.Background()
 
 	db, err := database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	pocketClient, err := pocket.NewPocketClient(rpcURL, dispatchURLs, 2)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	apps, err := application.GetAllStakedApplicationsOnDB(ctx, db, *pocketClient)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	commitHash, err := gateway.GetGatewayCommitHash()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	session, err := pocketClient.DispatchSession(pocket.DispatchInput{
-		AppPublicKey: apps[0].PublicKey,
-		Chain:        apps[0].Chains[0],
-	})
+	cacheClients, err := cache.GetCacheClients(redisConnectionStrings, commitHash)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	redisClients, err := cache.GetCacheClients(redisConnectionStrings, commitHash)
-	if err != nil {
-		return err
-	}
-
-	for _, client := range redisClients {
-		if err := client.SetJSON(context.TODO(), "-session-test", session, 3600); err != nil {
-			fmt.Println(err)
+	var failedDispatcherCalls uint32
+	var wg sync.WaitGroup
+	for _, app := range apps {
+		for _, chain := range app.Chains {
+			wg.Add(1)
+			go func(publicKey, chain string) {
+				defer wg.Done()
+				DispatchAndCacheSession(pocketClient, cacheClients, commitHash, publicKey, chain, &failedDispatcherCalls)
+			}(app.PublicKey, chain)
 		}
 	}
+	wg.Wait()
 
+	return failedDispatcherCalls, nil
+}
+
+func DispatchAndCacheSession(
+	client *pocket.PocketJsonRpcClient, cacheClients []*cache.Redis, commitHash string,
+	publicKey string, chain string, counter *uint32) {
+	session, err := client.DispatchSession(pocket.DispatchInput{
+		AppPublicKey: publicKey,
+		Chain:        chain,
+	})
 	if err != nil {
-		return err
+		fmt.Println("error dispatching:", err)
+		atomic.AddUint32(counter, 1)
+		return
 	}
 
-	return nil
+	cacheKey := fmt.Sprintf("%ssession-cached-%s-%s", commitHash, publicKey, chain)
+	err = WriteJSONToCaches(cacheClients, cacheKey, session, 3600)
+	if err != nil {
+		fmt.Println("error writing to cache:", err)
+		atomic.AddUint32(counter, 1)
+	}
+}
+
+func WriteJSONToCaches(cacheClients []*cache.Redis, key string, value interface{}, TTLSeconds uint) error {
+	var g errgroup.Group
+	for _, cacheClient := range cacheClients {
+		func(ch *cache.Redis) {
+			g.Go(func() error {
+				ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+				defer cancel()
+
+				return ch.SetJSON(ctx, key, value, TTLSeconds)
+			})
+		}(cacheClient)
+	}
+
+	return g.Wait()
 }
 
 func main() {

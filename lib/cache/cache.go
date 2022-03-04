@@ -39,7 +39,7 @@ func (r *Redis) GetClient() redis.Cmdable {
 	return r.client
 }
 
-func (r *Redis) SetJSON(ctx context.Context, key string, value interface{}, TTLSeconds int) error {
+func (r *Redis) SetJSON(ctx context.Context, key string, value interface{}, TTLSeconds uint) error {
 	jsonValue, err := json.Marshal(value)
 	if err != nil {
 		return err
