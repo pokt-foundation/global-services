@@ -21,7 +21,10 @@ type Redis struct {
 func NewRedisClient(options RedisClientOptions) (*Redis, error) {
 	client := redis.NewClient(options.BaseOptions)
 
-	_, err := client.Ping(context.Background()).Result()
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
+
+	_, err := client.Ping(ctx).Result()
 	if err != nil {
 		return nil, err
 	}
