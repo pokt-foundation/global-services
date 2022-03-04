@@ -77,7 +77,7 @@ func Handler() (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-	pocketClient, err := pocket.NewPocketClient(rpcURL, dispatchURLs, 2)
+	pocketClient, err := pocket.NewPocketClient(rpcURL, dispatchURLs)
 	if err != nil {
 		return 0, err
 	}

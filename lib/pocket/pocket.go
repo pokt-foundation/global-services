@@ -24,7 +24,7 @@ type performRequestOptions struct {
 	body   interface{}
 }
 
-func NewPocketClient(httpRpcURL string, dispatchers []string, timeoutSeconds int) (*PocketJsonRpcClient, error) {
+func NewPocketClient(httpRpcURL string, dispatchers []string) (*PocketJsonRpcClient, error) {
 	var dispatcherURLs []*url.URL
 
 	if len(dispatchers) <= 0 {
