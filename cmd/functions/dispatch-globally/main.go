@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	common "github.com/Pocket/global-dispatcher/common/application"
+	"github.com/Pocket/global-dispatcher/common/application"
 	"github.com/Pocket/global-dispatcher/common/environment"
 	"github.com/Pocket/global-dispatcher/common/gateway"
 	"github.com/Pocket/global-dispatcher/lib/cache"
@@ -70,12 +70,12 @@ func Handler() error {
 	if err != nil {
 		return err
 	}
-
 	pocketClient, err := pocket.NewPocketClient(rpcURL, dispatchURLs, 2)
 	if err != nil {
 		return err
 	}
-	apps, err := getAllStakedApplicationsOnDB(ctx, db, *pocketClient)
+
+	apps, err := application.GetAllStakedApplicationsOnDB(ctx, db, *pocketClient)
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func Handler() error {
 		return err
 	}
 
-	redisClients, err := cache.GetCacheClients(redisConnectionStrings, commitHash.Commit)
+	redisClients, err := cache.GetCacheClients(redisConnectionStrings, commitHash)
 	if err != nil {
 		return err
 	}
@@ -109,46 +109,6 @@ func Handler() error {
 	}
 
 	return nil
-}
-
-func getAllStakedApplicationsOnDB(ctx context.Context, store common.ApplicationStore, pocketClient pocket.PocketJsonRpcClient) ([]common.NetworkApplication, error) {
-	databaseApps, err := store.GetAllStakedApplications(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	networkApps, err := pocketClient.GetNetworkApplications(pocket.GetNetworkApplicationsInput{
-		AppsPerPage: 3000,
-		Page:        1,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return filterStakedAppsNotOnDB(databaseApps, networkApps), nil
-}
-
-func filterStakedAppsNotOnDB(dbApps []*common.Application, ntApps []common.NetworkApplication) []common.NetworkApplication {
-	var stakedAppsOnDB []common.NetworkApplication
-	publicKeyToApps := mapApplicationsToPublicKey(dbApps)
-
-	for _, ntApp := range ntApps {
-		if _, ok := publicKeyToApps[ntApp.PublicKey]; ok {
-			stakedAppsOnDB = append(stakedAppsOnDB, ntApp)
-		}
-	}
-
-	return stakedAppsOnDB
-}
-
-func mapApplicationsToPublicKey(applications []*common.Application) map[string]*common.Application {
-	applicationsMap := make(map[string]*common.Application)
-
-	for _, application := range applications {
-		applicationsMap[application.GatewayAAT.ApplicationPublicKey] = application
-	}
-
-	return applicationsMap
 }
 
 func main() {

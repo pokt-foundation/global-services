@@ -20,3 +20,14 @@ type Session struct {
 		UnstakingTime time.Time `json:"unstaking_time"`
 	} `json:"nodes"`
 }
+
+type NetworkApplication struct {
+	Address       string    `json:"address"`
+	PublicKey     string    `json:"public_key"`
+	Jailed        bool      `json:"jailed"`
+	Chains        []string  `json:"chains"`
+	MaxRelays     string    `json:"max_relays"`
+	Status        int       `json:"status"`
+	StakedTokens  string    `json:"staked_tokens"`
+	UnstakingTime time.Time `json:"unstaking_time"`
+}
