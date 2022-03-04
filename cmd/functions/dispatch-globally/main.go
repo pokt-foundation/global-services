@@ -27,7 +27,7 @@ var (
 	redisConnectionStrings = strings.Split(environment.GetString("REDIS_CONNECTION_STRINGS", ""), ",")
 	mongoConnectionString  = environment.GetString("MONGODB_CONNECTION_STRING", "")
 	mongoDatabase          = environment.GetString("MONGODB_DATABASE", "")
-	cacheTTL               = environment.GetInt64("MONGODB_DATABASE", 360)
+	cacheTTL               = environment.GetInt64("CACHE_TTL", 360)
 )
 
 // Response is of type APIGatewayProxyResponse since we're leveraging the
