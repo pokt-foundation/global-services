@@ -12,8 +12,8 @@ import (
 	httpClient "github.com/Pocket/global-dispatcher/lib/http"
 )
 
-// Pocket is a struct containing rpc calls to the Pocket's blockchain network
-type Pocket struct {
+// PocketJsonRpcClient is a struct containing rpc calls to the PocketJsonRpcClient's blockchain network
+type PocketJsonRpcClient struct {
 	RPCProvider *url.URL
 	Dispatchers []*url.URL
 	client      httpClient.Client
@@ -25,7 +25,7 @@ type performRequestOptions struct {
 	body   interface{}
 }
 
-func NewPocketClient(httpRpcURL string, dispatchers []string, timeoutSeconds int) (*Pocket, error) {
+func NewPocketClient(httpRpcURL string, dispatchers []string, timeoutSeconds int) (*PocketJsonRpcClient, error) {
 	var dispatcherURLs []*url.URL
 
 	if len(dispatchers) <= 0 {
@@ -45,14 +45,14 @@ func NewPocketClient(httpRpcURL string, dispatchers []string, timeoutSeconds int
 		return nil, err
 	}
 
-	return &Pocket{
+	return &PocketJsonRpcClient{
 		Dispatchers: dispatcherURLs,
 		RPCProvider: parsedRpcURL,
 		client:      *httpClient.NewClient(),
 	}, nil
 }
 
-func (p *Pocket) GetNetworkApplications(input GetNetworkApplicationsInput) ([]common.NetworkApplication, error) {
+func (p *PocketJsonRpcClient) GetNetworkApplications(input GetNetworkApplicationsInput) ([]common.NetworkApplication, error) {
 	options := struct {
 		Opts GetNetworkApplicationsInput `json:"opts"`
 	}{
@@ -75,11 +75,11 @@ func (p *Pocket) GetNetworkApplications(input GetNetworkApplicationsInput) ([]co
 	return applications.Result, nil
 }
 
-func (p *Pocket) getRandomDispatcher() string {
+func (p *PocketJsonRpcClient) getRandomDispatcher() string {
 	return p.Dispatchers[rand.Intn(len(p.Dispatchers))].String()
 }
 
-func (p *Pocket) DispatchSession(options DispatchInput) (*Session, error) {
+func (p *PocketJsonRpcClient) DispatchSession(options DispatchInput) (*Session, error) {
 	res, err := p.perform(performRequestOptions{
 		route: ClientDispatch,
 		body:  options,
@@ -96,7 +96,7 @@ func (p *Pocket) DispatchSession(options DispatchInput) (*Session, error) {
 	return &dispatchOutput.Session, nil
 }
 
-func (p *Pocket) perform(options performRequestOptions) (*http.Response, error) {
+func (p *PocketJsonRpcClient) perform(options performRequestOptions) (*http.Response, error) {
 	var finalRpcURL string
 	if options.rpcURL != "" {
 		finalRpcURL = options.rpcURL

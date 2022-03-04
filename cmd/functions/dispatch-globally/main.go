@@ -116,7 +116,7 @@ func Handler() error {
 	return nil
 }
 
-func getAllStakedApplicationsOnDB(ctx context.Context, store common.ApplicationStore, pocketClient pocket.Pocket) ([]common.NetworkApplication, error) {
+func getAllStakedApplicationsOnDB(ctx context.Context, store common.ApplicationStore, pocketClient pocket.PocketJsonRpcClient) ([]common.NetworkApplication, error) {
 	databaseApps, err := store.GetAllStakedApplications(ctx)
 	if err != nil {
 		return nil, err
