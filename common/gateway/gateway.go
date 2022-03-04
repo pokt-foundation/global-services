@@ -11,22 +11,19 @@ var gatewayURL = environment.GetString("GATEWAY_PRODUCTION_URL", "")
 
 const versionPath = "/version"
 
-// GatewayVersion represnts the output from a version call to the pocket's gateway
-type GatewayVersion struct {
-	Commit string `json:"commit"`
-}
-
-func GetGatewayCommitHash() (*GatewayVersion, error) {
+func GetGatewayCommitHash() (string, error) {
 	httpClient := *httpClient.NewClient()
 	res, err := httpClient.Get(gatewayURL+versionPath, nil)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	var version GatewayVersion
-	if err = json.NewDecoder(res.Body).Decode(&version); err != nil {
-		return nil, err
+	var commitHash struct {
+		Commit string `json:"commit"`
+	}
+	if err = json.NewDecoder(res.Body).Decode(&commitHash); err != nil {
+		return "", err
 	}
 
-	return &version, nil
+	return commitHash.Commit, nil
 }
