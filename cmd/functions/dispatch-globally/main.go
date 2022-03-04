@@ -81,17 +81,17 @@ func Handler() (uint32, error) {
 		return 0, err
 	}
 
-	apps, err := application.GetAllStakedApplicationsOnDB(ctx, db, *pocketClient)
-	if err != nil {
-		return 0, err
-	}
-
 	commitHash, err := gateway.GetGatewayCommitHash()
 	if err != nil {
 		return 0, err
 	}
 
 	cacheClients, err := cache.GetCacheClients(redisConnectionStrings, commitHash)
+	if err != nil {
+		return 0, err
+	}
+
+	apps, err := application.GetAllStakedApplicationsOnDB(ctx, db, *pocketClient)
 	if err != nil {
 		return 0, err
 	}
