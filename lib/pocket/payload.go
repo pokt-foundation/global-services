@@ -1,8 +1,6 @@
 package pocket
 
-import (
-	"github.com/Pocket/global-dispatcher/common"
-)
+import common "github.com/Pocket/global-dispatcher/common/application"
 
 type GetNetworkApplicationsInput struct {
 	AppsPerPage int `json:"per_page"`

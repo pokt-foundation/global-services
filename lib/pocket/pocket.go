@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/Pocket/global-dispatcher/common"
+	common "github.com/Pocket/global-dispatcher/common/application"
 	httpClient "github.com/Pocket/global-dispatcher/lib/http"
 )
 

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Pocket/global-dispatcher/common"
+	common "github.com/Pocket/global-dispatcher/common/application"
 	"github.com/Pocket/global-dispatcher/common/environment"
 	"github.com/Pocket/global-dispatcher/lib/cache"
 	"github.com/Pocket/global-dispatcher/lib/database"
@@ -18,11 +18,12 @@ import (
 )
 
 var (
-	rpcURL                = environment.GetString("RPC_URL", "")
-	dispatchURLS          = strings.Split(environment.GetString("DISPATCH_URLS", ""), ",")
-	redisConnectionString = environment.GetString("REDIS_CONNECTION_STRING", "")
-	mongoConnectionString = environment.GetString("MONGODB_CONNECTION_STRING", "")
-	mongoDatabase         = environment.GetString("MONGODB_DATABASE", "")
+	rpcURL                 = environment.GetString("RPC_URL", "")
+	dispatchURLs           = strings.Split(environment.GetString("DISPATCH_URLS", ""), ",")
+	redisConnectionStrings = strings.Split(environment.GetString("REDIS_CONNECTION_STRING", ""), ",")
+	mongoConnectionString  = environment.GetString("MONGODB_CONNECTION_STRING", "")
+	mongoDatabase          = environment.GetString("MONGODB_DATABASE", "")
+	gatewayProductionURL   = environment.GetString("GATEWAY_PRODUCTION_URL", "")
 )
 
 // Response is of type APIGatewayProxyResponse since we're leveraging the
@@ -63,24 +64,18 @@ func LambdaHandler(ctx context.Context) (Response, error) {
 }
 
 func Handler() error {
-	// 1 - Connect to mongodb
-	// 2 - Get the production commit hash
-	// 3 - Get all staked applications
-	// 4 - Validate them
-	// 5 - for each app and blockchain, call the dispatch on a goroutine
-	// 5.1 - set the redis value for the dispatch given
+	ctx := context.Background()
 
-	db, err := database.ClientFromURI(context.TODO(), mongoConnectionString, mongoDatabase)
+	db, err := database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
 	if err != nil {
 		return err
 	}
 
-	pocketClient, err := pocket.NewPocketClient(rpcURL, dispatchURLS, 2)
+	pocketClient, err := pocket.NewPocketClient(rpcURL, dispatchURLs, 2)
 	if err != nil {
 		return err
 	}
-
-	apps, err := getAllStakedApplicationsOnDB(context.TODO(), db, *pocketClient)
+	apps, err := getAllStakedApplicationsOnDB(ctx, db, *pocketClient)
 	if err != nil {
 		return err
 	}
@@ -95,7 +90,7 @@ func Handler() error {
 
 	redisClient, err := cache.NewRedisClient(cache.RedisClientOptions{
 		BaseOptions: &redis.Options{
-			Addr:     redisConnectionString,
+			Addr:     redisConnectionStrings[0],
 			Password: "",
 			DB:       0,
 		},
