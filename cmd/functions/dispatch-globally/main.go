@@ -9,21 +9,20 @@ import (
 
 	common "github.com/Pocket/global-dispatcher/common/application"
 	"github.com/Pocket/global-dispatcher/common/environment"
+	"github.com/Pocket/global-dispatcher/common/gateway"
 	"github.com/Pocket/global-dispatcher/lib/cache"
 	"github.com/Pocket/global-dispatcher/lib/database"
 	"github.com/Pocket/global-dispatcher/lib/pocket"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/go-redis/redis/v8"
 )
 
 var (
 	rpcURL                 = environment.GetString("RPC_URL", "")
 	dispatchURLs           = strings.Split(environment.GetString("DISPATCH_URLS", ""), ",")
-	redisConnectionStrings = strings.Split(environment.GetString("REDIS_CONNECTION_STRING", ""), ",")
+	redisConnectionStrings = strings.Split(environment.GetString("REDIS_CONNECTION_STRINGS", ""), ",")
 	mongoConnectionString  = environment.GetString("MONGODB_CONNECTION_STRING", "")
 	mongoDatabase          = environment.GetString("MONGODB_DATABASE", "")
-	gatewayProductionURL   = environment.GetString("GATEWAY_PRODUCTION_URL", "")
 )
 
 // Response is of type APIGatewayProxyResponse since we're leveraging the
@@ -64,6 +63,7 @@ func LambdaHandler(ctx context.Context) (Response, error) {
 }
 
 func Handler() error {
+	fmt.Println("Starting")
 	ctx := context.Background()
 
 	db, err := database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
@@ -80,6 +80,11 @@ func Handler() error {
 		return err
 	}
 
+	commitHash, err := gateway.GetGatewayCommitHash()
+	if err != nil {
+		return err
+	}
+
 	session, err := pocketClient.DispatchSession(pocket.DispatchInput{
 		AppPublicKey: apps[0].PublicKey,
 		Chain:        apps[0].Chains[0],
@@ -88,20 +93,15 @@ func Handler() error {
 		return err
 	}
 
-	redisClient, err := cache.NewRedisClient(cache.RedisClientOptions{
-		BaseOptions: &redis.Options{
-			Addr:     redisConnectionStrings[0],
-			Password: "",
-			DB:       0,
-		},
-		KeyPrefix: "klk-",
-	})
+	redisClients, err := cache.GetCacheClients(redisConnectionStrings, commitHash.Commit)
 	if err != nil {
 		return err
 	}
 
-	if err := redisClient.SetJSON(context.TODO(), "session-test", session, 3600); err != nil {
-		return err
+	for _, client := range redisClients {
+		if err := client.SetJSON(context.TODO(), "-session-test", session, 3600); err != nil {
+			fmt.Println(err)
+		}
 	}
 
 	if err != nil {
