@@ -27,6 +27,7 @@ var (
 	redisConnectionStrings = strings.Split(environment.GetString("REDIS_CONNECTION_STRINGS", ""), ",")
 	mongoConnectionString  = environment.GetString("MONGODB_CONNECTION_STRING", "")
 	mongoDatabase          = environment.GetString("MONGODB_DATABASE", "")
+	cacheTTL               = environment.GetInt64("MONGODB_DATABASE", 360)
 )
 
 // Response is of type APIGatewayProxyResponse since we're leveraging the
@@ -126,7 +127,7 @@ func DispatchAndCacheSession(
 	}
 
 	cacheKey := fmt.Sprintf("%ssession-cached-%s-%s", commitHash, publicKey, chain)
-	err = WriteJSONToCaches(cacheClients, cacheKey, session, 3600)
+	err = WriteJSONToCaches(cacheClients, cacheKey, session, uint(cacheTTL))
 	if err != nil {
 		fmt.Println("error writing to cache:", err)
 		atomic.AddUint32(counter, 1)
