@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 var (
@@ -28,6 +28,7 @@ var (
 	mongoConnectionString  = environment.GetString("MONGODB_CONNECTION_STRING", "")
 	mongoDatabase          = environment.GetString("MONGODB_DATABASE", "")
 	cacheTTL               = environment.GetInt64("CACHE_TTL", 360)
+	dispatchConcurrency    = environment.GetInt64("DISPATCH_CONCURRENCY", 200)
 )
 
 // Response is of type APIGatewayProxyResponse since we're leveraging the
@@ -63,7 +64,7 @@ func LambdaHandler(ctx context.Context) (Response, error) {
 		Body:            buf.String(),
 		Headers: map[string]string{
 			"Content-Type":           "application/json",
-			"X-MyCompany-Func-Reply": "hello-handler",
+			"X-MyCompany-Func-Reply": "dispatch-globally",
 		},
 	}
 
@@ -98,17 +99,17 @@ func Handler() (uint32, error) {
 	}
 
 	var failedDispatcherCalls uint32
-	var wg sync.WaitGroup
+	var sem = semaphore.NewWeighted(dispatchConcurrency)
+
 	for _, app := range apps {
 		for _, chain := range app.Chains {
-			wg.Add(1)
+			sem.Acquire(ctx, 1)
 			go func(publicKey, chain string) {
-				defer wg.Done()
+				defer sem.Release(1)
 				DispatchAndCacheSession(pocketClient, cacheClients, commitHash, publicKey, chain, &failedDispatcherCalls)
 			}(app.PublicKey, chain)
 		}
 	}
-	wg.Wait()
 
 	return failedDispatcherCalls, nil
 }
@@ -121,16 +122,16 @@ func DispatchAndCacheSession(
 		Chain:        chain,
 	})
 	if err != nil {
-		fmt.Println("error dispatching:", err)
 		atomic.AddUint32(counter, 1)
+		fmt.Println("error dispatching:", err)
 		return
 	}
 
 	cacheKey := fmt.Sprintf("%ssession-cached-%s-%s", commitHash, publicKey, chain)
 	err = WriteJSONToCaches(cacheClients, cacheKey, session, uint(cacheTTL))
 	if err != nil {
-		fmt.Println("error writing to cache:", err)
 		atomic.AddUint32(counter, 1)
+		fmt.Println("error writing to cache:", err)
 	}
 }
 
