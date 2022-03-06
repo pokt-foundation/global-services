@@ -1,6 +1,9 @@
 package cache
 
 import (
+	"context"
+	"time"
+
 	"github.com/go-redis/redis/v8"
 	"golang.org/x/sync/errgroup"
 )
@@ -31,6 +34,23 @@ func GetCacheClients(connectionStrings []string, commitHash string) ([]*Redis, e
 	}
 
 	return instances, nil
+}
+
+// WriteJSONToCaches writes the given key/values to multiple cache clients at the same time
+func WriteJSONToCaches(cacheClients []*Redis, key string, value interface{}, TTLSeconds uint) error {
+	var g errgroup.Group
+	for _, cacheClient := range cacheClients {
+		func(ch *Redis) {
+			g.Go(func() error {
+				ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+				defer cancel()
+
+				return ch.SetJSON(ctx, key, value, TTLSeconds)
+			})
+		}(cacheClient)
+	}
+
+	return g.Wait()
 }
 
 func connectToInstance(clients chan *Redis, address string, commitHash string) error {

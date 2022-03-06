@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/Pocket/global-dispatcher/common/application"
 	"github.com/Pocket/global-dispatcher/common/environment"
@@ -17,7 +17,6 @@ import (
 	"github.com/Pocket/global-dispatcher/lib/pocket"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -100,16 +99,23 @@ func Handler() (uint32, error) {
 
 	var failedDispatcherCalls uint32
 	var sem = semaphore.NewWeighted(dispatchConcurrency)
+	var wg sync.WaitGroup
 
 	for _, app := range apps {
 		for _, chain := range app.Chains {
 			sem.Acquire(ctx, 1)
+			wg.Add(1)
+
 			go func(publicKey, chain string) {
 				defer sem.Release(1)
+				defer wg.Done()
+
 				DispatchAndCacheSession(pocketClient, cacheClients, commitHash, publicKey, chain, &failedDispatcherCalls)
 			}(app.PublicKey, chain)
 		}
 	}
+
+	wg.Wait()
 
 	return failedDispatcherCalls, nil
 }
@@ -128,27 +134,11 @@ func DispatchAndCacheSession(
 	}
 
 	cacheKey := fmt.Sprintf("%ssession-cached-%s-%s", commitHash, publicKey, chain)
-	err = WriteJSONToCaches(cacheClients, cacheKey, session, uint(cacheTTL))
+	err = cache.WriteJSONToCaches(cacheClients, cacheKey, session, uint(cacheTTL))
 	if err != nil {
 		atomic.AddUint32(counter, 1)
 		fmt.Println("error writing to cache:", err)
 	}
-}
-
-func WriteJSONToCaches(cacheClients []*cache.Redis, key string, value interface{}, TTLSeconds uint) error {
-	var g errgroup.Group
-	for _, cacheClient := range cacheClients {
-		func(ch *cache.Redis) {
-			g.Go(func() error {
-				ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
-				defer cancel()
-
-				return ch.SetJSON(ctx, key, value, TTLSeconds)
-			})
-		}(cacheClient)
-	}
-
-	return g.Wait()
 }
 
 func main() {
