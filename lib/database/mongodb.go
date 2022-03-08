@@ -3,7 +3,7 @@ package database
 import (
 	"context"
 
-	"github.com/Pocket/global-dispatcher/common"
+	common "github.com/Pocket/global-dispatcher/common/application"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
