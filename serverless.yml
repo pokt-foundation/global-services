@@ -24,6 +24,7 @@ provider:
   name: aws
   runtime: go1.x
   region: us-east-2
+  timeout: 180
 
 # you can overwrite defaults here
 #  stage: dev
