@@ -30,6 +30,11 @@ var (
 	dispatchConcurrency    = environment.GetInt64("DISPATCH_CONCURRENCY", 200)
 )
 
+var headers = map[string]string{
+	"Content-Type":           "application/json",
+	"X-MyCompany-Func-Reply": "dispatch-globally",
+}
+
 // Response is of type APIGatewayProxyResponse since we're leveraging the
 // AWS Lambda Proxy Request functionality (default behavior)
 //
@@ -39,45 +44,47 @@ type Response events.APIGatewayProxyResponse
 // Handler is our lambda handler invoked by the `lambda.Start` function call
 func LambdaHandler(ctx context.Context) (Response, error) {
 	var buf bytes.Buffer
-	ok := true
 
-	failedDispatcherCalls, err := Handler()
+	failedDispatcherCalls, err := DispatchSessions()
+
+	var body []byte
+	var encodeErr error
+	var statusCode int
 
 	if err != nil {
-		ok = false
-		fmt.Println(err)
+		statusCode = 500
+		body, encodeErr = json.Marshal(map[string]interface{}{
+			"ok":    false,
+			"error": err.Error(),
+		})
+
+	} else {
+		statusCode = 200
+		body, encodeErr = json.Marshal(map[string]interface{}{
+			"ok":                    true,
+			"failedDispatcherCalls": failedDispatcherCalls,
+		})
 	}
 
-	body, err := json.Marshal(map[string]interface{}{
-		"ok":                    ok,
-		"failedDispatcherCalls": failedDispatcherCalls,
-	})
-	if err != nil {
-		return Response{StatusCode: 404}, err
+	if encodeErr != nil {
+		return Response{StatusCode: 404}, encodeErr
 	}
 	json.HTMLEscape(&buf, body)
 
 	resp := Response{
-		StatusCode:      200,
+		StatusCode:      statusCode,
 		IsBase64Encoded: false,
 		Body:            buf.String(),
-		Headers: map[string]string{
-			"Content-Type":           "application/json",
-			"X-MyCompany-Func-Reply": "dispatch-globally",
-		},
+		Headers:         headers,
 	}
 
-	return resp, nil
+	return resp, err
 }
 
-func Handler() (uint32, error) {
+func DispatchSessions() (uint32, error) {
 	ctx := context.Background()
 
 	db, err := database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
-	if err != nil {
-		return 0, err
-	}
-	pocketClient, err := pocket.NewPocketClient(rpcURL, dispatchURLs)
 	if err != nil {
 		return 0, err
 	}
@@ -88,6 +95,11 @@ func Handler() (uint32, error) {
 	}
 
 	cacheClients, err := cache.GetCacheClients(redisConnectionStrings, commitHash)
+	if err != nil {
+		return 0, err
+	}
+
+	pocketClient, err := pocket.NewPocketClient(rpcURL, dispatchURLs)
 	if err != nil {
 		return 0, err
 	}
