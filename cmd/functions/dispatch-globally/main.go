@@ -5,10 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/Pocket/global-dispatcher/common/application"
 	"github.com/Pocket/global-dispatcher/common/environment"
@@ -18,7 +18,7 @@ import (
 	"github.com/Pocket/global-dispatcher/lib/pocket"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 var (
@@ -28,6 +28,12 @@ var (
 	mongoConnectionString  = environment.GetString("MONGODB_CONNECTION_STRING", "")
 	mongoDatabase          = environment.GetString("MONGODB_DATABASE", "")
 	cacheTTL               = environment.GetInt64("CACHE_TTL", 360)
+	dispatchConcurrency    = environment.GetInt64("DISPATCH_CONCURRENCY", 200)
+
+	headers = map[string]string{
+		"Content-Type":           "application/json",
+		"X-MyCompany-Func-Reply": "dispatch-globally",
+	}
 )
 
 // Response is of type APIGatewayProxyResponse since we're leveraging the
@@ -39,45 +45,47 @@ type Response events.APIGatewayProxyResponse
 // Handler is our lambda handler invoked by the `lambda.Start` function call
 func LambdaHandler(ctx context.Context) (Response, error) {
 	var buf bytes.Buffer
-	ok := true
 
-	failedDispatcherCalls, err := Handler()
+	failedDispatcherCalls, err := DispatchSessions()
+
+	var body []byte
+	var encodeErr error
+	var statusCode int
 
 	if err != nil {
-		ok = false
-		fmt.Println(err)
+		statusCode = http.StatusInternalServerError
+		body, encodeErr = json.Marshal(map[string]interface{}{
+			"ok":    false,
+			"error": err.Error(),
+		})
+
+	} else {
+		statusCode = http.StatusOK
+		body, encodeErr = json.Marshal(map[string]interface{}{
+			"ok":                    true,
+			"failedDispatcherCalls": failedDispatcherCalls,
+		})
 	}
 
-	body, err := json.Marshal(map[string]interface{}{
-		"ok":                    ok,
-		"failedDispatcherCalls": failedDispatcherCalls,
-	})
-	if err != nil {
-		return Response{StatusCode: 404}, err
+	if encodeErr != nil {
+		return Response{StatusCode: http.StatusNotFound}, encodeErr
 	}
 	json.HTMLEscape(&buf, body)
 
 	resp := Response{
-		StatusCode:      200,
+		StatusCode:      statusCode,
 		IsBase64Encoded: false,
 		Body:            buf.String(),
-		Headers: map[string]string{
-			"Content-Type":           "application/json",
-			"X-MyCompany-Func-Reply": "hello-handler",
-		},
+		Headers:         headers,
 	}
 
-	return resp, nil
+	return resp, err
 }
 
-func Handler() (uint32, error) {
+func DispatchSessions() (uint32, error) {
 	ctx := context.Background()
 
 	db, err := database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
-	if err != nil {
-		return 0, err
-	}
-	pocketClient, err := pocket.NewPocketClient(rpcURL, dispatchURLs)
 	if err != nil {
 		return 0, err
 	}
@@ -92,22 +100,34 @@ func Handler() (uint32, error) {
 		return 0, err
 	}
 
+	pocketClient, err := pocket.NewPocketClient(rpcURL, dispatchURLs)
+	if err != nil {
+		return 0, err
+	}
+
 	apps, err := application.GetAllStakedApplicationsOnDB(ctx, db, *pocketClient)
 	if err != nil {
 		return 0, err
 	}
 
 	var failedDispatcherCalls uint32
+	var sem = semaphore.NewWeighted(dispatchConcurrency)
 	var wg sync.WaitGroup
+
 	for _, app := range apps {
 		for _, chain := range app.Chains {
+			sem.Acquire(ctx, 1)
 			wg.Add(1)
+
 			go func(publicKey, chain string) {
+				defer sem.Release(1)
 				defer wg.Done()
+
 				DispatchAndCacheSession(pocketClient, cacheClients, commitHash, publicKey, chain, &failedDispatcherCalls)
 			}(app.PublicKey, chain)
 		}
 	}
+
 	wg.Wait()
 
 	return failedDispatcherCalls, nil
@@ -121,33 +141,17 @@ func DispatchAndCacheSession(
 		Chain:        chain,
 	})
 	if err != nil {
-		fmt.Println("error dispatching:", err)
 		atomic.AddUint32(counter, 1)
+		fmt.Println("error dispatching:", err)
 		return
 	}
 
 	cacheKey := fmt.Sprintf("%ssession-cached-%s-%s", commitHash, publicKey, chain)
-	err = WriteJSONToCaches(cacheClients, cacheKey, session, uint(cacheTTL))
+	err = cache.WriteJSONToCaches(cacheClients, cacheKey, session, uint(cacheTTL))
 	if err != nil {
-		fmt.Println("error writing to cache:", err)
 		atomic.AddUint32(counter, 1)
+		fmt.Println("error writing to cache:", err)
 	}
-}
-
-func WriteJSONToCaches(cacheClients []*cache.Redis, key string, value interface{}, TTLSeconds uint) error {
-	var g errgroup.Group
-	for _, cacheClient := range cacheClients {
-		func(ch *cache.Redis) {
-			g.Go(func() error {
-				ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
-				defer cancel()
-
-				return ch.SetJSON(ctx, key, value, TTLSeconds)
-			})
-		}(cacheClient)
-	}
-
-	return g.Wait()
 }
 
 func main() {
