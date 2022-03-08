@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 
-	common "github.com/Pocket/global-dispatcher/common/application"
 	httpClient "github.com/Pocket/global-dispatcher/lib/http"
 )
 
@@ -25,7 +24,7 @@ type performRequestOptions struct {
 	body   interface{}
 }
 
-func NewPocketClient(httpRpcURL string, dispatchers []string, timeoutSeconds int) (*PocketJsonRpcClient, error) {
+func NewPocketClient(httpRpcURL string, dispatchers []string) (*PocketJsonRpcClient, error) {
 	var dispatcherURLs []*url.URL
 
 	if len(dispatchers) <= 0 {
@@ -52,7 +51,7 @@ func NewPocketClient(httpRpcURL string, dispatchers []string, timeoutSeconds int
 	}, nil
 }
 
-func (p *PocketJsonRpcClient) GetNetworkApplications(input GetNetworkApplicationsInput) ([]common.NetworkApplication, error) {
+func (p *PocketJsonRpcClient) GetNetworkApplications(input GetNetworkApplicationsInput) ([]NetworkApplication, error) {
 	options := struct {
 		Opts GetNetworkApplicationsInput `json:"opts"`
 	}{

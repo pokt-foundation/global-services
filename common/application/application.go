@@ -1,8 +1,7 @@
-package common
+package application
 
 import (
 	"context"
-	"time"
 )
 
 type Application struct {
@@ -37,17 +36,6 @@ type Application struct {
 		Full          bool `json:"full"`
 	} `json:"notificationSettings"`
 	Dummy bool `json:"dummy"`
-}
-
-type NetworkApplication struct {
-	Address       string    `json:"address"`
-	PublicKey     string    `json:"public_key"`
-	Jailed        bool      `json:"jailed"`
-	Chains        []string  `json:"chains"`
-	MaxRelays     string    `json:"max_relays"`
-	Status        int       `json:"status"`
-	StakedTokens  string    `json:"staked_tokens"`
-	UnstakingTime time.Time `json:"unstaking_time"`
 }
 
 type ApplicationStore interface {

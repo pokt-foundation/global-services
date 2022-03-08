@@ -5,9 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
+	"sync"
+	"sync/atomic"
 
-	common "github.com/Pocket/global-dispatcher/common/application"
+	"github.com/Pocket/global-dispatcher/common/application"
 	"github.com/Pocket/global-dispatcher/common/environment"
 	"github.com/Pocket/global-dispatcher/common/gateway"
 	"github.com/Pocket/global-dispatcher/lib/cache"
@@ -15,6 +18,7 @@ import (
 	"github.com/Pocket/global-dispatcher/lib/pocket"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"golang.org/x/sync/semaphore"
 )
 
 var (
@@ -23,6 +27,13 @@ var (
 	redisConnectionStrings = strings.Split(environment.GetString("REDIS_CONNECTION_STRINGS", ""), ",")
 	mongoConnectionString  = environment.GetString("MONGODB_CONNECTION_STRING", "")
 	mongoDatabase          = environment.GetString("MONGODB_DATABASE", "")
+	cacheTTL               = environment.GetInt64("CACHE_TTL", 360)
+	dispatchConcurrency    = environment.GetInt64("DISPATCH_CONCURRENCY", 200)
+
+	headers = map[string]string{
+		"Content-Type":           "application/json",
+		"X-MyCompany-Func-Reply": "dispatch-globally",
+	}
 )
 
 // Response is of type APIGatewayProxyResponse since we're leveraging the
@@ -35,120 +46,112 @@ type Response events.APIGatewayProxyResponse
 func LambdaHandler(ctx context.Context) (Response, error) {
 	var buf bytes.Buffer
 
-	err := Handler()
+	failedDispatcherCalls, err := DispatchSessions()
+
+	var body []byte
+	var encodeErr error
+	var statusCode int
 
 	if err != nil {
-		fmt.Println(err)
+		statusCode = http.StatusInternalServerError
+		body, encodeErr = json.Marshal(map[string]interface{}{
+			"ok":    false,
+			"error": err.Error(),
+		})
+
+	} else {
+		statusCode = http.StatusOK
+		body, encodeErr = json.Marshal(map[string]interface{}{
+			"ok":                    true,
+			"failedDispatcherCalls": failedDispatcherCalls,
+		})
 	}
 
-	body, err := json.Marshal(map[string]interface{}{
-		"message": "Go Serverless v1.0! Your function executed successfully!",
-	})
-	if err != nil {
-		return Response{StatusCode: 404}, err
+	if encodeErr != nil {
+		return Response{StatusCode: http.StatusNotFound}, encodeErr
 	}
 	json.HTMLEscape(&buf, body)
 
 	resp := Response{
-		StatusCode:      200,
+		StatusCode:      statusCode,
 		IsBase64Encoded: false,
 		Body:            buf.String(),
-		Headers: map[string]string{
-			"Content-Type":           "application/json",
-			"X-MyCompany-Func-Reply": "hello-handler",
-		},
+		Headers:         headers,
 	}
 
-	return resp, nil
+	return resp, err
 }
 
-func Handler() error {
-	fmt.Println("Starting")
+func DispatchSessions() (uint32, error) {
 	ctx := context.Background()
 
 	db, err := database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
 	if err != nil {
-		return err
-	}
-
-	pocketClient, err := pocket.NewPocketClient(rpcURL, dispatchURLs, 2)
-	if err != nil {
-		return err
-	}
-	apps, err := getAllStakedApplicationsOnDB(ctx, db, *pocketClient)
-	if err != nil {
-		return err
+		return 0, err
 	}
 
 	commitHash, err := gateway.GetGatewayCommitHash()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	session, err := pocketClient.DispatchSession(pocket.DispatchInput{
-		AppPublicKey: apps[0].PublicKey,
-		Chain:        apps[0].Chains[0],
-	})
+	cacheClients, err := cache.GetCacheClients(redisConnectionStrings, commitHash)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	redisClients, err := cache.GetCacheClients(redisConnectionStrings, commitHash.Commit)
+	pocketClient, err := pocket.NewPocketClient(rpcURL, dispatchURLs)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	for _, client := range redisClients {
-		if err := client.SetJSON(context.TODO(), "-session-test", session, 3600); err != nil {
-			fmt.Println(err)
+	apps, err := application.GetAllStakedApplicationsOnDB(ctx, db, *pocketClient)
+	if err != nil {
+		return 0, err
+	}
+
+	var failedDispatcherCalls uint32
+	var sem = semaphore.NewWeighted(dispatchConcurrency)
+	var wg sync.WaitGroup
+
+	for _, app := range apps {
+		for _, chain := range app.Chains {
+			sem.Acquire(ctx, 1)
+			wg.Add(1)
+
+			go func(publicKey, chain string) {
+				defer sem.Release(1)
+				defer wg.Done()
+
+				DispatchAndCacheSession(pocketClient, cacheClients, commitHash, publicKey, chain, &failedDispatcherCalls)
+			}(app.PublicKey, chain)
 		}
 	}
 
-	if err != nil {
-		return err
-	}
+	wg.Wait()
 
-	return nil
+	return failedDispatcherCalls, nil
 }
 
-func getAllStakedApplicationsOnDB(ctx context.Context, store common.ApplicationStore, pocketClient pocket.PocketJsonRpcClient) ([]common.NetworkApplication, error) {
-	databaseApps, err := store.GetAllStakedApplications(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	networkApps, err := pocketClient.GetNetworkApplications(pocket.GetNetworkApplicationsInput{
-		AppsPerPage: 3000,
-		Page:        1,
+func DispatchAndCacheSession(
+	client *pocket.PocketJsonRpcClient, cacheClients []*cache.Redis, commitHash string,
+	publicKey string, chain string, counter *uint32) {
+	session, err := client.DispatchSession(pocket.DispatchInput{
+		AppPublicKey: publicKey,
+		Chain:        chain,
 	})
 	if err != nil {
-		return nil, err
+		atomic.AddUint32(counter, 1)
+		fmt.Println("error dispatching:", err)
+		return
 	}
 
-	return filterStakedAppsNotOnDB(databaseApps, networkApps), nil
-}
-
-func filterStakedAppsNotOnDB(dbApps []*common.Application, ntApps []common.NetworkApplication) []common.NetworkApplication {
-	var stakedAppsOnDB []common.NetworkApplication
-	publicKeyToApps := mapApplicationsToPublicKey(dbApps)
-
-	for _, ntApp := range ntApps {
-		if _, ok := publicKeyToApps[ntApp.PublicKey]; ok {
-			stakedAppsOnDB = append(stakedAppsOnDB, ntApp)
-		}
+	cacheKey := fmt.Sprintf("%ssession-cached-%s-%s", commitHash, publicKey, chain)
+	err = cache.WriteJSONToCaches(cacheClients, cacheKey, session, uint(cacheTTL))
+	if err != nil {
+		atomic.AddUint32(counter, 1)
+		fmt.Println("error writing to cache:", err)
 	}
-
-	return stakedAppsOnDB
-}
-
-func mapApplicationsToPublicKey(applications []*common.Application) map[string]*common.Application {
-	applicationsMap := make(map[string]*common.Application)
-
-	for _, application := range applications {
-		applicationsMap[application.GatewayAAT.ApplicationPublicKey] = application
-	}
-
-	return applicationsMap
 }
 
 func main() {
