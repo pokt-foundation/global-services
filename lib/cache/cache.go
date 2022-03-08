@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/Pocket/global-dispatcher/common/environment"
 	"github.com/go-redis/redis/v8"
 )
+
+var actionTimeout = int(environment.GetInt64("CACHE_ACTION_TIMEOUT", 5))
 
 type RedisClientOptions struct {
 	BaseOptions *redis.Options
@@ -21,7 +24,7 @@ type Redis struct {
 func NewRedisClient(options RedisClientOptions) (*Redis, error) {
 	client := redis.NewClient(options.BaseOptions)
 
-	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(actionTimeout)*time.Second)
 	defer cancel()
 
 	_, err := client.Ping(ctx).Result()
