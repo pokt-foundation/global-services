@@ -28,12 +28,12 @@ var (
 	mongoDatabase          = environment.GetString("MONGODB_DATABASE", "")
 	cacheTTL               = environment.GetInt64("CACHE_TTL", 360)
 	dispatchConcurrency    = environment.GetInt64("DISPATCH_CONCURRENCY", 200)
-)
 
-var headers = map[string]string{
-	"Content-Type":           "application/json",
-	"X-MyCompany-Func-Reply": "dispatch-globally",
-}
+	headers = map[string]string{
+		"Content-Type":           "application/json",
+		"X-MyCompany-Func-Reply": "dispatch-globally",
+	}
+)
 
 // Response is of type APIGatewayProxyResponse since we're leveraging the
 // AWS Lambda Proxy Request functionality (default behavior)
