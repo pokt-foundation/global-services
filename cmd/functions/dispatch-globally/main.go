@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -52,14 +53,14 @@ func LambdaHandler(ctx context.Context) (Response, error) {
 	var statusCode int
 
 	if err != nil {
-		statusCode = 500
+		statusCode = http.StatusInternalServerError
 		body, encodeErr = json.Marshal(map[string]interface{}{
 			"ok":    false,
 			"error": err.Error(),
 		})
 
 	} else {
-		statusCode = 200
+		statusCode = http.StatusOK
 		body, encodeErr = json.Marshal(map[string]interface{}{
 			"ok":                    true,
 			"failedDispatcherCalls": failedDispatcherCalls,
@@ -67,7 +68,7 @@ func LambdaHandler(ctx context.Context) (Response, error) {
 	}
 
 	if encodeErr != nil {
-		return Response{StatusCode: 404}, encodeErr
+		return Response{StatusCode: http.StatusNotFound}, encodeErr
 	}
 	json.HTMLEscape(&buf, body)
 
