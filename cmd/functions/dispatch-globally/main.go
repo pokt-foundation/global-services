@@ -23,13 +23,16 @@ import (
 )
 
 var (
-	rpcURL                 = environment.GetString("RPC_URL", "")
-	dispatchURLs           = strings.Split(environment.GetString("DISPATCH_URLS", ""), ",")
-	redisConnectionStrings = strings.Split(environment.GetString("REDIS_CONNECTION_STRINGS", ""), ",")
-	mongoConnectionString  = environment.GetString("MONGODB_CONNECTION_STRING", "")
-	mongoDatabase          = environment.GetString("MONGODB_DATABASE", "")
-	cacheTTL               = environment.GetInt64("CACHE_TTL", 360)
-	dispatchConcurrency    = environment.GetInt64("DISPATCH_CONCURRENCY", 200)
+	ErrMaxDispatchErrorsExceeded = errors.New("exceeded maximun allowance of dispatcher errors")
+
+	rpcURL                      = environment.GetString("RPC_URL", "")
+	dispatchURLs                = strings.Split(environment.GetString("DISPATCH_URLS", ""), ",")
+	redisConnectionStrings      = strings.Split(environment.GetString("REDIS_CONNECTION_STRINGS", ""), ",")
+	mongoConnectionString       = environment.GetString("MONGODB_CONNECTION_STRING", "")
+	mongoDatabase               = environment.GetString("MONGODB_DATABASE", "")
+	cacheTTL                    = environment.GetInt64("CACHE_TTL", 360)
+	dispatchConcurrency         = environment.GetInt64("DISPATCH_CONCURRENCY", 200)
+	maxDispatchersErrorsAllowed = environment.GetInt64("MAX_DISPATCHER_ERRORS_ALLOWED", 2000)
 
 	headers = map[string]string{
 		"Content-Type":           "application/json",
@@ -130,6 +133,10 @@ func DispatchSessions() (uint32, error) {
 	}
 
 	wg.Wait()
+
+	if failedDispatcherCalls > uint32(maxDispatchersErrorsAllowed) {
+		return 0, ErrMaxDispatchErrorsExceeded
+	}
 
 	return failedDispatcherCalls, nil
 }
