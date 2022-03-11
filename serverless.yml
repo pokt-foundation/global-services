@@ -18,7 +18,7 @@ functions:
     vpc: ${file(.env.json):vpc}
     memorySize: 512
     timeout: 180
-    maximumRetryAttempts: 3
+    maximumRetryAttempts: 2
 
     events:
       - schedule:
