@@ -35,9 +35,9 @@ type SessionCamelCase struct {
 		Chains        []string  `json:"chains"`
 		Jailed        bool      `json:"jailed"`
 		PublicKey     string    `json:"publicKey"`
-		ServiceURL    string    `json:"servicUrl"`
+		ServiceURL    string    `json:"serviceUrl"`
 		Status        int       `json:"status"`
-		Tokens        string    `json:"tokens"`
+		Tokens        string    `json:"stakedTokens"`
 		UnstakingTime time.Time `json:"unstakingTime"`
 	} `json:"nodes"`
 }
