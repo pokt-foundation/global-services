@@ -5,6 +5,7 @@ provider:
   name: aws
   runtime: go1.x
   region: us-west-2
+  memorySize: 512
   timeout: 180
 
 package:
