@@ -148,7 +148,7 @@ func DispatchAndCacheSession(
 	}
 
 	cacheKey := fmt.Sprintf("%ssession-cached-%s-%s", commitHash, publicKey, chain)
-	err = cache.WriteJSONToCaches(cacheClients, cacheKey, session, uint(cacheTTL))
+	err = cache.WriteJSONToCaches(cacheClients, cacheKey, pocket.SessionCamelCase(*session), uint(cacheTTL))
 	if err != nil {
 		atomic.AddUint32(counter, 1)
 		fmt.Println("error writing to cache:", err)

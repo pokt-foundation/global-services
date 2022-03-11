@@ -21,6 +21,27 @@ type Session struct {
 	} `json:"nodes"`
 }
 
+// SessionCamelCase is a session object with all is fields made to be formatted
+// in JSON as camelCase
+type SessionCamelCase struct {
+	Header struct {
+		AppPublicKey  string `json:"applicationPubKey"`
+		Chain         string `json:"chain"`
+		SessionHeight int    `json:"sessionBlockHeight"`
+	} `json:"header"`
+	Key   string `json:"key"`
+	Nodes []struct {
+		Address       string    `json:"address"`
+		Chains        []string  `json:"chains"`
+		Jailed        bool      `json:"jailed"`
+		PublicKey     string    `json:"publicKey"`
+		ServiceURL    string    `json:"servicUrl"`
+		Status        int       `json:"status"`
+		Tokens        string    `json:"tokens"`
+		UnstakingTime time.Time `json:"unstakingTime"`
+	} `json:"nodes"`
+}
+
 type NetworkApplication struct {
 	Address       string    `json:"address"`
 	PublicKey     string    `json:"public_key"`
