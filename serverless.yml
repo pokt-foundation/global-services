@@ -17,3 +17,8 @@ functions:
     handler: bin/dispatch-globally
     environment: ${file(.env.json):environment}
     vpc: ${file(.env.json):vpc}
+
+    events:
+      - schedule:
+          rate: rate(6 minutes)
+          enabled: true
