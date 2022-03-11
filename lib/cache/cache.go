@@ -22,8 +22,16 @@ type Redis struct {
 }
 
 func NewRedisClient(options RedisClientOptions) (*Redis, error) {
-	client := redis.NewClient(options.BaseOptions)
+	return connectToRedis(redis.NewClient(options.BaseOptions), options.KeyPrefix)
+}
 
+func NewRedisClusterClient(options RedisClientOptions) (*Redis, error) {
+	return connectToRedis(redis.NewClusterClient(&redis.ClusterOptions{
+		Addrs: []string{options.BaseOptions.Addr},
+	}), options.KeyPrefix)
+}
+
+func connectToRedis(client redis.Cmdable, keyPrefix string) (*Redis, error) {
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(actionTimeout)*time.Second)
 	defer cancel()
 
@@ -34,7 +42,7 @@ func NewRedisClient(options RedisClientOptions) (*Redis, error) {
 
 	return &Redis{
 		client:    client,
-		KeyPrefix: options.KeyPrefix,
+		KeyPrefix: keyPrefix,
 	}, nil
 }
 
