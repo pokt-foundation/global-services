@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -87,27 +88,27 @@ func DispatchSessions() (uint32, error) {
 
 	db, err := database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
 	if err != nil {
-		return 0, err
+		return 0, errors.New("error connecting to mongo: " + err.Error())
 	}
 
 	commitHash, err := gateway.GetGatewayCommitHash()
 	if err != nil {
-		return 0, err
+		return 0, errors.New("error obtaining commit hash: " + err.Error())
 	}
 
 	cacheClients, err := cache.GetCacheClients(redisConnectionStrings, commitHash)
 	if err != nil {
-		return 0, err
+		return 0, errors.New("error connecting to redis: " + err.Error())
 	}
 
 	pocketClient, err := pocket.NewPocketClient(rpcURL, dispatchURLs)
 	if err != nil {
-		return 0, err
+		return 0, errors.New("error obtaining a pocket client: " + err.Error())
 	}
 
 	apps, err := application.GetAllStakedApplicationsOnDB(ctx, db, *pocketClient)
 	if err != nil {
-		return 0, err
+		return 0, errors.New("error obtaining staked apps on db: " + err.Error())
 	}
 
 	var failedDispatcherCalls uint32
