@@ -51,6 +51,21 @@ func NewPocketClient(httpRpcURL string, dispatchers []string) (*PocketJsonRpcCli
 	}, nil
 }
 
+func (p *PocketJsonRpcClient) GetBlockHeight() (int, error) {
+	res, err := p.perform(performRequestOptions{
+		route: Height,
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	var height struct {
+		Height int `json:"height"`
+	}
+
+	return height.Height, json.NewDecoder(res.Body).Decode(&height)
+}
+
 func (p *PocketJsonRpcClient) GetNetworkApplications(input GetNetworkApplicationsInput) ([]NetworkApplication, error) {
 	options := struct {
 		Opts GetNetworkApplicationsInput `json:"opts"`
