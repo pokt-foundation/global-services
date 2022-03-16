@@ -170,7 +170,7 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 }
 
 func ShouldDispatch(ctx context.Context, cacheClients []*cache.Redis, blockHeight int, publicKey, chain, commitHash string) bool {
-	rawSession, err := cacheClients[rand.Intn(len(cacheClients))].Client.Get(context.TODO(), getSessionCacheKey(publicKey, chain, commitHash)).Result()
+	rawSession, err := cacheClients[rand.Intn(len(cacheClients))].Client.Get(ctx, getSessionCacheKey(publicKey, chain, commitHash)).Result()
 	if err != nil || rawSession == "" {
 		return true
 	}
