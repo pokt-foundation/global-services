@@ -21,9 +21,6 @@ func GetGatewayCommitHash() (string, error) {
 	var commitHash struct {
 		Commit string `json:"commit"`
 	}
-	if err = json.NewDecoder(res.Body).Decode(&commitHash); err != nil {
-		return "", err
-	}
 
-	return commitHash.Commit, nil
+	return commitHash.Commit, json.NewDecoder(res.Body).Decode(&commitHash)
 }

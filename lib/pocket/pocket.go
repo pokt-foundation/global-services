@@ -51,6 +51,21 @@ func NewPocketClient(httpRpcURL string, dispatchers []string) (*PocketJsonRpcCli
 	}, nil
 }
 
+func (p *PocketJsonRpcClient) GetBlockHeight() (int, error) {
+	res, err := p.perform(performRequestOptions{
+		route: Height,
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	var height struct {
+		Height int `json:"height"`
+	}
+
+	return height.Height, json.NewDecoder(res.Body).Decode(&height)
+}
+
 func (p *PocketJsonRpcClient) GetNetworkApplications(input GetNetworkApplicationsInput) ([]NetworkApplication, error) {
 	options := struct {
 		Opts GetNetworkApplicationsInput `json:"opts"`
@@ -91,6 +106,10 @@ func (p *PocketJsonRpcClient) DispatchSession(options DispatchInput) (*Session, 
 	if err = json.NewDecoder(res.Body).Decode(&dispatchOutput); err != nil {
 		return nil, err
 	}
+
+	// Consumers only expect to have the session struct on the cache data, so the
+	// dispatcher blockheight is embedded within the session struct for convenience,
+	dispatchOutput.Session.BlockHeight = dispatchOutput.BlockHeight
 
 	return &dispatchOutput.Session, nil
 }

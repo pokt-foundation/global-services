@@ -24,4 +24,4 @@ bin
 vendor
 
 # Environment variables
-.env.json
+.env*
