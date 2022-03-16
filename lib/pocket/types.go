@@ -3,7 +3,8 @@ package pocket
 import "time"
 
 type Session struct {
-	Header struct {
+	BlockHeight int `json:"block_height"`
+	Header      struct {
 		AppPublicKey  string `json:"app_public_key"`
 		Chain         string `json:"chain"`
 		SessionHeight int    `json:"session_height"`
@@ -24,7 +25,8 @@ type Session struct {
 // SessionCamelCase is a session object with all is fields made to be formatted
 // in JSON as camelCase
 type SessionCamelCase struct {
-	Header struct {
+	BlockHeight int `json:"blockHeight"`
+	Header      struct {
 		AppPublicKey  string `json:"applicationPubKey"`
 		Chain         string `json:"chain"`
 		SessionHeight int    `json:"sessionBlockHeight"`

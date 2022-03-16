@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strings"
 	"sync"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/Pocket/global-dispatcher/common/application"
 	"github.com/Pocket/global-dispatcher/common/environment"
-	"github.com/Pocket/global-dispatcher/common/gateway"
 	"github.com/Pocket/global-dispatcher/lib/cache"
 	"github.com/Pocket/global-dispatcher/lib/database"
 	"github.com/Pocket/global-dispatcher/lib/pocket"
@@ -30,7 +30,7 @@ var (
 	redisConnectionStrings      = strings.Split(environment.GetString("REDIS_CONNECTION_STRINGS", ""), ",")
 	mongoConnectionString       = environment.GetString("MONGODB_CONNECTION_STRING", "")
 	mongoDatabase               = environment.GetString("MONGODB_DATABASE", "")
-	cacheTTL                    = environment.GetInt64("CACHE_TTL", 360)
+	cacheTTL                    = environment.GetInt64("CACHE_TTL", 3600)
 	dispatchConcurrency         = environment.GetInt64("DISPATCH_CONCURRENCY", 200)
 	maxDispatchersErrorsAllowed = environment.GetInt64("MAX_DISPATCHER_ERRORS_ALLOWED", 2000)
 
@@ -50,7 +50,7 @@ type Response events.APIGatewayProxyResponse
 func LambdaHandler(ctx context.Context) (Response, error) {
 	var buf bytes.Buffer
 
-	failedDispatcherCalls, err := DispatchSessions()
+	failedDispatcherCalls, err := DispatchSessions(ctx)
 
 	var body []byte
 	var encodeErr error
@@ -59,8 +59,9 @@ func LambdaHandler(ctx context.Context) (Response, error) {
 	if err != nil {
 		statusCode = http.StatusInternalServerError
 		body, encodeErr = json.Marshal(map[string]interface{}{
-			"ok":    false,
-			"error": err.Error(),
+			"ok":                    false,
+			"error":                 err.Error(),
+			"failedDispatcherCalls": failedDispatcherCalls,
 		})
 
 	} else {
@@ -86,18 +87,19 @@ func LambdaHandler(ctx context.Context) (Response, error) {
 	return resp, err
 }
 
-func DispatchSessions() (uint32, error) {
-	ctx := context.Background()
-
+func DispatchSessions(ctx context.Context) (uint32, error) {
 	db, err := database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
 	if err != nil {
 		return 0, errors.New("error connecting to mongo: " + err.Error())
 	}
 
-	commitHash, err := gateway.GetGatewayCommitHash()
-	if err != nil {
-		return 0, errors.New("error obtaining commit hash: " + err.Error())
-	}
+	commitHash := ""
+	// TODO: Consumers have badly configured the commithash prefix, uncomment
+	// when is fixed
+	// commitHash, err := gateway.GetGatewayCommitHash()
+	// if err != nil {
+	// 	return 0, errors.New("error obtaining commit hash: " + err.Error())
+	// }
 
 	cacheClients, err := cache.GetCacheClients(redisConnectionStrings, commitHash)
 	if err != nil {
@@ -107,6 +109,11 @@ func DispatchSessions() (uint32, error) {
 	pocketClient, err := pocket.NewPocketClient(rpcURL, dispatchURLs)
 	if err != nil {
 		return 0, errors.New("error obtaining a pocket client: " + err.Error())
+	}
+
+	blockHeight, err := pocketClient.GetBlockHeight()
+	if err != nil {
+		return 0, err
 	}
 
 	apps, err := application.GetAllStakedApplicationsOnDB(ctx, db, *pocketClient)
@@ -127,7 +134,28 @@ func DispatchSessions() (uint32, error) {
 				defer sem.Release(1)
 				defer wg.Done()
 
-				DispatchAndCacheSession(pocketClient, cacheClients, commitHash, publicKey, chain, &failedDispatcherCalls)
+				shouldDispatch := ShouldDispatch(ctx, cacheClients, blockHeight, publicKey, chain, "")
+				if !shouldDispatch {
+					return
+				}
+
+				session, err := pocketClient.DispatchSession(pocket.DispatchInput{
+					AppPublicKey: publicKey,
+					Chain:        chain,
+				})
+				if err != nil {
+					atomic.AddUint32(&failedDispatcherCalls, 1)
+					fmt.Println("error dispatching:", err)
+					return
+				}
+
+				cacheKey := getSessionCacheKey(publicKey, chain, commitHash)
+
+				err = cache.WriteJSONToCaches(cacheClients, cacheKey, pocket.SessionCamelCase(*session), uint(cacheTTL))
+				if err != nil {
+					atomic.AddUint32(&failedDispatcherCalls, 1)
+					fmt.Println("error writing to cache:", err)
+				}
 			}(app.PublicKey, chain)
 		}
 	}
@@ -135,31 +163,28 @@ func DispatchSessions() (uint32, error) {
 	wg.Wait()
 
 	if failedDispatcherCalls > uint32(maxDispatchersErrorsAllowed) {
-		return 0, ErrMaxDispatchErrorsExceeded
+		return failedDispatcherCalls, ErrMaxDispatchErrorsExceeded
 	}
 
 	return failedDispatcherCalls, nil
 }
 
-func DispatchAndCacheSession(
-	client *pocket.PocketJsonRpcClient, cacheClients []*cache.Redis, commitHash string,
-	publicKey string, chain string, counter *uint32) {
-	session, err := client.DispatchSession(pocket.DispatchInput{
-		AppPublicKey: publicKey,
-		Chain:        chain,
-	})
-	if err != nil {
-		atomic.AddUint32(counter, 1)
-		fmt.Println("error dispatching:", err)
-		return
+func ShouldDispatch(ctx context.Context, cacheClients []*cache.Redis, blockHeight int, publicKey, chain, commitHash string) bool {
+	rawSession, err := cacheClients[rand.Intn(len(cacheClients))].GetClient().Get(context.TODO(), getSessionCacheKey(publicKey, chain, commitHash)).Result()
+	if err != nil || rawSession == "" {
+		return true
 	}
 
-	cacheKey := fmt.Sprintf("%ssession-cached-%s-%s", commitHash, publicKey, chain)
-	err = cache.WriteJSONToCaches(cacheClients, cacheKey, pocket.SessionCamelCase(*session), uint(cacheTTL))
-	if err != nil {
-		atomic.AddUint32(counter, 1)
-		fmt.Println("error writing to cache:", err)
+	var cachedSession pocket.SessionCamelCase
+	if err := json.Unmarshal([]byte(rawSession), &cachedSession); err != nil {
+		return true
 	}
+
+	return cachedSession.BlockHeight < blockHeight
+}
+
+func getSessionCacheKey(publicKey, chain, commitHash string) string {
+	return fmt.Sprintf("%ssession-cached-%s-%s", commitHash, publicKey, chain)
 }
 
 func main() {

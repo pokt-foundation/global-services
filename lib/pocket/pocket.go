@@ -107,6 +107,10 @@ func (p *PocketJsonRpcClient) DispatchSession(options DispatchInput) (*Session, 
 		return nil, err
 	}
 
+	// Consumers only expect to have the session struct on the cache data, so the
+	// dispatcher blockheight is embedded within the session struct for convenience,
+	dispatchOutput.Session.BlockHeight = dispatchOutput.BlockHeight
+
 	return &dispatchOutput.Session, nil
 }
 
