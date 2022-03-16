@@ -14,13 +14,13 @@ package:
 functions:
   dispatch-globally:
     handler: bin/dispatch-globally
-    environment: ${file(.env.json):environment}
-    vpc: ${file(.env.json):vpc}
+    environment: ${file(.env.yml):environment}
+    vpc: ${file(.env.yml):vpc}
     memorySize: 512
-    timeout: 180
+    timeout: 300
     maximumRetryAttempts: 2
 
     events:
       - schedule:
           rate: rate(6 minutes)
-          enabled: true
+          enabled: false
