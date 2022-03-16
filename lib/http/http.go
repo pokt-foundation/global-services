@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	httpClientTimeout           = time.Duration(environment.GetInt64("HTTP_CLIENT_TIMEOUT", 5)) * time.Second
+	httpClientTimeout           = time.Duration(environment.GetInt64("HTTP_CLIENT_TIMEOUT", 10)) * time.Second
 	httpClientRetries           = int(environment.GetInt64("HTTP_CLIENT_RETRIES", 3))
 	httpClientBackoffMultiplier = int(environment.GetInt64("HTTP_CLIENT_BACKOFF_MULTIPLIER", 2))
 )
