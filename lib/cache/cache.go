@@ -17,7 +17,7 @@ type RedisClientOptions struct {
 }
 
 type Redis struct {
-	client    redis.Cmdable
+	Client    redis.Cmdable
 	KeyPrefix string
 }
 
@@ -41,13 +41,9 @@ func connectToRedis(client redis.Cmdable, keyPrefix string) (*Redis, error) {
 	}
 
 	return &Redis{
-		client:    client,
+		Client:    client,
 		KeyPrefix: keyPrefix,
 	}, nil
-}
-
-func (r *Redis) GetClient() redis.Cmdable {
-	return r.client
 }
 
 func (r *Redis) SetJSON(ctx context.Context, key string, value interface{}, TTLSeconds uint) error {
@@ -56,5 +52,5 @@ func (r *Redis) SetJSON(ctx context.Context, key string, value interface{}, TTLS
 		return err
 	}
 
-	return r.client.Set(ctx, r.KeyPrefix+key, jsonValue, time.Second*time.Duration(TTLSeconds)).Err()
+	return r.Client.Set(ctx, r.KeyPrefix+key, jsonValue, time.Second*time.Duration(TTLSeconds)).Err()
 }
