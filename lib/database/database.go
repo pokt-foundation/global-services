@@ -70,7 +70,6 @@ func (m *Mongo) GetAllGigastakedApplications(ctx context.Context) ([]*common.App
 
 func filterCollection[T any](ctx context.Context, client mongo.Client, database, collectionName string, filter primitive.D) ([]*T, error) {
 	documents := []*T{}
-
 	collection := client.Database(database).Collection(collectionName)
 
 	cursor, err := collection.Find(ctx, filter)

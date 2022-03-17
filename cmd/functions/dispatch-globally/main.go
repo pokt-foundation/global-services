@@ -36,8 +36,7 @@ var (
 	dispatchGigastake           = environment.GetBool("DISPATCH_GIGASTAKE", false)
 
 	headers = map[string]string{
-		"Content-Type":           "application/json",
-		"X-MyCompany-Func-Reply": "dispatch-globally",
+		"Content-Type": "application/json",
 	}
 )
 
@@ -50,13 +49,11 @@ type Response events.APIGatewayProxyResponse
 // Handler is our lambda handler invoked by the `lambda.Start` function call
 func LambdaHandler(ctx context.Context) (Response, error) {
 	var buf bytes.Buffer
-
-	failedDispatcherCalls, err := DispatchSessions(ctx)
-
 	var body []byte
 	var encodeErr error
 	var statusCode int
 
+	failedDispatcherCalls, err := DispatchSessions(ctx)
 	if err != nil {
 		statusCode = http.StatusInternalServerError
 		body, encodeErr = json.Marshal(map[string]interface{}{
@@ -64,7 +61,6 @@ func LambdaHandler(ctx context.Context) (Response, error) {
 			"error":                 err.Error(),
 			"failedDispatcherCalls": failedDispatcherCalls,
 		})
-
 	} else {
 		statusCode = http.StatusOK
 		body, encodeErr = json.Marshal(map[string]interface{}{
@@ -117,7 +113,7 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 		return 0, err
 	}
 
-	apps, err := application.GetAllStakedApplicationsOnDB(ctx, dispatchGigastake, db, *pocketClient)
+	apps, err := application.GetAllStakedApplicationsOnDB(ctx, dispatchGigastake, db, pocketClient)
 	if err != nil {
 		return 0, errors.New("error obtaining staked apps on db: " + err.Error())
 	}
@@ -135,7 +131,9 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 				defer sem.Release(1)
 				defer wg.Done()
 
-				shouldDispatch := ShouldDispatch(ctx, cacheClients, blockHeight, publicKey, chain, "")
+				cacheKey := getSessionCacheKey(publicKey, chain, commitHash)
+
+				shouldDispatch := ShouldDispatch(ctx, cacheClients, blockHeight, cacheKey)
 				if !shouldDispatch {
 					return
 				}
@@ -150,9 +148,7 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 					return
 				}
 
-				cacheKey := getSessionCacheKey(publicKey, chain, commitHash)
-
-				err = cache.WriteJSONToCaches(cacheClients, cacheKey, pocket.SessionCamelCase(*session), uint(cacheTTL))
+				err = cache.WriteJSONToCaches(ctx, cacheClients, cacheKey, pocket.SessionCamelCase(*session), uint(cacheTTL))
 				if err != nil {
 					atomic.AddUint32(&failedDispatcherCalls, 1)
 					fmt.Println("error writing to cache:", err)
@@ -170,8 +166,8 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 	return failedDispatcherCalls, nil
 }
 
-func ShouldDispatch(ctx context.Context, cacheClients []*cache.Redis, blockHeight int, publicKey, chain, commitHash string) bool {
-	rawSession, err := cacheClients[rand.Intn(len(cacheClients))].Client.Get(ctx, getSessionCacheKey(publicKey, chain, commitHash)).Result()
+func ShouldDispatch(ctx context.Context, cacheClients []*cache.Redis, blockHeight int, cacheKey string) bool {
+	rawSession, err := cacheClients[rand.Intn(len(cacheClients))].Client.Get(ctx, cacheKey).Result()
 	if err != nil || rawSession == "" {
 		return true
 	}

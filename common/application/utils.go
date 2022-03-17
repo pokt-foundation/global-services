@@ -6,17 +6,16 @@ import (
 	"github.com/Pocket/global-dispatcher/lib/pocket"
 )
 
-func GetAllStakedApplicationsOnDB(ctx context.Context, gigastake bool, store ApplicationStore, pocketClient pocket.PocketJsonRpcClient) ([]pocket.NetworkApplication, error) {
+func GetAllStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store ApplicationStore, pocketClient *pocket.PocketJsonRpcClient) ([]pocket.NetworkApplication, error) {
 	var databaseApps []*Application
 	var err error
 
-	if gigastake == true {
+	if gigastaked == true {
 		databaseApps, err = store.GetAllGigastakedApplications(ctx)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-
 		databaseApps, err = store.GetAllStakedApplications(ctx)
 		if err != nil {
 			return nil, err
