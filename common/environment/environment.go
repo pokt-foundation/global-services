@@ -31,7 +31,7 @@ func GetInt64(varName string, defaultValue int64) int64 {
 	return iVal
 }
 
-// GetBoolean gets the en var as a boolean
+// GetBoolean gets the env var as a boolean
 func GetBool(varName string, defaultValue bool) bool {
 	val, _ := os.LookupEnv(varName)
 	if strings.ToLower(val) == "true" {
