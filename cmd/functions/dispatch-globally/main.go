@@ -33,6 +33,7 @@ var (
 	cacheTTL                    = environment.GetInt64("CACHE_TTL", 3600)
 	dispatchConcurrency         = environment.GetInt64("DISPATCH_CONCURRENCY", 200)
 	maxDispatchersErrorsAllowed = environment.GetInt64("MAX_DISPATCHER_ERRORS_ALLOWED", 2000)
+	dispatchGigastake           = environment.GetBool("DISPATCH_GIGASTAKE", false)
 
 	headers = map[string]string{
 		"Content-Type":           "application/json",
@@ -116,7 +117,7 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 		return 0, err
 	}
 
-	apps, err := application.GetAllStakedApplicationsOnDB(ctx, true, db, *pocketClient)
+	apps, err := application.GetAllStakedApplicationsOnDB(ctx, dispatchGigastake, db, *pocketClient)
 	if err != nil {
 		return 0, errors.New("error obtaining staked apps on db: " + err.Error())
 	}
