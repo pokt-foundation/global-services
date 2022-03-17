@@ -38,7 +38,7 @@ func (m *Mongo) GetAllStakedApplications(ctx context.Context) ([]*common.Applica
 	})
 }
 
-func (m *Mongo) GetAllGigastakeApplications(ctx context.Context) ([]*common.Application, error) {
+func (m *Mongo) GetAllGigastakedApplications(ctx context.Context) ([]*common.Application, error) {
 	loadBalancers, err := filterCollection[common.LoadBalancer](ctx, *m.client, m.Database, "LoadBalancers", bson.D{
 		{
 			Key:   "gigastake",

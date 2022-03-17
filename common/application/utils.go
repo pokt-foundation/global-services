@@ -11,7 +11,7 @@ func GetAllStakedApplicationsOnDB(ctx context.Context, gigastake bool, store App
 	var err error
 
 	if gigastake == true {
-		databaseApps, err = store.GetAllGigastakeApplications(ctx)
+		databaseApps, err = store.GetAllGigastakedApplications(ctx)
 		if err != nil {
 			return nil, err
 		}
