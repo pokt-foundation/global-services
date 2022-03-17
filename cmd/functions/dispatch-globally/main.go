@@ -116,7 +116,7 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 		return 0, err
 	}
 
-	apps, err := application.GetAllStakedApplicationsOnDB(ctx, db, *pocketClient)
+	apps, err := application.GetAllStakedApplicationsOnDB(ctx, true, db, *pocketClient)
 	if err != nil {
 		return 0, errors.New("error obtaining staked apps on db: " + err.Error())
 	}

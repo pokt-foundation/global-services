@@ -40,4 +40,5 @@ type Application struct {
 
 type ApplicationStore interface {
 	GetAllStakedApplications(ctx context.Context) ([]*Application, error)
+	GetAllGigastakeApplications(ctx context.Context) ([]*Application, error)
 }
