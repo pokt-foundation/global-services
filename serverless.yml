@@ -22,5 +22,5 @@ functions:
 
     events:
       - schedule:
-          rate: rate(6 minutes)
-          enabled: false
+          rate: rate(5 minutes)
+          enabled: true
