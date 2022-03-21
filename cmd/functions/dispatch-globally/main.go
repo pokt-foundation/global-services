@@ -70,7 +70,7 @@ func LambdaHandler(ctx context.Context) (Response, error) {
 	}
 
 	// Internal logging
-	fmt.Printf("Failed dispatcher calls: %d\n", failedDispatcherCalls)
+	fmt.Printf("result: %s\n", string(body))
 
 	if encodeErr != nil {
 		return Response{StatusCode: http.StatusNotFound}, encodeErr
