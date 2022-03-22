@@ -2,21 +2,34 @@ package application
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/Pocket/global-dispatcher/lib/pocket"
 )
 
-func GetAllStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store ApplicationStore, pocketClient *pocket.PocketJsonRpcClient) ([]pocket.NetworkApplication, error) {
+func GetStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store ApplicationStore, pocketClient *pocket.PocketJsonRpcClient) ([]pocket.NetworkApplication, error) {
 	var databaseApps []*Application
 	var err error
 
 	if gigastaked == true {
-		databaseApps, err = store.GetAllGigastakedApplications(ctx)
+		databaseApps, err = store.GetGigastakedApplications(ctx)
 		if err != nil {
 			return nil, err
 		}
+
+		// Settlers provides traffic to new chains, need to be dispatched along with
+		// gigastakes
+		settlers, err := store.GetSettlersApplications(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, s := range settlers {
+			fmt.Printf("%+v\n", s)
+		}
+
+		databaseApps = append(databaseApps, settlers...)
 	} else {
-		databaseApps, err = store.GetAllStakedApplications(ctx)
+		databaseApps, err = store.GetStakedApplications(ctx)
 		if err != nil {
 			return nil, err
 		}

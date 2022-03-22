@@ -7,9 +7,9 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// GetCacheClients instantiates n number of cache connections and returns error
+// ConnectoCacheClients instantiates n number of cache connections and returns error
 // if any of those connection attempts fails
-func GetCacheClients(connectionStrings []string, commitHash string) ([]*Redis, error) {
+func ConnectoCacheClients(connectionStrings []string, commitHash string) ([]*Redis, error) {
 	clients := make(chan *Redis, len(connectionStrings))
 
 	var g errgroup.Group
@@ -50,7 +50,7 @@ func WriteJSONToCaches(ctx context.Context, cacheClients []*Redis, key string, v
 }
 
 func connectToInstance(clients chan *Redis, address string, commitHash string) error {
-	redisClient, err := NewRedisClusterClient(RedisClientOptions{
+	redisClient, err := NewRedisClient(RedisClientOptions{
 		BaseOptions: &redis.Options{
 			Addr:     address,
 			Password: "",

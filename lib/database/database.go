@@ -29,7 +29,7 @@ func ClientFromURI(ctx context.Context, uri string, database string) (*Mongo, er
 	}, nil
 }
 
-func (m *Mongo) GetAllStakedApplications(ctx context.Context) ([]*common.Application, error) {
+func (m *Mongo) GetStakedApplications(ctx context.Context) ([]*common.Application, error) {
 	return filterCollection[common.Application](ctx, *m.client, m.Database, "Applications", bson.D{
 		{
 			Key:   "dummy",
@@ -38,7 +38,19 @@ func (m *Mongo) GetAllStakedApplications(ctx context.Context) ([]*common.Applica
 	})
 }
 
-func (m *Mongo) GetAllGigastakedApplications(ctx context.Context) ([]*common.Application, error) {
+func (m *Mongo) GetSettlersApplications(ctx context.Context) ([]*common.Application, error) {
+	return filterCollection[common.Application](ctx, *m.client, m.Database, "Applications", bson.D{
+		{
+			Key: "name",
+			Value: bson.M{"$regex": primitive.Regex{
+				Pattern: "Settlers",
+				Options: "im",
+			}},
+		},
+	})
+}
+
+func (m *Mongo) GetGigastakedApplications(ctx context.Context) ([]*common.Application, error) {
 	loadBalancers, err := filterCollection[common.LoadBalancer](ctx, *m.client, m.Database, "LoadBalancers", bson.D{
 		{
 			Key:   "gigastake",
