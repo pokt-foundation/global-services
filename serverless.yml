@@ -16,11 +16,11 @@ functions:
     handler: bin/dispatch-globally
     environment: ${file(.env.yml):environment}
     vpc: ${file(.env.yml):vpc}
-    memorySize: 512
+    memorySize: 256
     timeout: 300
     maximumRetryAttempts: 2
 
     events:
       - schedule:
-          rate: rate(5 minutes)
+          rate: rate(1 minute)
           enabled: true
