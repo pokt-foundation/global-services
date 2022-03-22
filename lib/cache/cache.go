@@ -11,6 +11,7 @@ import (
 )
 
 var actionTimeout = int(environment.GetInt64("CACHE_ACTION_TIMEOUT", 5))
+var poolsize = int(environment.GetInt64("CACHE_CONNECTION_POOL_SIZE", 10))
 
 type RedisClientOptions struct {
 	BaseOptions *redis.Options
@@ -28,7 +29,7 @@ func NewRedisClient(options RedisClientOptions) (*Redis, error) {
 
 func NewRedisClusterClient(options RedisClientOptions) (*Redis, error) {
 	return connectToRedis(redis.NewClusterClient(&redis.ClusterOptions{
-		PoolSize: 200,
+		PoolSize: poolsize,
 		Addrs:    []string{options.BaseOptions.Addr},
 	}), options.KeyPrefix)
 }
