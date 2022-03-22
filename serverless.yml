@@ -17,7 +17,7 @@ functions:
     environment: ${file(.env.yml):environment}
     vpc: ${file(.env.yml):vpc}
     memorySize: 256
-    timeout: 300
+    timeout: 360
     maximumRetryAttempts: 2
 
     events:
