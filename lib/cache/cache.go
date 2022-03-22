@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/Pocket/global-dispatcher/common/environment"
@@ -51,6 +52,15 @@ func (r *Redis) SetJSON(ctx context.Context, key string, value interface{}, TTLS
 	if err != nil {
 		return err
 	}
-
 	return r.Client.Set(ctx, r.KeyPrefix+key, jsonValue, time.Second*time.Duration(TTLSeconds)).Err()
+}
+
+func (r *Redis) Close() error {
+	switch client := r.Client.(type) {
+	case *redis.Client:
+		return client.Close()
+	case *redis.ClusterClient:
+		return client.Close()
+	}
+	return errors.New("invalid redis client type")
 }

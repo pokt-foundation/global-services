@@ -166,6 +166,11 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 		return failedDispatcherCalls, ErrMaxDispatchErrorsExceeded
 	}
 
+	err = cache.CloseConnections(cacheClients)
+	if err != nil {
+		return 0, err
+	}
+
 	return failedDispatcherCalls, nil
 }
 

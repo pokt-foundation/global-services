@@ -37,20 +37,20 @@ func ConnectoCacheClients(connectionStrings []string, commitHash string) ([]*Red
 
 // WriteJSONToCaches writes the given key/values to multiple cache clients at the same time
 func WriteJSONToCaches(ctx context.Context, cacheClients []*Redis, key string, value interface{}, TTLSeconds uint) error {
-	var g errgroup.Group
-	for _, cacheClient := range cacheClients {
-		func(ch *Redis) {
-			g.Go(func() error {
-				return ch.SetJSON(ctx, key, value, TTLSeconds)
-			})
-		}(cacheClient)
-	}
+	return runFunctionOnAllClients(cacheClients, func(ins *Redis) error {
+		return ins.SetJSON(ctx, key, value, TTLSeconds)
+	})
+}
 
-	return g.Wait()
+// CloseConnections closes all cache connections, returning error if any of them fail
+func CloseConnections(cacheClients []*Redis) error {
+	return runFunctionOnAllClients(cacheClients, func(ins *Redis) error {
+		return ins.Close()
+	})
 }
 
 func connectToInstance(clients chan *Redis, address string, commitHash string) error {
-	redisClient, err := NewRedisClient(RedisClientOptions{
+	redisClient, err := NewRedisClusterClient(RedisClientOptions{
 		BaseOptions: &redis.Options{
 			Addr:     address,
 			Password: "",
@@ -65,4 +65,16 @@ func connectToInstance(clients chan *Redis, address string, commitHash string) e
 	clients <- redisClient
 
 	return nil
+}
+
+func runFunctionOnAllClients(cacheClients []*Redis, fn func(*Redis) error) error {
+	var g errgroup.Group
+	for _, cacheClient := range cacheClients {
+		func(ch *Redis) {
+			g.Go(func() error {
+				return fn(cacheClient)
+			})
+		}(cacheClient)
+	}
+	return g.Wait()
 }
