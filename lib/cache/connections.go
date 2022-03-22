@@ -72,7 +72,7 @@ func runFunctionOnAllClients(cacheClients []*Redis, fn func(*Redis) error) error
 	for _, cacheClient := range cacheClients {
 		func(ch *Redis) {
 			g.Go(func() error {
-				return fn(cacheClient)
+				return fn(ch)
 			})
 		}(cacheClient)
 	}
