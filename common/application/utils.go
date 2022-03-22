@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/Pocket/global-dispatcher/lib/pocket"
 )
@@ -22,9 +21,6 @@ func GetStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store Appli
 		settlers, err := store.GetSettlersApplications(ctx)
 		if err != nil {
 			return nil, err
-		}
-		for _, s := range settlers {
-			fmt.Printf("%+v\n", s)
 		}
 
 		databaseApps = append(databaseApps, settlers...)
