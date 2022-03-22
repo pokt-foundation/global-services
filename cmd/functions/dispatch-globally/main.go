@@ -130,11 +130,11 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 			sem.Acquire(ctx, 1)
 			wg.Add(1)
 
-			go func(publicKey, chain string) {
+			go func(publicKey, ch string) {
 				defer sem.Release(1)
 				defer wg.Done()
 
-				cacheKey := getSessionCacheKey(publicKey, chain, commitHash)
+				cacheKey := getSessionCacheKey(publicKey, ch, commitHash)
 
 				shouldDispatch := ShouldDispatch(ctx, cacheClients, blockHeight, cacheKey)
 				if !shouldDispatch {
@@ -143,7 +143,7 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 
 				session, err := pocketClient.DispatchSession(pocket.DispatchInput{
 					AppPublicKey: publicKey,
-					Chain:        chain,
+					Chain:        ch,
 				})
 				if err != nil {
 					atomic.AddUint32(&failedDispatcherCalls, 1)
