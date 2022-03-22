@@ -28,7 +28,8 @@ func NewRedisClient(options RedisClientOptions) (*Redis, error) {
 
 func NewRedisClusterClient(options RedisClientOptions) (*Redis, error) {
 	return connectToRedis(redis.NewClusterClient(&redis.ClusterOptions{
-		Addrs: []string{options.BaseOptions.Addr},
+		PoolSize: 200,
+		Addrs:    []string{options.BaseOptions.Addr},
 	}), options.KeyPrefix)
 }
 
