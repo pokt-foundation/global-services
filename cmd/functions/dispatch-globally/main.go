@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"strings"
 	"sync"
@@ -17,6 +16,7 @@ import (
 	"github.com/Pocket/global-dispatcher/lib/cache"
 	"github.com/Pocket/global-dispatcher/lib/database"
 	"github.com/Pocket/global-dispatcher/lib/pocket"
+	"github.com/Pocket/global-dispatcher/lib/utils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"golang.org/x/sync/semaphore"
@@ -24,6 +24,7 @@ import (
 
 var (
 	ErrMaxDispatchErrorsExceeded = errors.New("exceeded maximun allowance of dispatcher errors")
+	ErrNoCacheClientProvided     = errors.New("no cache clients were provided")
 
 	rpcURL                      = environment.GetString("RPC_URL", "")
 	dispatchURLs                = strings.Split(environment.GetString("DISPATCH_URLS", ""), ",")
@@ -34,6 +35,7 @@ var (
 	dispatchConcurrency         = environment.GetInt64("DISPATCH_CONCURRENCY", 200)
 	maxDispatchersErrorsAllowed = environment.GetInt64("MAX_DISPATCHER_ERRORS_ALLOWED", 2000)
 	dispatchGigastake           = environment.GetBool("DISPATCH_GIGASTAKE", false)
+	maxClientsCacheCheck        = environment.GetInt64("MAX_CLIENTS_CACHE_CHECK", 3)
 
 	headers = map[string]string{
 		"Content-Type": "application/json",
@@ -88,6 +90,10 @@ func LambdaHandler(ctx context.Context) (Response, error) {
 }
 
 func DispatchSessions(ctx context.Context) (uint32, error) {
+	if len(redisConnectionStrings) <= 0 {
+		return 0, ErrNoCacheClientProvided
+	}
+
 	db, err := database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
 	if err != nil {
 		return 0, errors.New("error connecting to mongo: " + err.Error())
@@ -136,7 +142,7 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 
 				cacheKey := getSessionCacheKey(publicKey, ch, commitHash)
 
-				shouldDispatch := ShouldDispatch(ctx, cacheClients, blockHeight, cacheKey)
+				shouldDispatch := ShouldDispatch(ctx, cacheClients, blockHeight, cacheKey, int(maxClientsCacheCheck))
 				if !shouldDispatch {
 					return
 				}
@@ -174,18 +180,39 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 	return failedDispatcherCalls, nil
 }
 
-func ShouldDispatch(ctx context.Context, cacheClients []*cache.Redis, blockHeight int, cacheKey string) bool {
-	rawSession, err := cacheClients[rand.Intn(len(cacheClients))].Client.Get(ctx, cacheKey).Result()
-	if err != nil || rawSession == "" {
-		return true
+func ShouldDispatch(ctx context.Context, cacheClients []*cache.Redis, blockHeight int, cacheKey string, maxClients int) bool {
+	clientsToCheck := utils.Min(len(cacheClients), maxClients)
+
+	clients := utils.Shuffle(cacheClients)[0:clientsToCheck]
+	var wg sync.WaitGroup
+	var cachedClients uint32
+
+	for _, client := range clients {
+		wg.Add(1)
+		go func(cl *cache.Redis) {
+			defer wg.Done()
+
+			rawSession, err := cl.Client.Get(ctx, cacheKey).Result()
+			if err != nil || rawSession == "" {
+				return
+			}
+
+			var cachedSession pocket.SessionCamelCase
+			if err := json.Unmarshal([]byte(rawSession), &cachedSession); err != nil {
+				return
+			}
+
+			if cachedSession.BlockHeight < blockHeight {
+				return
+			}
+
+			atomic.AddUint32(&cachedClients, 1)
+		}(client)
 	}
 
-	var cachedSession pocket.SessionCamelCase
-	if err := json.Unmarshal([]byte(rawSession), &cachedSession); err != nil {
-		return true
-	}
+	wg.Wait()
 
-	return cachedSession.BlockHeight < blockHeight
+	return cachedClients != uint32(clientsToCheck)
 }
 
 func getSessionCacheKey(publicKey, chain, commitHash string) string {
