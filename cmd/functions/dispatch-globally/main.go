@@ -100,8 +100,8 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 	}
 
 	commitHash := ""
-	// TODO: Consumers have badly configured the commithash prefix and right now they don't use any kind of prefix
-	// on their cache keys, uncomment when is fixed
+	// TODO: Consumers have badly configured the commithash prefix and right now they
+	// don't use any kind of prefix on their cache keys. Uncomment when is fixed.
 	// commitHash, err := gateway.GetGatewayCommitHash()
 	// if err != nil {
 	// 	return 0, errors.New("error obtaining commit hash: " + err.Error())
