@@ -182,8 +182,8 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 
 func ShouldDispatch(ctx context.Context, cacheClients []*cache.Redis, blockHeight int, cacheKey string, maxClients int) bool {
 	clientsToCheck := utils.Min(len(cacheClients), maxClients)
-
 	clients := utils.Shuffle(cacheClients)[0:clientsToCheck]
+
 	var wg sync.WaitGroup
 	var cachedClients uint32
 
@@ -196,12 +196,10 @@ func ShouldDispatch(ctx context.Context, cacheClients []*cache.Redis, blockHeigh
 			if err != nil || rawSession == "" {
 				return
 			}
-
 			var cachedSession pocket.SessionCamelCase
 			if err := json.Unmarshal([]byte(rawSession), &cachedSession); err != nil {
 				return
 			}
-
 			if cachedSession.BlockHeight < blockHeight {
 				return
 			}
@@ -209,7 +207,6 @@ func ShouldDispatch(ctx context.Context, cacheClients []*cache.Redis, blockHeigh
 			atomic.AddUint32(&cachedClients, 1)
 		}(client)
 	}
-
 	wg.Wait()
 
 	return cachedClients != uint32(clientsToCheck)
