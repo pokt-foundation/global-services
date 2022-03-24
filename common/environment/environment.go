@@ -36,7 +36,8 @@ func GetBool(varName string, defaultValue bool) bool {
 	val, _ := os.LookupEnv(varName)
 	if strings.ToLower(val) == "true" {
 		return true
-	} else if strings.ToLower(val) == "false" {
+	}
+	if strings.ToLower(val) == "false" {
 		return false
 	}
 

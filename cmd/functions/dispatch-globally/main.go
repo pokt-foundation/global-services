@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -11,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/Pocket/global-dispatcher/common/apigateway"
 	"github.com/Pocket/global-dispatcher/common/application"
 	"github.com/Pocket/global-dispatcher/common/environment"
 	"github.com/Pocket/global-dispatcher/lib/cache"
@@ -42,47 +42,23 @@ var (
 	}
 )
 
-type Response events.APIGatewayProxyResponse
-
 // LambdaHandler manages the DispatchSession call to return as an APIGatewayProxyResponse
-func LambdaHandler(ctx context.Context) (Response, error) {
-	var buf bytes.Buffer
+func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
 	var body []byte
-	var encodeErr error
 	var statusCode int
 
 	failedDispatcherCalls, err := DispatchSessions(ctx)
 	if err != nil {
-		statusCode = http.StatusInternalServerError
-		body, encodeErr = json.Marshal(map[string]interface{}{
-			"ok":                    false,
-			"error":                 err.Error(),
-			"failedDispatcherCalls": failedDispatcherCalls,
-		})
-	} else {
-		statusCode = http.StatusOK
-		body, encodeErr = json.Marshal(map[string]interface{}{
-			"ok":                    true,
-			"failedDispatcherCalls": failedDispatcherCalls,
-		})
+		return *apigateway.NewErrorResponse(http.StatusInternalServerError, err), err
 	}
 
 	// Internal logging
 	fmt.Printf("result: %s\n", string(body))
 
-	if encodeErr != nil {
-		return Response{StatusCode: http.StatusNotFound}, encodeErr
-	}
-	json.HTMLEscape(&buf, body)
-
-	resp := Response{
-		StatusCode:      statusCode,
-		IsBase64Encoded: false,
-		Body:            buf.String(),
-		Headers:         headers,
-	}
-
-	return resp, err
+	return *apigateway.NewJSONResponse(statusCode, map[string]interface{}{
+		"ok":                    true,
+		"failedDispatcherCalls": failedDispatcherCalls,
+	}), err
 }
 
 // DispatchSessions obtains applications from the database, asserts they're staked
