@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,10 +12,10 @@ import (
 	"github.com/Pocket/global-dispatcher/common/apigateway"
 	"github.com/Pocket/global-dispatcher/common/application"
 	"github.com/Pocket/global-dispatcher/common/environment"
+	"github.com/Pocket/global-dispatcher/common/gateway"
 	"github.com/Pocket/global-dispatcher/lib/cache"
 	"github.com/Pocket/global-dispatcher/lib/database"
 	"github.com/Pocket/global-dispatcher/lib/pocket"
-	"github.com/Pocket/global-dispatcher/lib/utils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"golang.org/x/sync/semaphore"
@@ -74,15 +73,7 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 		return 0, errors.New("error connecting to mongo: " + err.Error())
 	}
 
-	commitHash := ""
-	// TODO: Consumers have badly configured the commithash prefix and right now they
-	// don't use any kind of prefix on their cache keys. Uncomment when is fixed.
-	// commitHash, err := gateway.GetGatewayCommitHash()
-	// if err != nil {
-	// 	return 0, errors.New("error obtaining commit hash: " + err.Error())
-	// }
-
-	cacheClients, err := cache.ConnectoCacheClients(redisConnectionStrings, commitHash)
+	caches, err := cache.ConnectoCacheClients(redisConnectionStrings, "")
 	if err != nil {
 		return 0, errors.New("error connecting to redis: " + err.Error())
 	}
@@ -115,9 +106,9 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 				defer sem.Release(1)
 				defer wg.Done()
 
-				cacheKey := getSessionCacheKey(publicKey, ch, commitHash)
+				cacheKey := gateway.GetSessionCacheKey(publicKey, ch, "")
 
-				shouldDispatch := ShouldDispatch(ctx, cacheClients, blockHeight, cacheKey, int(maxClientsCacheCheck))
+				shouldDispatch, _ := gateway.ShouldDispatch(ctx, caches, blockHeight, cacheKey, int(maxClientsCacheCheck))
 				if !shouldDispatch {
 					return
 				}
@@ -132,7 +123,7 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 					return
 				}
 
-				err = cache.WriteJSONToCaches(ctx, cacheClients, cacheKey, pocket.SessionCamelCase(*session), uint(cacheTTL))
+				err = cache.WriteJSONToCaches(ctx, caches, cacheKey, pocket.SessionCamelCase(*session), uint(cacheTTL))
 				if err != nil {
 					atomic.AddUint32(&failedDispatcherCalls, 1)
 					fmt.Println("error writing to cache:", err)
@@ -147,51 +138,12 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 		return failedDispatcherCalls, ErrMaxDispatchErrorsExceeded
 	}
 
-	err = cache.CloseConnections(cacheClients)
+	err = cache.CloseConnections(caches)
 	if err != nil {
 		return 0, err
 	}
 
 	return failedDispatcherCalls, nil
-}
-
-// ShouldDispatch checks N random cache clients and checks whether the session
-// is available and up to date with the current block, fails if any of the
-// clients fails the check.
-func ShouldDispatch(ctx context.Context, cacheClients []*cache.Redis, blockHeight int, key string, maxClients int) bool {
-	clientsToCheck := utils.Min(len(cacheClients), maxClients)
-	clients := utils.Shuffle(cacheClients)[0:clientsToCheck]
-
-	var wg sync.WaitGroup
-	var cachedClients uint32
-
-	for _, client := range clients {
-		wg.Add(1)
-		go func(cl *cache.Redis) {
-			defer wg.Done()
-
-			rawSession, err := cl.Client.Get(ctx, cl.KeyPrefix+key).Result()
-			if err != nil || rawSession == "" {
-				return
-			}
-			var cachedSession pocket.SessionCamelCase
-			if err := json.Unmarshal([]byte(rawSession), &cachedSession); err != nil {
-				return
-			}
-			if cachedSession.BlockHeight < blockHeight {
-				return
-			}
-
-			atomic.AddUint32(&cachedClients, 1)
-		}(client)
-	}
-	wg.Wait()
-
-	return cachedClients != uint32(clientsToCheck)
-}
-
-func getSessionCacheKey(publicKey, chain, commitHash string) string {
-	return fmt.Sprintf("%ssession-cached-%s-%s", commitHash, publicKey, chain)
 }
 
 func main() {

@@ -36,15 +36,15 @@ func ConnectoCacheClients(connectionStrings []string, commitHash string) ([]*Red
 }
 
 // WriteJSONToCaches writes the given key/values to multiple cache clients at the same time
-func WriteJSONToCaches(ctx context.Context, cacheClients []*Redis, key string, value interface{}, TTLSeconds uint) error {
-	return runFunctionOnAllClients(cacheClients, func(ins *Redis) error {
+func WriteJSONToCaches(ctx context.Context, caches []*Redis, key string, value interface{}, TTLSeconds uint) error {
+	return runFunctionOnAllClients(caches, func(ins *Redis) error {
 		return ins.SetJSON(ctx, key, value, TTLSeconds)
 	})
 }
 
 // CloseConnections closes all cache connections, returning error if any of them fail
-func CloseConnections(cacheClients []*Redis) error {
-	return runFunctionOnAllClients(cacheClients, func(ins *Redis) error {
+func CloseConnections(caches []*Redis) error {
+	return runFunctionOnAllClients(caches, func(ins *Redis) error {
 		return ins.Close()
 	})
 }
@@ -67,9 +67,9 @@ func connectToInstance(clients chan *Redis, address string, commitHash string) e
 	return nil
 }
 
-func runFunctionOnAllClients(cacheClients []*Redis, fn func(*Redis) error) error {
+func runFunctionOnAllClients(caches []*Redis, fn func(*Redis) error) error {
 	var g errgroup.Group
-	for _, cacheClient := range cacheClients {
+	for _, cacheClient := range caches {
 		func(ch *Redis) {
 			g.Go(func() error {
 				return fn(ch)
