@@ -1,4 +1,4 @@
-package application
+package gateway
 
 type LoadBalancer struct {
 	ID                string   `json:"_id"`

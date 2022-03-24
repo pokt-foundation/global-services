@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/Pocket/global-dispatcher/common/apigateway"
-	"github.com/Pocket/global-dispatcher/common/application"
 	"github.com/Pocket/global-dispatcher/common/environment"
 	"github.com/Pocket/global-dispatcher/common/gateway"
 	"github.com/Pocket/global-dispatcher/lib/cache"
@@ -89,7 +88,7 @@ func RunApplicationChecks(ctx context.Context) error {
 		return err
 	}
 
-	apps, err := application.GetStakedApplicationsOnDB(ctx, dispatchGigastake, db, pocketClient)
+	apps, err := gateway.GetStakedApplicationsOnDB(ctx, dispatchGigastake, db, pocketClient)
 	if err != nil {
 		return errors.New("error obtaining staked apps on db: " + err.Error())
 	}

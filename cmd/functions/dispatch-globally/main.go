@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 
 	"github.com/Pocket/global-dispatcher/common/apigateway"
-	"github.com/Pocket/global-dispatcher/common/application"
 	"github.com/Pocket/global-dispatcher/common/environment"
 	"github.com/Pocket/global-dispatcher/common/gateway"
 	"github.com/Pocket/global-dispatcher/lib/cache"
@@ -87,8 +86,7 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-
-	apps, err := application.GetStakedApplicationsOnDB(ctx, dispatchGigastake, db, pocketClient)
+	apps, err := gateway.GetStakedApplicationsOnDB(ctx, dispatchGigastake, db, pocketClient)
 	if err != nil {
 		return 0, errors.New("error obtaining staked apps on db: " + err.Error())
 	}
