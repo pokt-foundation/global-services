@@ -50,7 +50,7 @@ func CloseConnections(cacheClients []*Redis) error {
 }
 
 func connectToInstance(clients chan *Redis, address string, commitHash string) error {
-	redisClient, err := NewRedisClient(RedisClientOptions{
+	redisClient, err := NewRedisClusterClient(RedisClientOptions{
 		BaseOptions: &redis.Options{
 			Addr:     address,
 			Password: "",
