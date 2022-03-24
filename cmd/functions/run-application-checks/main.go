@@ -14,6 +14,7 @@ import (
 	"github.com/Pocket/global-dispatcher/lib/cache"
 	"github.com/Pocket/global-dispatcher/lib/database"
 	"github.com/Pocket/global-dispatcher/lib/pocket"
+	"github.com/Pocket/global-dispatcher/lib/utils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"golang.org/x/sync/semaphore"
@@ -44,6 +45,7 @@ type ApplicationChecks struct {
 	Pocket      pocket.PocketJsonRpcClient
 	BlockHeight int
 	CommitHash  string
+	Blockchains map[string]*gateway.Blockchain
 }
 
 func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
@@ -93,10 +95,19 @@ func RunApplicationChecks(ctx context.Context) error {
 		return errors.New("error obtaining staked apps on db: " + err.Error())
 	}
 
+	blockchains, err := db.GetBlockchains(ctx)
+	if err != nil {
+		return errors.New("error obtaining blockchains: " + err.Error())
+	}
+
 	appChecks := ApplicationChecks{
 		Caches:      caches,
 		Pocket:      *pocketClient,
 		BlockHeight: blockHeight,
+		Blockchains: utils.SliceToMappedStruct(blockchains,
+			func(blockchain *gateway.Blockchain) string {
+				return blockchain.ID
+			}),
 	}
 
 	var sem = semaphore.NewWeighted(dispatchConcurrency)

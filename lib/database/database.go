@@ -30,7 +30,7 @@ func ClientFromURI(ctx context.Context, uri string, database string) (*Mongo, er
 	}, nil
 }
 
-// GetStakedApplications returns all the collections that are staked on the db
+// GetStakedApplications returns the applications that are staked on the db
 func (m *Mongo) GetStakedApplications(ctx context.Context) ([]*gateway.Application, error) {
 	return filterCollection[gateway.Application](ctx, *m.client, m.Database, "Applications", bson.D{
 		{
@@ -53,7 +53,7 @@ func (m *Mongo) GetSettlersApplications(ctx context.Context) ([]*gateway.Applica
 	})
 }
 
-// GetGigastakedApplications returns all the applications that belong to a
+// GetGigastakedApplications returns the applications that belong to a
 // gigastake load balancer
 func (m *Mongo) GetGigastakedApplications(ctx context.Context) ([]*gateway.Application, error) {
 	loadBalancers, err := filterCollection[gateway.LoadBalancer](ctx, *m.client, m.Database, "LoadBalancers", bson.D{
@@ -83,6 +83,11 @@ func (m *Mongo) GetGigastakedApplications(ctx context.Context) ([]*gateway.Appli
 			Value: bson.M{"$in": applicationIDs},
 		},
 	})
+}
+
+// GetBlockchains returns the blockchains on the db
+func (m *Mongo) GetBlockchains(ctx context.Context) ([]*gateway.Blockchain, error) {
+	return filterCollection[gateway.Blockchain](ctx, *m.client, m.Database, "Blockchains", bson.D{})
 }
 
 // filterCollection returns a collection marshalled to a struct given the filter

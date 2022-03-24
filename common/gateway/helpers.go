@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/Pocket/global-dispatcher/lib/pocket"
+	"github.com/Pocket/global-dispatcher/lib/utils"
 )
 
 func GetStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store ApplicationStore, pocketClient *pocket.PocketJsonRpcClient) ([]pocket.NetworkApplication, error) {
@@ -44,7 +45,9 @@ func GetStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store Appli
 
 func FilterStakedAppsNotOnDB(dbApps []*Application, ntApps []pocket.NetworkApplication) []pocket.NetworkApplication {
 	var stakedAppsOnDB []pocket.NetworkApplication
-	publicKeyToApps := mapApplicationsToPublicKey(dbApps)
+	publicKeyToApps := utils.SliceToMappedStruct(dbApps, func(app *Application) string {
+		return app.GatewayAAT.ApplicationPublicKey
+	})
 
 	for _, ntApp := range ntApps {
 		if _, ok := publicKeyToApps[ntApp.PublicKey]; ok {
@@ -53,14 +56,4 @@ func FilterStakedAppsNotOnDB(dbApps []*Application, ntApps []pocket.NetworkAppli
 	}
 
 	return stakedAppsOnDB
-}
-
-func mapApplicationsToPublicKey(applications []*Application) map[string]*Application {
-	applicationsMap := make(map[string]*Application)
-
-	for _, application := range applications {
-		applicationsMap[application.GatewayAAT.ApplicationPublicKey] = application
-	}
-
-	return applicationsMap
 }
