@@ -14,8 +14,8 @@ package:
 functions:
   dispatch-globally:
     handler: bin/dispatch-globally
-    environment: ${file(.env.yml):environment}
-    vpc: ${file(.env.yml):vpc}
+    environment: ${file(.env.dispatch-globally.yml):environment}
+    vpc: ${file(.env.dispatch-globally.yml):vpc}
     memorySize: 256
     timeout: 360
     maximumRetryAttempts: 2
@@ -24,3 +24,11 @@ functions:
       - schedule:
           rate: rate(1 minute)
           enabled: true
+
+  run-application-checks:
+    handler: bin/run-application-checks
+    environment: ${file(.env.run-application-checks.yml):environment}
+    vpc: ${file(.env.run-application-checks.yml):vpc}
+    memorySize: 256
+    timeout: 360
+    maximumRetryAttempts: 2
