@@ -16,6 +16,7 @@ type Mongo struct {
 	Database string
 }
 
+// ClientFromURI returns a mongodb client from an URI
 func ClientFromURI(ctx context.Context, uri string, database string) (*Mongo, error) {
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 
@@ -29,6 +30,7 @@ func ClientFromURI(ctx context.Context, uri string, database string) (*Mongo, er
 	}, nil
 }
 
+// GetStakedApplications returns all the collections that are staked on the db
 func (m *Mongo) GetStakedApplications(ctx context.Context) ([]*common.Application, error) {
 	return filterCollection[common.Application](ctx, *m.client, m.Database, "Applications", bson.D{
 		{
@@ -38,6 +40,7 @@ func (m *Mongo) GetStakedApplications(ctx context.Context) ([]*common.Applicatio
 	})
 }
 
+// GetSettlersApplications returns only the applications marked as 'Settlers'
 func (m *Mongo) GetSettlersApplications(ctx context.Context) ([]*common.Application, error) {
 	return filterCollection[common.Application](ctx, *m.client, m.Database, "Applications", bson.D{
 		{
@@ -50,6 +53,8 @@ func (m *Mongo) GetSettlersApplications(ctx context.Context) ([]*common.Applicat
 	})
 }
 
+// GetGigastakedApplications returns all the applications that belong to a
+// gigastake load balancer
 func (m *Mongo) GetGigastakedApplications(ctx context.Context) ([]*common.Application, error) {
 	loadBalancers, err := filterCollection[common.LoadBalancer](ctx, *m.client, m.Database, "LoadBalancers", bson.D{
 		{
@@ -80,6 +85,7 @@ func (m *Mongo) GetGigastakedApplications(ctx context.Context) ([]*common.Applic
 	})
 }
 
+// filterCollection returns a collection marshalled to a struct given the filter
 func filterCollection[T any](ctx context.Context, client mongo.Client, database, collectionName string, filter primitive.D) ([]*T, error) {
 	documents := []*T{}
 	collection := client.Database(database).Collection(collectionName)

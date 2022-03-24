@@ -24,6 +24,7 @@ type performRequestOptions struct {
 	body   interface{}
 }
 
+// NewPocketClient sanitizes and returns a new pocket client
 func NewPocketClient(httpRpcURL string, dispatchers []string) (*PocketJsonRpcClient, error) {
 	var dispatcherURLs []*url.URL
 
@@ -51,7 +52,8 @@ func NewPocketClient(httpRpcURL string, dispatchers []string) (*PocketJsonRpcCli
 	}, nil
 }
 
-func (p *PocketJsonRpcClient) GetBlockHeight() (int, error) {
+// GetCurrentBlockHeight returns the current block height
+func (p *PocketJsonRpcClient) GetCurrentBlockHeight() (int, error) {
 	res, err := p.perform(performRequestOptions{
 		route: Height,
 	})
@@ -66,6 +68,7 @@ func (p *PocketJsonRpcClient) GetBlockHeight() (int, error) {
 	return height.Height, json.NewDecoder(res.Body).Decode(&height)
 }
 
+// GetNetworkApplications returns the applications in the network based on the input
 func (p *PocketJsonRpcClient) GetNetworkApplications(input GetNetworkApplicationsInput) ([]NetworkApplication, error) {
 	options := struct {
 		Opts GetNetworkApplicationsInput `json:"opts"`
@@ -93,6 +96,7 @@ func (p *PocketJsonRpcClient) getRandomDispatcher() string {
 	return p.Dispatchers[rand.Intn(len(p.Dispatchers))].String()
 }
 
+// Dispatch session dispatchs a session for an application's chain
 func (p *PocketJsonRpcClient) DispatchSession(options DispatchInput) (*Session, error) {
 	res, err := p.perform(performRequestOptions{
 		route: ClientDispatch,

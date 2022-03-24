@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// Shuffle shuffles an ordered collection and returns a copy of the result
 func Shuffle[T any](items []*T) []*T {
 	itemsCopy := make([]*T, len(items))
 	copy(itemsCopy, items)

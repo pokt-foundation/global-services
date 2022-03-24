@@ -42,13 +42,9 @@ var (
 	}
 )
 
-// Response is of type APIGatewayProxyResponse since we're leveraging the
-// AWS Lambda Proxy Request functionality (default behavior)
-//
-// https://serverless.com/framework/docs/providers/aws/events/apigateway/#lambda-proxy-integration
 type Response events.APIGatewayProxyResponse
 
-// Handler is our lambda handler invoked by the `lambda.Start` function call
+// LambdaHandler manages the DispatchSession call to return as an APIGatewayProxyResponse
 func LambdaHandler(ctx context.Context) (Response, error) {
 	var buf bytes.Buffer
 	var body []byte
@@ -89,6 +85,9 @@ func LambdaHandler(ctx context.Context) (Response, error) {
 	return resp, err
 }
 
+// DispatchSessions obtains applications from the database, asserts they're staked
+// and dispatch the sessions of the chains from the applications, writing the results
+// to the cache clients provided while also  reporting any failure from the dispatchers.
 func DispatchSessions(ctx context.Context) (uint32, error) {
 	if len(redisConnectionStrings) <= 0 {
 		return 0, ErrNoCacheClientProvided
@@ -117,7 +116,7 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 		return 0, errors.New("error obtaining a pocket client: " + err.Error())
 	}
 
-	blockHeight, err := pocketClient.GetBlockHeight()
+	blockHeight, err := pocketClient.GetCurrentBlockHeight()
 	if err != nil {
 		return 0, err
 	}
@@ -180,7 +179,10 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 	return failedDispatcherCalls, nil
 }
 
-func ShouldDispatch(ctx context.Context, cacheClients []*cache.Redis, blockHeight int, cacheKey string, maxClients int) bool {
+// ShouldDispatch checks N random cache clients and checks whether the session
+// is available and up to date with the current block, fails if any of the
+// clients fails the check.
+func ShouldDispatch(ctx context.Context, cacheClients []*cache.Redis, blockHeight int, key string, maxClients int) bool {
 	clientsToCheck := utils.Min(len(cacheClients), maxClients)
 	clients := utils.Shuffle(cacheClients)[0:clientsToCheck]
 
@@ -192,7 +194,7 @@ func ShouldDispatch(ctx context.Context, cacheClients []*cache.Redis, blockHeigh
 		go func(cl *cache.Redis) {
 			defer wg.Done()
 
-			rawSession, err := cl.Client.Get(ctx, cacheKey).Result()
+			rawSession, err := cl.Client.Get(ctx, cl.KeyPrefix+key).Result()
 			if err != nil || rawSession == "" {
 				return
 			}
