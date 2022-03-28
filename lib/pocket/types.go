@@ -51,6 +51,7 @@ func NewSessionCamelCase(session *provider.Session) *Session {
 
 	return &Session{
 		BlockHeight: session.BlockHeight,
+		Key:         session.Key,
 		Header: &SesionHeader{
 			AppPublicKey:  session.Header.AppPublicKey,
 			Chain:         session.Header.Chain,
