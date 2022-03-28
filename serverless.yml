@@ -1,10 +1,11 @@
-service: global-dispatcher
+service: global-services
 frameworkVersion: '3'
 
 provider:
   name: aws
   runtime: go1.x
   region: us-west-2
+  vpc: ${file(.env.global.yml):vpc}
 
 package:
   patterns:
@@ -32,3 +33,10 @@ functions:
     memorySize: 256
     timeout: 360
     maximumRetryAttempts: 2
+  
+  flush-cache:
+    handler: bin/flush-cache
+    environment: ${file(.env.yml):environment}
+    vpc: ${file(.env.flush-cache.yml):vpc}
+    memorySize: 128
+    timeout: 20
