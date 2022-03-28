@@ -15,8 +15,7 @@ package:
 functions:
   dispatch-globally:
     handler: bin/dispatch-globally
-    environment: ${file(.env.dispatch-globally.yml):environment}
-    vpc: ${file(.env.dispatch-globally.yml):vpc}
+    environment: ${file(.env.dispatch-globally.yml)}
     memorySize: 256
     timeout: 360
     maximumRetryAttempts: 2
@@ -28,15 +27,13 @@ functions:
 
   run-application-checks:
     handler: bin/run-application-checks
-    environment: ${file(.env.run-application-checks.yml):environment}
-    vpc: ${file(.env.run-application-checks.yml):vpc}
+    environment: ${file(.env.run-application-checks.yml)}
     memorySize: 256
     timeout: 360
     maximumRetryAttempts: 2
   
   flush-cache:
     handler: bin/flush-cache
-    environment: ${file(.env.yml):environment}
-    vpc: ${file(.env.flush-cache.yml):vpc}
+    environment: ${file(.env.flush-cache.yml)}
     memorySize: 128
     timeout: 20
