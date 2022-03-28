@@ -17,6 +17,10 @@ import (
 	"github.com/Pocket/global-dispatcher/lib/pocket"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/pokt-foundation/pocket-go/pkg/client"
+	"github.com/pokt-foundation/pocket-go/pkg/provider"
+	"github.com/pokt-foundation/pocket-go/pkg/relayer"
+	"github.com/pokt-foundation/pocket-go/pkg/signer"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -27,6 +31,7 @@ var (
 	rpcURL                      = environment.GetString("RPC_URL", "")
 	dispatchURLs                = strings.Split(environment.GetString("DISPATCH_URLS", ""), ",")
 	redisConnectionStrings      = strings.Split(environment.GetString("REDIS_CONNECTION_STRINGS", ""), ",")
+	isRedisCluster              = environment.GetBool("IS_REDIS_CLUSTER", false)
 	mongoConnectionString       = environment.GetString("MONGODB_CONNECTION_STRING", "")
 	mongoDatabase               = environment.GetString("MONGODB_DATABASE", "")
 	cacheTTL                    = environment.GetInt64("CACHE_TTL", 3600)
@@ -72,21 +77,26 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 		return 0, errors.New("error connecting to mongo: " + err.Error())
 	}
 
-	caches, err := cache.ConnectoCacheClients(redisConnectionStrings, "")
+	caches, err := cache.ConnectoCacheClients(redisConnectionStrings, "", isRedisCluster)
 	if err != nil {
 		return 0, errors.New("error connecting to redis: " + err.Error())
 	}
 
-	pocketClient, err := pocket.NewPocketClient(rpcURL, dispatchURLs)
+	rpcPovider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs, client.NewDefaultClient())
+
+	wallet, err := signer.NewRandomWallet()
 	if err != nil {
-		return 0, errors.New("error obtaining a pocket client: " + err.Error())
+		return 0, errors.New("error creating wallet: " + err.Error())
 	}
 
-	blockHeight, err := pocketClient.GetCurrentBlockHeight()
+	pocketRelayer := relayer.NewPocketRelayer(wallet, rpcPovider)
+
+	blockHeight, err := rpcPovider.GetBlockHeight()
 	if err != nil {
-		return 0, err
+		return 0, errors.New("error obtaining block height: " + err.Error())
 	}
-	apps, err := gateway.GetStakedApplicationsOnDB(ctx, dispatchGigastake, db, pocketClient)
+
+	apps, err := gateway.GetStakedApplicationsOnDB(ctx, dispatchGigastake, db, rpcPovider)
 	if err != nil {
 		return 0, errors.New("error obtaining staked apps on db: " + err.Error())
 	}
@@ -111,17 +121,15 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 					return
 				}
 
-				session, err := pocketClient.DispatchSession(pocket.DispatchInput{
-					AppPublicKey: publicKey,
-					Chain:        ch,
-				})
+				// fmt.Println("session", ch, publicKey)
+				session, err := pocketRelayer.GetNewSession(ch, publicKey, 0, nil)
 				if err != nil {
 					atomic.AddUint32(&failedDispatcherCalls, 1)
-					fmt.Println("error dispatching:", err)
+					fmt.Printf("error dispatching: %s. Application public key: %s. Chain: %s\n", err.Error(), publicKey, ch)
 					return
 				}
 
-				err = cache.WriteJSONToCaches(ctx, caches, cacheKey, pocket.SessionCamelCase(*session), uint(cacheTTL))
+				err = cache.WriteJSONToCaches(ctx, caches, cacheKey, pocket.NewSessionCamelCase(*&session), uint(cacheTTL))
 				if err != nil {
 					atomic.AddUint32(&failedDispatcherCalls, 1)
 					fmt.Println("error writing to cache:", err)

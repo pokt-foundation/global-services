@@ -44,10 +44,10 @@ func GetSessionCacheKey(publicKey, chain, commitHash string) string {
 // ShouldDispatch checks N random cache clients and checks whether the session
 // is available and up to date with the current block, fails if any of the
 // clients fails the check and returns the session if found by any cache
-func ShouldDispatch(ctx context.Context, caches []*cache.Redis, blockHeight int, key string, maxClients int) (bool, *pocket.SessionCamelCase) {
+func ShouldDispatch(ctx context.Context, caches []*cache.Redis, blockHeight int, key string, maxClients int) (bool, *pocket.Session) {
 	clientsToCheck := utils.Min(len(caches), maxClients)
 	clients := utils.Shuffle(caches)[0:clientsToCheck]
-	var globalCachedSession *pocket.SessionCamelCase
+	var globalCachedSession *pocket.Session
 
 	var wg sync.WaitGroup
 	var cachedClients uint32
@@ -61,7 +61,7 @@ func ShouldDispatch(ctx context.Context, caches []*cache.Redis, blockHeight int,
 			if err != nil || rawSession == "" {
 				return
 			}
-			var cachedSession pocket.SessionCamelCase
+			var cachedSession pocket.Session
 			if err := json.Unmarshal([]byte(rawSession), &cachedSession); err != nil {
 				return
 			}
