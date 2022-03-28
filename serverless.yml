@@ -24,3 +24,10 @@ functions:
       - schedule:
           rate: rate(1 minute)
           enabled: true
+
+  flush-cache:
+    handler: bin/flush-cache
+    environment: ${file(.env.yml):environment}
+    vpc: ${file(.env.yml):vpc}
+    memorySize: 128
+    timeout: 20
