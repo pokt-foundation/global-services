@@ -2,6 +2,9 @@ package cache
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"sync"
 
 	"github.com/go-redis/redis/v8"
 	"golang.org/x/sync/errgroup"
@@ -12,24 +15,31 @@ import (
 func ConnectoCacheClients(connectionStrings []string, commitHash string, isCluster bool) ([]*Redis, error) {
 	clients := make(chan *Redis, len(connectionStrings))
 
-	var g errgroup.Group
+	var wg sync.WaitGroup
 
 	for _, address := range connectionStrings {
-		func(addr string) {
-			g.Go(func() error {
-				return connectToInstance(clients, addr, commitHash, isCluster)
-			})
+		wg.Add(1)
+		go func(addr string) {
+			defer wg.Done()
+			err := connectToInstance(clients, addr, commitHash, isCluster)
+			if err != nil {
+				// TODO: Add warn log
+				fmt.Printf("failure connecting to redis instance %s: %s\n", addr, err.Error())
+			}
 		}(address)
 	}
-	if err := g.Wait(); err != nil {
-		return nil, err
-	}
+
+	wg.Wait()
 
 	close(clients)
 
 	var instances []*Redis
 	for client := range clients {
 		instances = append(instances, client)
+	}
+
+	if len(instances) == 0 {
+		return nil, errors.New("redis connection error: all instances failed to connect")
 	}
 
 	return instances, nil
