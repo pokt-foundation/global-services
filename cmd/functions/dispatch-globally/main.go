@@ -17,9 +17,13 @@ import (
 	"github.com/Pocket/global-dispatcher/lib/pocket"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/pokt-foundation/pocket-go/pkg/client"
 	"github.com/pokt-foundation/pocket-go/pkg/provider"
 	"golang.org/x/sync/semaphore"
+
+	logger "github.com/Pocket/global-dispatcher/lib/logger"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -45,27 +49,34 @@ var (
 
 // LambdaHandler manages the DispatchSession call to return as an APIGatewayProxyResponse
 func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
-	var body []byte
+	lc, _ := lambdacontext.FromContext(ctx)
 	var statusCode int
 
-	failedDispatcherCalls, err := DispatchSessions(ctx)
+	failedDispatcherCalls, err := DispatchSessions(ctx, lc.AwsRequestID)
 	if err != nil {
+		logger.Log.WithFields(log.Fields{
+			"requestID": lc.AwsRequestID,
+			"error":     err.Error(),
+		}).Error(fmt.Sprintf("ERROR DISPATCHING SESSION: " + err.Error()))
+
 		return *apigateway.NewErrorResponse(http.StatusInternalServerError, err), err
 	}
 
-	// Internal logging
-	fmt.Printf("result: %s\n", string(body))
-
-	return *apigateway.NewJSONResponse(statusCode, map[string]interface{}{
+	result := map[string]interface{}{
 		"ok":                    true,
 		"failedDispatcherCalls": failedDispatcherCalls,
-	}), err
+	}
+
+	// Internal logging
+	logger.Log.WithFields(result).Info("GLOBAL DISPATCHER RESULT")
+
+	return *apigateway.NewJSONResponse(statusCode, result), err
 }
 
 // DispatchSessions obtains applications from the database, asserts they're staked
 // and dispatch the sessions of the chains from the applications, writing the results
 // to the cache clients provided while also  reporting any failure from the dispatchers.
-func DispatchSessions(ctx context.Context) (uint32, error) {
+func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 	if len(redisConnectionStrings) <= 0 {
 		return 0, ErrNoCacheClientProvided
 	}
@@ -115,7 +126,11 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 				dispatch, err := rpcPovider.Dispatch(publicKey, ch, nil)
 				if err != nil {
 					atomic.AddUint32(&failedDispatcherCalls, 1)
-					fmt.Printf("error dispatching: %s. Application public key: %s. Chain: %s\n", err.Error(), publicKey, ch)
+					logger.Log.WithFields(log.Fields{
+						"appPublicKey": publicKey,
+						"chain":        ch,
+						"error":        err.Error(),
+					}).Error("ERROR DISPATCHING: " + err.Error())
 					return
 				}
 
@@ -127,7 +142,11 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 				err = cache.WriteJSONToCaches(ctx, caches, cacheKey, pocket.NewSessionCamelCase(*&dispatch.Session), uint(cacheTTL))
 				if err != nil {
 					atomic.AddUint32(&failedDispatcherCalls, 1)
-					fmt.Println("error writing to cache:", err)
+					logger.Log.WithFields(log.Fields{
+						"appPublicKey": publicKey,
+						"chain":        ch,
+						"error":        err.Error(),
+					}).Error("ERROR WRITING TO CACHE: " + err.Error())
 				}
 			}(app.PublicKey, chain)
 		}
