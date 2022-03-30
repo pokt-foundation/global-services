@@ -19,8 +19,6 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/pokt-foundation/pocket-go/pkg/client"
 	"github.com/pokt-foundation/pocket-go/pkg/provider"
-	"github.com/pokt-foundation/pocket-go/pkg/relayer"
-	"github.com/pokt-foundation/pocket-go/pkg/signer"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -84,19 +82,12 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 
 	rpcPovider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs, client.NewDefaultClient())
 
-	wallet, err := signer.NewRandomWallet()
-	if err != nil {
-		return 0, errors.New("error creating wallet: " + err.Error())
-	}
-
-	pocketRelayer := relayer.NewPocketRelayer(wallet, rpcPovider)
-
 	blockHeight, err := rpcPovider.GetBlockHeight()
 	if err != nil {
 		return 0, errors.New("error obtaining block height: " + err.Error())
 	}
 
-	apps, err := gateway.GetStakedApplicationsOnDB(ctx, dispatchGigastake, db, rpcPovider)
+	apps, _, err := gateway.GetStakedApplicationsOnDB(ctx, dispatchGigastake, db, rpcPovider)
 	if err != nil {
 		return 0, errors.New("error obtaining staked apps on db: " + err.Error())
 	}
@@ -121,15 +112,19 @@ func DispatchSessions(ctx context.Context) (uint32, error) {
 					return
 				}
 
-				// fmt.Println("session", ch, publicKey)
-				session, err := pocketRelayer.GetNewSession(ch, publicKey, 0, nil)
+				dispatch, err := rpcPovider.Dispatch(publicKey, ch, nil)
 				if err != nil {
 					atomic.AddUint32(&failedDispatcherCalls, 1)
 					fmt.Printf("error dispatching: %s. Application public key: %s. Chain: %s\n", err.Error(), publicKey, ch)
 					return
 				}
 
-				err = cache.WriteJSONToCaches(ctx, caches, cacheKey, pocket.NewSessionCamelCase(*&session), uint(cacheTTL))
+				session := pocket.NewSessionCamelCase(dispatch.Session)
+
+				// Embedding current block height within session so can be checked for cache
+				session.BlockHeight = dispatch.BlockHeight
+
+				err = cache.WriteJSONToCaches(ctx, caches, cacheKey, pocket.NewSessionCamelCase(*&dispatch.Session), uint(cacheTTL))
 				if err != nil {
 					atomic.AddUint32(&failedDispatcherCalls, 1)
 					fmt.Println("error writing to cache:", err)

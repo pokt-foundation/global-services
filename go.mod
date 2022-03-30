@@ -3,12 +3,12 @@ module github.com/Pocket/global-dispatcher
 go 1.18
 
 require (
-	github.com/aws/aws-lambda-go v1.28.0
+	github.com/aws/aws-lambda-go v1.29.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/gojektech/heimdall v5.0.2+incompatible
-	github.com/pokt-foundation/pocket-go v0.4.2
+	github.com/pokt-foundation/pocket-go v0.6.0
 	go.mongodb.org/mongo-driver v1.8.4
-	golang.org/x/exp v0.0.0-20220325121720-054d8573a5d8
+	golang.org/x/exp v0.0.0-20220328175248-053ad81199eb
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 )
 
@@ -25,6 +25,6 @@ require (
 	github.com/xdg-go/stringprep v1.0.3 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
 	golang.org/x/crypto v0.0.0-20220321153916-2c7772ba3064 // indirect
-	golang.org/x/sys v0.0.0-20220328115105-d36c6a25d886 // indirect
+	golang.org/x/sys v0.0.0-20220330033206-e17cdc41300f // indirect
 	golang.org/x/text v0.3.7 // indirect
 )
