@@ -12,10 +12,11 @@ import (
 	httpClient "github.com/Pocket/global-dispatcher/lib/http"
 	"github.com/Pocket/global-dispatcher/lib/pocket"
 	"github.com/Pocket/global-dispatcher/lib/utils"
+	"github.com/pokt-foundation/pocket-go/pkg/provider"
 )
 
 var gatewayURL = environment.GetString("GATEWAY_PRODUCTION_URL", "")
-var sessionKeyPrefix = environment.GetString("SESSION_KEY_PREFIX", "")
+var sessionKeyPrefix = environment.GetString("SESSION_KEY_PREFIX", "session-cached")
 
 const versionPath = "/version"
 
@@ -44,7 +45,7 @@ func GetSessionCacheKey(publicKey, chain, commitHash string) string {
 // ShouldDispatch checks N random cache clients and checks whether the session
 // is available and up to date with the current block, fails if any of the
 // clients fails the check and returns the session if found by any cache
-func ShouldDispatch(ctx context.Context, caches []*cache.Redis, blockHeight int, key string, maxClients int) (bool, *pocket.Session) {
+func ShouldDispatch(ctx context.Context, caches []*cache.Redis, blockHeight int, key string, maxClients int) (bool, *provider.Session) {
 	clientsToCheck := utils.Min(len(caches), maxClients)
 	clients := utils.Shuffle(caches)[0:clientsToCheck]
 	var globalCachedSession *pocket.Session
@@ -75,5 +76,5 @@ func ShouldDispatch(ctx context.Context, caches []*cache.Redis, blockHeight int,
 	}
 	wg.Wait()
 
-	return cachedClients != uint32(clientsToCheck), globalCachedSession
+	return cachedClients != uint32(clientsToCheck), globalCachedSession.ToProviderSession()
 }

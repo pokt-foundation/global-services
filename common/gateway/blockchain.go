@@ -1,9 +1,11 @@
 package gateway
 
-import "context"
+import (
+	"context"
+)
 
 type Blockchain struct {
-	ID               string `json:"_id"`
+	ID               string `bson:"_id"`
 	Ticker           string `json:"ticker"`
 	ChainID          string `json:"chainID"`
 	Network          string `json:"network"`
@@ -16,6 +18,7 @@ type Blockchain struct {
 	SyncCheck        string `json:"syncCheck"`
 	SyncAllowance    int    `json:"syncAllowance"`
 	LogLimitBlocks   int    `json:"logLimitBlocks"`
+	Path             string `json:"path"`
 	SyncCheckOptions struct {
 		Body      string `json:"body"`
 		ResultKey string `json:"resultKey"`

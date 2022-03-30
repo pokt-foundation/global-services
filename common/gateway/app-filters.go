@@ -7,28 +7,28 @@ import (
 	"github.com/pokt-foundation/pocket-go/pkg/provider"
 )
 
-func GetStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store ApplicationStore, pocket *provider.JSONRPCProvider) ([]provider.GetAppResponse, error) {
+func GetStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store ApplicationStore, pocket *provider.JSONRPCProvider) ([]provider.GetAppResponse, []Application, error) {
 	var databaseApps []*Application
 	var err error
 
 	if gigastaked == true {
 		databaseApps, err = store.GetGigastakedApplications(ctx)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		// Settlers provides traffic to new chains, need to be dispatched along with
 		// gigastakes
 		settlers, err := store.GetSettlersApplications(ctx)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		databaseApps = append(databaseApps, settlers...)
 	} else {
 		databaseApps, err = store.GetStakedApplications(ctx)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -37,14 +37,18 @@ func GetStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store Appli
 		Page:    1,
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return FilterStakedAppsNotOnDB(databaseApps, networkApps.Result), nil
+	networkAppsInDB, stakedAppsDB := FilterStakedAppsNotOnDB(databaseApps, networkApps.Result)
+
+	return networkAppsInDB, stakedAppsDB, nil
 }
 
-func FilterStakedAppsNotOnDB(dbApps []*Application, ntApps []provider.GetAppResponse) []provider.GetAppResponse {
-	var stakedAppsOnDB []provider.GetAppResponse
+func FilterStakedAppsNotOnDB(dbApps []*Application, ntApps []provider.GetAppResponse) ([]provider.GetAppResponse, []Application) {
+	var stakedApps []provider.GetAppResponse
+	var stakedAppsDB []Application
+
 	publicKeyToApps := utils.SliceToMappedStruct(dbApps, func(app *Application) string {
 		return app.GatewayAAT.ApplicationPublicKey
 	})
@@ -52,8 +56,9 @@ func FilterStakedAppsNotOnDB(dbApps []*Application, ntApps []provider.GetAppResp
 	for _, ntApp := range ntApps {
 
 		if _, ok := publicKeyToApps[ntApp.PublicKey]; ok {
-			stakedAppsOnDB = append(stakedAppsOnDB, ntApp)
+			stakedApps = append(stakedApps, ntApp)
+			stakedAppsDB = append(stakedAppsDB, *publicKeyToApps[ntApp.PublicKey])
 		}
 	}
-	return stakedAppsOnDB
+	return stakedApps, stakedAppsDB
 }
