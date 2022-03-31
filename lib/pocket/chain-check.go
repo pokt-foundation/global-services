@@ -1,7 +1,6 @@
 package pocket
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -35,9 +34,9 @@ type NodeChainLog struct {
 	Chain string
 }
 
-func (ch *ChainChecker) Check(options *ChainCheckOptions) []string {
+func (cc *ChainChecker) Check(options *ChainCheckOptions) []string {
 	checkedNodes := []string{}
-	nodeLogs := ch.GetNodeChainLogs(options)
+	nodeLogs := cc.GetNodeChainLogs(options)
 	for _, node := range nodeLogs {
 		publicKey := node.Node.PublicKey
 		chainID := node.Chain
@@ -49,8 +48,8 @@ func (ch *ChainChecker) Check(options *ChainCheckOptions) []string {
 				"requestID":     options.RequestID,
 				"serviceURL":    node.Node.Address,
 				"serviceDomain": utils.GetDomainFromURL(node.Node.Address),
-			}).Info(fmt.Sprintf("CHAIN CHECK SUCCESS: %s chainiD: %s", publicKey, chainID))
-
+				"serviceNode":   node.Node.PublicKey,
+			}).Warn(fmt.Sprintf("CHAIN CHECK FAILURE: %s chainiD: %s", publicKey, chainID))
 			continue
 		}
 
@@ -60,7 +59,8 @@ func (ch *ChainChecker) Check(options *ChainCheckOptions) []string {
 			"requestID":     options.RequestID,
 			"serviceURL":    node.Node.Address,
 			"serviceDomain": utils.GetDomainFromURL(node.Node.Address),
-		}).Info(fmt.Sprintf("CHAIN CHECK FAILURE: %s chainiD: %s", publicKey, chainID))
+			"serviceNode":   node.Node.PublicKey,
+		}).Info(fmt.Sprintf("CHAIN CHECK SUCCESS: %s chainiD: %s", publicKey, chainID))
 
 		checkedNodes = append(checkedNodes, publicKey)
 	}
@@ -76,7 +76,7 @@ func (ch *ChainChecker) Check(options *ChainCheckOptions) []string {
 	return checkedNodes
 }
 
-func (ch *ChainChecker) GetNodeChainLogs(options *ChainCheckOptions) []*NodeChainLog {
+func (cc *ChainChecker) GetNodeChainLogs(options *ChainCheckOptions) []*NodeChainLog {
 	nodeLogsChan := make(chan *NodeChainLog, len(options.Session.Nodes))
 	nodeLogs := []*NodeChainLog{}
 
@@ -85,7 +85,7 @@ func (ch *ChainChecker) GetNodeChainLogs(options *ChainCheckOptions) []*NodeChai
 		wg.Add(1)
 		go func(n *provider.Node) {
 			defer wg.Done()
-			ch.GetNodeChainLog(n, nodeLogsChan, options)
+			cc.GetNodeChainLog(n, nodeLogsChan, options)
 		}(node)
 	}
 	wg.Wait()
@@ -99,16 +99,16 @@ func (ch *ChainChecker) GetNodeChainLogs(options *ChainCheckOptions) []*NodeChai
 	return nodeLogs
 }
 
-func (ch *ChainChecker) GetNodeChainLog(node *provider.Node, nodeLogs chan<- *NodeChainLog, options *ChainCheckOptions) {
-	relay, err := ch.Relayer.Relay(&relayer.RelayInput{
+func (cc *ChainChecker) GetNodeChainLog(node *provider.Node, nodeLogs chan<- *NodeChainLog, options *ChainCheckOptions) {
+	chain, err := utils.GeIntFromRelay(*cc.Relayer, &relayer.RelayInput{
 		Blockchain: options.Blockchain,
 		Data:       strings.Replace(options.Data, `\`, "", -1),
 		Method:     http.MethodPost,
 		PocketAAT:  options.PocketAAT,
 		Session:    options.Session,
 		Node:       node,
-	}, &provider.RelayRequestOptions{})
-
+		Path:       options.Path,
+	}, "result")
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":    options.Session.Key,
@@ -116,8 +116,9 @@ func (ch *ChainChecker) GetNodeChainLog(node *provider.Node, nodeLogs chan<- *No
 			"requestID":     options.RequestID,
 			"serviceURL":    node.Address,
 			"serviceDomain": utils.GetDomainFromURL(node.Address),
+			"serviceNode":   node.PublicKey,
 			"error":         err.Error(),
-		}).Error("error relaying: " + err.Error())
+		}).Error("chain check: error relaying:", err)
 
 		// TODO: Send metric to error db
 		nodeLogs <- &NodeChainLog{
@@ -127,47 +128,8 @@ func (ch *ChainChecker) GetNodeChainLog(node *provider.Node, nodeLogs chan<- *No
 		return
 	}
 
-	var chainIDHex struct {
-		Result string `json:"result"`
-	}
-	err = json.Unmarshal([]byte(relay.Response.Response), &chainIDHex)
-	if err != nil {
-		logger.Log.WithFields(log.Fields{
-			"sessionKey":    options.Session.Key,
-			"blockhainID":   options.Blockchain,
-			"requestID":     options.RequestID,
-			"serviceURL":    node.Address,
-			"serviceDomain": utils.GetDomainFromURL(node.Address),
-			"error":         err.Error(),
-		}).Error("error unmarshalling relay response: " + err.Error())
-
-		nodeLogs <- &NodeChainLog{
-			Node:  node,
-			Chain: "0",
-		}
-		return
-	}
-
-	chainIDDecimal, err := strconv.ParseInt(chainIDHex.Result, 0, 64)
-	if err != nil {
-		logger.Log.WithFields(log.Fields{
-			"sessionKey":    options.Session.Key,
-			"blockhainID":   options.Blockchain,
-			"requestID":     options.RequestID,
-			"serviceURL":    node.Address,
-			"serviceDomain": utils.GetDomainFromURL(node.Address),
-			"error":         err.Error(),
-		}).Error("error converting chainID from hex to decimal:" + err.Error())
-
-		nodeLogs <- &NodeChainLog{
-			Node:  node,
-			Chain: "0",
-		}
-		return
-	}
-
 	nodeLogs <- &NodeChainLog{
 		Node:  node,
-		Chain: strconv.Itoa(int(chainIDDecimal)),
+		Chain: strconv.Itoa(int(chain)),
 	}
 }
