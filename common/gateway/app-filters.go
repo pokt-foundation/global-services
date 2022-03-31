@@ -8,7 +8,7 @@ import (
 	"github.com/pokt-foundation/pocket-go/pkg/provider"
 )
 
-func GetStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store models.ApplicationStore, pocket *provider.JSONRPCProvider) ([]provider.GetAppResponse, []models.Application, error) {
+func GetStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store models.ApplicationStore, pocket *provider.JSONRPCProvider) ([]provider.GetAppOutput, []models.Application, error) {
 	var databaseApps []*models.Application
 	var err error
 
@@ -46,8 +46,8 @@ func GetStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store model
 	return networkAppsInDB, stakedAppsDB, nil
 }
 
-func FilterStakedAppsNotOnDB(dbApps []*models.Application, ntApps []provider.GetAppResponse) ([]provider.GetAppResponse, []models.Application) {
-	var stakedApps []provider.GetAppResponse
+func FilterStakedAppsNotOnDB(dbApps []*models.Application, ntApps []provider.GetAppOutput) ([]provider.GetAppOutput, []models.Application) {
+	var stakedApps []provider.GetAppOutput
 	var stakedAppsDB []models.Application
 
 	publicKeyToApps := utils.SliceToMappedStruct(dbApps, func(app *models.Application) string {

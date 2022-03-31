@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-lambda-go v1.29.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/gojektech/heimdall v5.0.2+incompatible
-	github.com/pokt-foundation/pocket-go v0.6.0
+	github.com/pokt-foundation/pocket-go v0.6.1
 	github.com/sirupsen/logrus v1.8.1
 	go.mongodb.org/mongo-driver v1.8.4
 	golang.org/x/exp v0.0.0-20220328175248-053ad81199eb
