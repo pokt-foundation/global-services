@@ -28,8 +28,8 @@ type SyncChecker struct {
 }
 
 type SyncCheckOptions struct {
-	Session          *provider.Session
-	PocketAAT        *provider.PocketAAT
+	Session          provider.Session
+	PocketAAT        provider.PocketAAT
 	SyncCheckOptions models.SyncCheckOptions
 	Path             string
 	AltruistURL      string
@@ -42,19 +42,19 @@ type NodeSyncLog struct {
 	BlockHeight int64
 }
 
-func (sc *SyncChecker) Check(options *SyncCheckOptions) []string {
+func (sc *SyncChecker) Check(options SyncCheckOptions) []string {
 	if options.SyncCheckOptions.Allowance == 0 {
 		options.SyncCheckOptions.Allowance = sc.DefaultSyncAllowance
 	}
 	allowance := int64(options.SyncCheckOptions.Allowance)
 
 	checkedNodes := []string{}
-	nodeLogs := sc.GetNodeSyncLogs(options)
+	nodeLogs := sc.GetNodeSyncLogs(&options)
 	sort.Slice(nodeLogs, func(i, j int) bool {
 		return nodeLogs[i].BlockHeight > nodeLogs[j].BlockHeight
 	})
 
-	altruistBlockHeight, highestBlockHeight, isAltruistTrustworthy := sc.GetAltruistDataAndHighestBlockHeight(nodeLogs, options)
+	altruistBlockHeight, highestBlockHeight, isAltruistTrustworthy := sc.GetAltruistDataAndHighestBlockHeight(nodeLogs, &options)
 
 	maxAllowedBlocHeight := int64(0)
 	if isAltruistTrustworthy {
@@ -72,13 +72,17 @@ func (sc *SyncChecker) Check(options *SyncCheckOptions) []string {
 			allowanceBlockHeight >= highestBlockHeight &&
 			allowanceBlockHeight >= altruistBlockHeight
 
+		if blockHeight <= 0 {
+			continue
+		}
+
 		if !isValidNode {
 			logger.Log.WithFields(log.Fields{
 				"sessionKey":    options.Session.Key,
 				"blockhainID":   options.Blockchain,
 				"requestID":     options.RequestID,
-				"serviceURL":    node.Node.Address,
-				"serviceDomain": utils.GetDomainFromURL(node.Node.Address),
+				"serviceURL":    node.Node.ServiceURL,
+				"serviceDomain": utils.GetDomainFromURL(node.Node.ServiceURL),
 				"serviceNode":   node.Node.PublicKey,
 			}).Warn(fmt.Sprintf("SYNC CHECK BEHIND: %s height: %d", publicKey, blockHeight))
 
@@ -91,9 +95,10 @@ func (sc *SyncChecker) Check(options *SyncCheckOptions) []string {
 			"sessionKey":    options.Session.Key,
 			"blockhainID":   options.Blockchain,
 			"requestID":     options.RequestID,
-			"serviceURL":    node.Node.Address,
-			"serviceDomain": utils.GetDomainFromURL(node.Node.Address),
+			"serviceURL":    node.Node.ServiceURL,
+			"serviceDomain": utils.GetDomainFromURL(node.Node.ServiceURL),
 			"serviceNode":   node.Node.PublicKey,
+			"allowance":     options.SyncCheckOptions.Allowance,
 		}).Info(fmt.Sprintf("SYNC CHECK IN-SYNC: %s height: %d", publicKey, blockHeight))
 
 		checkedNodes = append(checkedNodes, publicKey)
@@ -134,12 +139,12 @@ func (sc *SyncChecker) GetNodeSyncLogs(options *SyncCheckOptions) []*NodeSyncLog
 }
 
 func (sc *SyncChecker) GetNodeSyncLog(node *provider.Node, nodeLogs chan<- *NodeSyncLog, options *SyncCheckOptions) {
-	blockHeight, err := utils.GeIntFromRelay(*sc.Relayer, &relayer.RelayInput{
+	blockHeight, err := utils.GeIntFromRelay(*sc.Relayer, relayer.RelayInput{
 		Blockchain: options.Blockchain,
 		Data:       strings.Replace(options.SyncCheckOptions.Body, `\`, "", -1),
 		Method:     http.MethodPost,
-		PocketAAT:  options.PocketAAT,
-		Session:    options.Session,
+		PocketAAT:  &options.PocketAAT,
+		Session:    &options.Session,
 		Node:       node,
 		Path:       options.Path,
 	}, options.SyncCheckOptions.ResultKey)
@@ -149,8 +154,8 @@ func (sc *SyncChecker) GetNodeSyncLog(node *provider.Node, nodeLogs chan<- *Node
 			"sessionKey":    options.Session.Key,
 			"blockhainID":   options.Blockchain,
 			"requestID":     options.RequestID,
-			"serviceURL":    node.Address,
-			"serviceDomain": utils.GetDomainFromURL(node.Address),
+			"serviceURL":    node.ServiceURL,
+			"serviceDomain": utils.GetDomainFromURL(node.ServiceURL),
 			"error":         err.Error(),
 		}).Error("sync check: error relaying: " + err.Error())
 
@@ -173,7 +178,13 @@ func (sc *SyncChecker) GetAltruistDataAndHighestBlockHeight(nodeLogs []*NodeSync
 
 	altruistBlockHeight, nodesAheadOfAltruist := sc.getValidatedAltruist(nodeLogs, options)
 
-	isAltruistTrustworthy = float32(nodesAheadOfAltruist/validNodes) < sc.AltruistTrustThreshold
+	// Prevents division by 0 in case all nodes fail
+	divisionValidNodes := validNodes
+	if divisionValidNodes <= 0 {
+		divisionValidNodes = 1
+	}
+
+	isAltruistTrustworthy = float32(nodesAheadOfAltruist/divisionValidNodes) < sc.AltruistTrustThreshold
 
 	if !isAltruistTrustworthy {
 		logger.Log.WithFields(log.Fields{
@@ -245,7 +256,7 @@ func (sc *SyncChecker) getValidatedAltruist(nodeLogs []*NodeSyncLog, options *Sy
 		"requestID":   options.RequestID,
 		"relayType":   "FALLBACK",
 		"blockHeight": altruistBlockHeight,
-	}).Info("sync check: altruist check:", altruistBlockHeight)
+	}).Info("sync check: altruist check: ", altruistBlockHeight)
 
 	nodesAheadOfAltruist := func() int {
 		nodesAheadOfAltruistCount := 0
