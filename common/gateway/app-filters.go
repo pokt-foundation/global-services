@@ -3,12 +3,13 @@ package gateway
 import (
 	"context"
 
+	"github.com/Pocket/global-dispatcher/common/gateway/models"
 	"github.com/Pocket/global-dispatcher/lib/utils"
 	"github.com/pokt-foundation/pocket-go/pkg/provider"
 )
 
-func GetStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store ApplicationStore, pocket *provider.JSONRPCProvider) ([]provider.GetAppResponse, []Application, error) {
-	var databaseApps []*Application
+func GetStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store models.ApplicationStore, pocket *provider.JSONRPCProvider) ([]provider.GetAppResponse, []models.Application, error) {
+	var databaseApps []*models.Application
 	var err error
 
 	if gigastaked == true {
@@ -45,11 +46,11 @@ func GetStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store Appli
 	return networkAppsInDB, stakedAppsDB, nil
 }
 
-func FilterStakedAppsNotOnDB(dbApps []*Application, ntApps []provider.GetAppResponse) ([]provider.GetAppResponse, []Application) {
+func FilterStakedAppsNotOnDB(dbApps []*models.Application, ntApps []provider.GetAppResponse) ([]provider.GetAppResponse, []models.Application) {
 	var stakedApps []provider.GetAppResponse
-	var stakedAppsDB []Application
+	var stakedAppsDB []models.Application
 
-	publicKeyToApps := utils.SliceToMappedStruct(dbApps, func(app *Application) string {
+	publicKeyToApps := utils.SliceToMappedStruct(dbApps, func(app *models.Application) string {
 		return app.GatewayAAT.ApplicationPublicKey
 	})
 

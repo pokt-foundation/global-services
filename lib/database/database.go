@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Pocket/global-dispatcher/common/gateway"
+	"github.com/Pocket/global-dispatcher/common/gateway/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -31,8 +31,8 @@ func ClientFromURI(ctx context.Context, uri string, database string) (*Mongo, er
 }
 
 // GetStakedApplications returns the applications that are staked on the db
-func (m *Mongo) GetStakedApplications(ctx context.Context) ([]*gateway.Application, error) {
-	return filterCollection[gateway.Application](ctx, *m.client, m.Database, "Applications", bson.D{
+func (m *Mongo) GetStakedApplications(ctx context.Context) ([]*models.Application, error) {
+	return filterCollection[models.Application](ctx, *m.client, m.Database, "Applications", bson.D{
 		{
 			Key:   "dummy",
 			Value: bson.M{"$exists": false},
@@ -41,8 +41,8 @@ func (m *Mongo) GetStakedApplications(ctx context.Context) ([]*gateway.Applicati
 }
 
 // GetSettlersApplications returns only the applications marked as 'Settlers'
-func (m *Mongo) GetSettlersApplications(ctx context.Context) ([]*gateway.Application, error) {
-	return filterCollection[gateway.Application](ctx, *m.client, m.Database, "Applications", bson.D{
+func (m *Mongo) GetSettlersApplications(ctx context.Context) ([]*models.Application, error) {
+	return filterCollection[models.Application](ctx, *m.client, m.Database, "Applications", bson.D{
 		{
 			Key: "name",
 			Value: bson.M{"$regex": primitive.Regex{
@@ -55,8 +55,8 @@ func (m *Mongo) GetSettlersApplications(ctx context.Context) ([]*gateway.Applica
 
 // GetGigastakedApplications returns the applications that belong to a
 // gigastake load balancer
-func (m *Mongo) GetGigastakedApplications(ctx context.Context) ([]*gateway.Application, error) {
-	loadBalancers, err := filterCollection[gateway.LoadBalancer](ctx, *m.client, m.Database, "LoadBalancers", bson.D{
+func (m *Mongo) GetGigastakedApplications(ctx context.Context) ([]*models.Application, error) {
+	loadBalancers, err := filterCollection[models.LoadBalancer](ctx, *m.client, m.Database, "LoadBalancers", bson.D{
 		{
 			Key:   "gigastake",
 			Value: true,
@@ -77,7 +77,7 @@ func (m *Mongo) GetGigastakedApplications(ctx context.Context) ([]*gateway.Appli
 		}
 	}
 
-	return filterCollection[gateway.Application](ctx, *m.client, m.Database, "Applications", bson.D{
+	return filterCollection[models.Application](ctx, *m.client, m.Database, "Applications", bson.D{
 		{
 			Key:   "_id",
 			Value: bson.M{"$in": applicationIDs},
@@ -86,8 +86,8 @@ func (m *Mongo) GetGigastakedApplications(ctx context.Context) ([]*gateway.Appli
 }
 
 // GetBlockchains returns the blockchains on the db
-func (m *Mongo) GetBlockchains(ctx context.Context) ([]*gateway.Blockchain, error) {
-	return filterCollection[gateway.Blockchain](ctx, *m.client, m.Database, "Blockchains", bson.D{})
+func (m *Mongo) GetBlockchains(ctx context.Context) ([]*models.Blockchain, error) {
+	return filterCollection[models.Blockchain](ctx, *m.client, m.Database, "Blockchains", bson.D{})
 }
 
 // filterCollection returns a collection marshalled to a struct given the filter
