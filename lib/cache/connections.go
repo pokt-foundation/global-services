@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/Pocket/global-dispatcher/lib/logger"
 	"github.com/go-redis/redis/v8"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -23,8 +25,10 @@ func ConnectoCacheClients(connectionStrings []string, commitHash string, isClust
 			defer wg.Done()
 			err := connectToInstance(clients, addr, commitHash, isCluster)
 			if err != nil {
-				// TODO: Add warn log
-				fmt.Printf("failure connecting to redis instance %s: %s\n", addr, err.Error())
+				logger.Log.WithFields(logrus.Fields{
+					"address": addr,
+					"error":   err.Error(),
+				}).Warn(fmt.Sprintf("failure connecting to redis instance %s: %s\n", addr, err.Error()))
 			}
 		}(address)
 	}

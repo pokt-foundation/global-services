@@ -130,7 +130,8 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 						"appPublicKey": publicKey,
 						"chain":        ch,
 						"error":        err.Error(),
-					}).Error("ERROR DISPATCHING: " + err.Error())
+						"requestID":    requestID,
+					}).Error("error dispatching: " + err.Error())
 					return
 				}
 
@@ -146,7 +147,8 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 						"appPublicKey": publicKey,
 						"chain":        ch,
 						"error":        err.Error(),
-					}).Error("ERROR WRITING TO CACHE: " + err.Error())
+						"requestID":    requestID,
+					}).Error("error writing to cache: " + err.Error())
 				}
 			}(app.PublicKey, chain)
 		}

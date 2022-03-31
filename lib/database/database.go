@@ -2,9 +2,10 @@ package database
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/Pocket/global-dispatcher/common/gateway/models"
+	"github.com/Pocket/global-dispatcher/lib/logger"
+	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -71,7 +72,10 @@ func (m *Mongo) GetGigastakedApplications(ctx context.Context) ([]*models.Applic
 		for _, appID := range lb.ApplicationIDs {
 			objectID, err := primitive.ObjectIDFromHex(appID)
 			if err != nil {
-				fmt.Println("error converting from string to Object id: " + err.Error())
+				logger.Log.WithFields(logrus.Fields{
+					"typeID": appID,
+					"error":  err.Error(),
+				}).Warn("error converting from string to Object id: " + err.Error())
 			}
 			applicationIDs = append(applicationIDs, &objectID)
 		}
