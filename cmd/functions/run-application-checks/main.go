@@ -194,12 +194,7 @@ func RunApplicationChecks(ctx context.Context, requestID string) error {
 
 	wg.Wait()
 
-	err = cache.CloseConnections(caches)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return cache.CloseConnections(caches)
 }
 
 func (ac *ApplicationChecks) GetSession(ctx context.Context, publicKey, chain string) (*provider.Session, error) {
