@@ -91,7 +91,7 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 		return 0, errors.New("error connecting to redis: " + err.Error())
 	}
 
-	rpcPovider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs, client.NewDefaultClient())
+	rpcProvider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs, client.NewDefaultClient())
 
 	blockHeight, err := rpcPovider.GetBlockHeight()
 	if err != nil {
