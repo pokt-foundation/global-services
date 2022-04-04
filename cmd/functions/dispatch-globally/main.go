@@ -91,14 +91,14 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 		return 0, errors.New("error connecting to redis: " + err.Error())
 	}
 
-	rpcPovider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs, client.NewDefaultClient())
+	rpcProvider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs, client.NewDefaultClient())
 
-	blockHeight, err := rpcPovider.GetBlockHeight()
+	blockHeight, err := rpcProvider.GetBlockHeight()
 	if err != nil {
 		return 0, errors.New("error obtaining block height: " + err.Error())
 	}
 
-	apps, _, err := gateway.GetStakedApplicationsOnDB(ctx, dispatchGigastake, db, rpcPovider)
+	apps, _, err := gateway.GetStakedApplicationsOnDB(ctx, dispatchGigastake, db, rpcProvider)
 	if err != nil {
 		return 0, errors.New("error obtaining staked apps on db: " + err.Error())
 	}
@@ -123,7 +123,7 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 					return
 				}
 
-				dispatch, err := rpcPovider.Dispatch(publicKey, ch, nil)
+				dispatch, err := rpcProvider.Dispatch(publicKey, ch, nil)
 				if err != nil {
 					atomic.AddUint32(&failedDispatcherCalls, 1)
 					logger.Log.WithFields(log.Fields{

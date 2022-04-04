@@ -92,21 +92,21 @@ func RunApplicationChecks(ctx context.Context, requestID string) error {
 		return errors.New("error connecting to redis: " + err.Error())
 	}
 
-	rpcPovider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs, client.NewDefaultClient())
+	rpcProvider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs, client.NewDefaultClient())
 
 	wallet, err := signer.NewWalletFromPrivatekey(appPrivateKey)
 	if err != nil {
 		return errors.New("error creating wallet: " + err.Error())
 	}
 
-	pocketRelayer := relayer.NewPocketRelayer(wallet, rpcPovider)
+	pocketRelayer := relayer.NewPocketRelayer(wallet, rpcProvider)
 
-	blockHeight, err := rpcPovider.GetBlockHeight()
+	blockHeight, err := rpcProvider.GetBlockHeight()
 	if err != nil {
 		return err
 	}
 
-	ntApps, dbApps, err := gateway.GetStakedApplicationsOnDB(ctx, dispatchGigastake, db, rpcPovider)
+	ntApps, dbApps, err := gateway.GetStakedApplicationsOnDB(ctx, dispatchGigastake, db, rpcProvider)
 	if err != nil {
 		return errors.New("error obtaining staked apps on db: " + err.Error())
 	}
@@ -122,7 +122,7 @@ func RunApplicationChecks(ctx context.Context, requestID string) error {
 
 	appChecks := ApplicationChecks{
 		Caches:      caches,
-		Provider:    rpcPovider,
+		Provider:    rpcProvider,
 		Relayer:     pocketRelayer,
 		BlockHeight: blockHeight,
 		RequestID:   requestID,
