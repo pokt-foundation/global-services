@@ -56,11 +56,11 @@ func (sc *SyncChecker) Check(options SyncCheckOptions) []string {
 
 	altruistBlockHeight, highestBlockHeight, isAltruistTrustworthy := sc.GetAltruistDataAndHighestBlockHeight(nodeLogs, &options)
 
-	maxAllowedBlocHeight := int64(0)
+	maxAllowedBlockHeight := int64(0)
 	if isAltruistTrustworthy {
-		maxAllowedBlocHeight = altruistBlockHeight + allowance
+		maxAllowedBlockHeight = altruistBlockHeight + allowance
 	} else {
-		maxAllowedBlocHeight = highestBlockHeight + allowance
+		maxAllowedBlockHeight = highestBlockHeight + allowance
 	}
 
 	for _, node := range nodeLogs {
@@ -68,7 +68,7 @@ func (sc *SyncChecker) Check(options SyncCheckOptions) []string {
 		blockHeight := node.BlockHeight
 		allowanceBlockHeight := blockHeight + allowance
 
-		isValidNode := blockHeight <= maxAllowedBlocHeight &&
+		isValidNode := blockHeight <= maxAllowedBlockHeight &&
 			allowanceBlockHeight >= highestBlockHeight &&
 			allowanceBlockHeight >= altruistBlockHeight
 
