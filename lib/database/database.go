@@ -2,9 +2,10 @@ package database
 
 import (
 	"context"
-	"fmt"
 
-	common "github.com/Pocket/global-dispatcher/common/application"
+	"github.com/Pocket/global-dispatcher/common/gateway/models"
+	"github.com/Pocket/global-dispatcher/lib/logger"
+	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -30,9 +31,9 @@ func ClientFromURI(ctx context.Context, uri string, database string) (*Mongo, er
 	}, nil
 }
 
-// GetStakedApplications returns all the collections that are staked on the db
-func (m *Mongo) GetStakedApplications(ctx context.Context) ([]*common.Application, error) {
-	return filterCollection[common.Application](ctx, *m.client, m.Database, "Applications", bson.D{
+// GetStakedApplications returns the applications that are staked on the db
+func (m *Mongo) GetStakedApplications(ctx context.Context) ([]*models.Application, error) {
+	return filterCollection[models.Application](ctx, *m.client, m.Database, "Applications", bson.D{
 		{
 			Key:   "dummy",
 			Value: bson.M{"$exists": false},
@@ -41,8 +42,8 @@ func (m *Mongo) GetStakedApplications(ctx context.Context) ([]*common.Applicatio
 }
 
 // GetSettlersApplications returns only the applications marked as 'Settlers'
-func (m *Mongo) GetSettlersApplications(ctx context.Context) ([]*common.Application, error) {
-	return filterCollection[common.Application](ctx, *m.client, m.Database, "Applications", bson.D{
+func (m *Mongo) GetSettlersApplications(ctx context.Context) ([]*models.Application, error) {
+	return filterCollection[models.Application](ctx, *m.client, m.Database, "Applications", bson.D{
 		{
 			Key: "name",
 			Value: bson.M{"$regex": primitive.Regex{
@@ -53,10 +54,10 @@ func (m *Mongo) GetSettlersApplications(ctx context.Context) ([]*common.Applicat
 	})
 }
 
-// GetGigastakedApplications returns all the applications that belong to a
+// GetGigastakedApplications returns the applications that belong to a
 // gigastake load balancer
-func (m *Mongo) GetGigastakedApplications(ctx context.Context) ([]*common.Application, error) {
-	loadBalancers, err := filterCollection[common.LoadBalancer](ctx, *m.client, m.Database, "LoadBalancers", bson.D{
+func (m *Mongo) GetGigastakedApplications(ctx context.Context) ([]*models.Application, error) {
+	loadBalancers, err := filterCollection[models.LoadBalancer](ctx, *m.client, m.Database, "LoadBalancers", bson.D{
 		{
 			Key:   "gigastake",
 			Value: true,
@@ -71,18 +72,26 @@ func (m *Mongo) GetGigastakedApplications(ctx context.Context) ([]*common.Applic
 		for _, appID := range lb.ApplicationIDs {
 			objectID, err := primitive.ObjectIDFromHex(appID)
 			if err != nil {
-				fmt.Println("error converting from string to Object id: " + err.Error())
+				logger.Log.WithFields(logrus.Fields{
+					"typeID": appID,
+					"error":  err.Error(),
+				}).Warn("error converting from string to Object id: " + err.Error())
 			}
 			applicationIDs = append(applicationIDs, &objectID)
 		}
 	}
 
-	return filterCollection[common.Application](ctx, *m.client, m.Database, "Applications", bson.D{
+	return filterCollection[models.Application](ctx, *m.client, m.Database, "Applications", bson.D{
 		{
 			Key:   "_id",
 			Value: bson.M{"$in": applicationIDs},
 		},
 	})
+}
+
+// GetBlockchains returns the blockchains on the db
+func (m *Mongo) GetBlockchains(ctx context.Context) ([]*models.Blockchain, error) {
+	return filterCollection[models.Blockchain](ctx, *m.client, m.Database, "Blockchains", bson.D{})
 }
 
 // filterCollection returns a collection marshalled to a struct given the filter

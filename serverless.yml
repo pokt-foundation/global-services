@@ -1,10 +1,11 @@
-service: global-dispatcher
+service: global-services
 frameworkVersion: '3'
 
 provider:
   name: aws
   runtime: go1.x
   region: us-west-2
+  vpc: ${file(.env.global.yml):vpc}
 
 package:
   patterns:
@@ -14,8 +15,7 @@ package:
 functions:
   dispatch-globally:
     handler: bin/dispatch-globally
-    environment: ${file(.env.yml):environment}
-    vpc: ${file(.env.yml):vpc}
+    environment: ${file(.env.dispatch-globally.yml)}
     memorySize: 256
     timeout: 360
     maximumRetryAttempts: 2
@@ -25,9 +25,15 @@ functions:
           rate: rate(1 minute)
           enabled: true
 
+  run-application-checks:
+    handler: bin/run-application-checks
+    environment: ${file(.env.run-application-checks.yml)}
+    memorySize: 256
+    timeout: 360
+    maximumRetryAttempts: 2
+  
   flush-cache:
     handler: bin/flush-cache
-    environment: ${file(.env.yml):environment}
-    vpc: ${file(.env.yml):vpc}
+    environment: ${file(.env.flush-cache.yml)}
     memorySize: 128
     timeout: 20

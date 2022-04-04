@@ -1,4 +1,4 @@
-package application
+package models
 
 type LoadBalancer struct {
 	ID                string   `json:"_id"`

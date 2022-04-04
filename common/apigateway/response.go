@@ -2,9 +2,10 @@ package apigateway
 
 import (
 	"encoding/json"
-	"fmt"
 
+	"github.com/Pocket/global-dispatcher/lib/logger"
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/sirupsen/logrus"
 )
 
 // ErrorResponse represents an API error
@@ -38,7 +39,9 @@ func NewJSONResponse(statusCode int, val interface{}) *events.APIGatewayProxyRes
 // LogAndReturnError logs the given error to the console and terminates
 // the response with a status 500 showing the error
 func LogAndReturnError(err error) *events.APIGatewayProxyResponse {
-	fmt.Println(err.Error())
+	logger.Log.WithFields(logrus.Fields{
+		"error": err.Error(),
+	}).Error(err)
 
 	return NewErrorResponse(500, err)
 }

@@ -6,13 +6,15 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/Pocket/global-dispatcher/lib/logger"
 	"github.com/go-redis/redis/v8"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
 
 // ConnectoCacheClients instantiates n number of cache connections and returns error
 // if any of those connection attempts fails
-func ConnectoCacheClients(connectionStrings []string, commitHash string) ([]*Redis, error) {
+func ConnectoCacheClients(connectionStrings []string, commitHash string, isCluster bool) ([]*Redis, error) {
 	clients := make(chan *Redis, len(connectionStrings))
 
 	var wg sync.WaitGroup
@@ -21,10 +23,12 @@ func ConnectoCacheClients(connectionStrings []string, commitHash string) ([]*Red
 		wg.Add(1)
 		go func(addr string) {
 			defer wg.Done()
-			err := connectToInstance(clients, addr, commitHash)
+			err := connectToInstance(clients, addr, commitHash, isCluster)
 			if err != nil {
-				// TODO: Add warn log
-				fmt.Printf("failure connecting to redis instance %s: %s\n", addr, err.Error())
+				logger.Log.WithFields(logrus.Fields{
+					"address": addr,
+					"error":   err.Error(),
+				}).Warn(fmt.Sprintf("failure connecting to redis instance %s: %s\n", addr, err.Error()))
 			}
 		}(address)
 	}
@@ -59,17 +63,34 @@ func CloseConnections(cacheClients []*Redis) error {
 	})
 }
 
-func connectToInstance(clients chan *Redis, address string, commitHash string) error {
-	redisClient, err := NewRedisClusterClient(RedisClientOptions{
-		BaseOptions: &redis.Options{
-			Addr:     address,
-			Password: "",
-			DB:       0,
-		},
-		KeyPrefix: commitHash,
-	})
-	if err != nil {
-		return err
+func connectToInstance(clients chan *Redis, address string, commitHash string, isCluster bool) error {
+	var redisClient *Redis
+	var err error
+
+	if isCluster {
+		redisClient, err = NewRedisClusterClient(RedisClientOptions{
+			BaseOptions: &redis.Options{
+				Addr:     address,
+				Password: "",
+				DB:       0,
+			},
+			KeyPrefix: commitHash,
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+		redisClient, err = NewRedisClient(RedisClientOptions{
+			BaseOptions: &redis.Options{
+				Addr:     address,
+				Password: "",
+				DB:       0,
+			},
+			KeyPrefix: commitHash,
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	clients <- redisClient
@@ -77,9 +98,9 @@ func connectToInstance(clients chan *Redis, address string, commitHash string) e
 	return nil
 }
 
-func RunFunctionOnAllClients(cacheClients []*Redis, fn func(*Redis) error) error {
+func RunFunctionOnAllClients(caches []*Redis, fn func(*Redis) error) error {
 	var g errgroup.Group
-	for _, cacheClient := range cacheClients {
+	for _, cacheClient := range caches {
 		func(ch *Redis) {
 			g.Go(func() error {
 				return fn(ch)

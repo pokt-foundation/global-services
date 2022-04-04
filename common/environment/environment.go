@@ -31,6 +31,21 @@ func GetInt64(varName string, defaultValue int64) int64 {
 	return iVal
 }
 
+// GetFloat64 gets the env var as a float
+func GetFloat64(varName string, defaultValue float64) float64 {
+	val, ok := os.LookupEnv(varName)
+	if !ok {
+		return defaultValue
+	}
+
+	iVal, err := strconv.ParseFloat(val, 64)
+	if err != nil {
+		return defaultValue
+	}
+
+	return iVal
+}
+
 // GetBoolean gets the env var as a boolean
 func GetBool(varName string, defaultValue bool) bool {
 	val, _ := os.LookupEnv(varName)

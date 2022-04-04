@@ -14,19 +14,8 @@ import (
 )
 
 var (
-	ErrMaxDispatchErrorsExceeded = errors.New("exceeded maximun allowance of dispatcher errors")
-	ErrNoCacheClientProvided     = errors.New("no cache clients were provided")
-
-	rpcURL                      = environment.GetString("RPC_URL", "")
-	dispatchURLs                = strings.Split(environment.GetString("DISPATCH_URLS", ""), ",")
-	redisConnectionStrings      = strings.Split(environment.GetString("REDIS_CONNECTION_STRINGS", ""), ",")
-	mongoConnectionString       = environment.GetString("MONGODB_CONNECTION_STRING", "")
-	mongoDatabase               = environment.GetString("MONGODB_DATABASE", "")
-	cacheTTL                    = environment.GetInt64("CACHE_TTL", 3600)
-	dispatchConcurrency         = environment.GetInt64("DISPATCH_CONCURRENCY", 200)
-	maxDispatchersErrorsAllowed = environment.GetInt64("MAX_DISPATCHER_ERRORS_ALLOWED", 2000)
-	dispatchGigastake           = environment.GetBool("DISPATCH_GIGASTAKE", false)
-	maxClientsCacheCheck        = environment.GetInt64("MAX_CLIENTS_CACHE_CHECK", 3)
+	redisConnectionStrings = strings.Split(environment.GetString("REDIS_CONNECTION_STRINGS", ""), ",")
+	isRedisCluster         = environment.GetBool("IS_REDIS_CLUSTER", true)
 
 	headers = map[string]string{
 		"Content-Type": "application/json",
@@ -48,7 +37,7 @@ func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 }
 
 func FlushAll(ctx context.Context) error {
-	cacheClients, err := cache.ConnectoCacheClients(redisConnectionStrings, "")
+	cacheClients, err := cache.ConnectoCacheClients(redisConnectionStrings, "", isRedisCluster)
 
 	if err != nil {
 		return errors.New("error connecting to redis: " + err.Error())
