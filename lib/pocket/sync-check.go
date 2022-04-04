@@ -139,7 +139,7 @@ func (sc *SyncChecker) GetNodeSyncLogs(options *SyncCheckOptions) []*NodeSyncLog
 }
 
 func (sc *SyncChecker) GetNodeSyncLog(node *provider.Node, nodeLogs chan<- *NodeSyncLog, options *SyncCheckOptions) {
-	blockHeight, err := utils.GeIntFromRelay(*sc.Relayer, relayer.RelayInput{
+	blockHeight, err := utils.GetIntFromRelay(*sc.Relayer, relayer.RelayInput{
 		Blockchain: options.Blockchain,
 		Data:       strings.Replace(options.SyncCheckOptions.Body, `\`, "", -1),
 		Method:     http.MethodPost,

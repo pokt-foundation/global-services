@@ -100,7 +100,7 @@ func (cc *ChainChecker) GetNodeChainLogs(options *ChainCheckOptions) []*NodeChai
 }
 
 func (cc *ChainChecker) GetNodeChainLog(node *provider.Node, nodeLogs chan<- *NodeChainLog, options *ChainCheckOptions) {
-	chain, err := utils.GeIntFromRelay(*cc.Relayer, relayer.RelayInput{
+	chain, err := utils.GetIntFromRelay(*cc.Relayer, relayer.RelayInput{
 		Blockchain: options.Blockchain,
 		Data:       strings.Replace(options.Data, `\`, "", -1),
 		Method:     http.MethodPost,

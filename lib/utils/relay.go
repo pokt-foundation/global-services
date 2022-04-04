@@ -9,7 +9,7 @@ import (
 	"github.com/pokt-foundation/pocket-go/pkg/relayer"
 )
 
-func GeIntFromRelay(pocketRelayer relayer.PocketRelayer, input relayer.RelayInput, key string) (int64, error) {
+func GetIntFromRelay(pocketRelayer relayer.PocketRelayer, input relayer.RelayInput, key string) (int64, error) {
 	relay, err := pocketRelayer.Relay(&input, &provider.RelayRequestOptions{})
 	if err != nil {
 		return 0, errors.New("error relaying: " + err.Error())
