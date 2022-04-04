@@ -140,7 +140,7 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 				// Embedding current block height within session so can be checked for cache
 				session.BlockHeight = dispatch.BlockHeight
 
-				err = cache.WriteJSONToCaches(ctx, caches, cacheKey, pocket.NewSessionCamelCase(*&dispatch.Session), uint(cacheTTL))
+				err = cache.WriteJSONToCaches(ctx, caches, cacheKey, session, uint(cacheTTL))
 				if err != nil {
 					atomic.AddUint32(&failedDispatcherCalls, 1)
 					logger.Log.WithFields(log.Fields{
