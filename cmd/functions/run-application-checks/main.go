@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	ErrNoCacheClientProvided = errors.New("no cache clients were provided")
+	errNoCacheClientProvided = errors.New("no cache clients were provided")
 
 	rpcURL                 = environment.GetString("RPC_URL", "")
 	dispatchURLs           = strings.Split(environment.GetString("DISPATCH_URLS", ""), ",")
@@ -52,7 +52,7 @@ var (
 	}
 )
 
-type ApplicationChecks struct {
+type applicationChecks struct {
 	Caches      []*cache.Redis
 	Provider    *provider.JSONRPCProvider
 	Relayer     *relayer.PocketRelayer
@@ -62,12 +62,12 @@ type ApplicationChecks struct {
 	RequestID   string
 }
 
-func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
+func lambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
 	lc, _ := lambdacontext.FromContext(ctx)
 
 	var statusCode int
 
-	err := RunApplicationChecks(ctx, lc.AwsRequestID)
+	err := runApplicationChecks(ctx, lc.AwsRequestID)
 	if err != nil {
 		return *apigateway.NewErrorResponse(http.StatusInternalServerError, err), err
 	}
@@ -77,9 +77,9 @@ func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 	}), err
 }
 
-func RunApplicationChecks(ctx context.Context, requestID string) error {
+func runApplicationChecks(ctx context.Context, requestID string) error {
 	if len(redisConnectionStrings) <= 0 {
-		return ErrNoCacheClientProvided
+		return errNoCacheClientProvided
 	}
 
 	db, err := database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
@@ -120,7 +120,7 @@ func RunApplicationChecks(ctx context.Context, requestID string) error {
 		return bc.ID
 	})
 
-	appChecks := ApplicationChecks{
+	appChecks := applicationChecks{
 		Caches:      caches,
 		Provider:    rpcProvider,
 		Relayer:     pocketRelayer,
@@ -142,7 +142,7 @@ func RunApplicationChecks(ctx context.Context, requestID string) error {
 
 				dbApp := dbApps[idx]
 
-				session, err := appChecks.GetSession(ctx, publicKey, ch)
+				session, err := appChecks.getSession(ctx, publicKey, ch)
 				if err != nil {
 					logger.Log.WithFields(log.Fields{
 						"appPublicKey": publicKey,
@@ -164,7 +164,7 @@ func RunApplicationChecks(ctx context.Context, requestID string) error {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					appChecks.ChainCheck(ctx, pocket.ChainCheckOptions{
+					appChecks.chainCheck(ctx, pocket.ChainCheckOptions{
 						Session:    *session,
 						Blockchain: blockchain.ID,
 						Data:       blockchain.ChainIDCheck,
@@ -178,7 +178,7 @@ func RunApplicationChecks(ctx context.Context, requestID string) error {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					appChecks.SyncCheck(ctx, pocket.SyncCheckOptions{
+					appChecks.syncCheck(ctx, pocket.SyncCheckOptions{
 						Session:          *session,
 						PocketAAT:        pocketAAT,
 						SyncCheckOptions: blockchain.SyncCheckOptions,
@@ -197,7 +197,7 @@ func RunApplicationChecks(ctx context.Context, requestID string) error {
 	return cache.CloseConnections(caches)
 }
 
-func (ac *ApplicationChecks) GetSession(ctx context.Context, publicKey, chain string) (*provider.Session, error) {
+func (ac *applicationChecks) getSession(ctx context.Context, publicKey, chain string) (*provider.Session, error) {
 	_, cachedSession := gateway.ShouldDispatch(ctx, ac.Caches, ac.BlockHeight,
 		gateway.GetSessionCacheKey(publicKey, chain, ac.CommitHash), int(maxClientsCacheCheck))
 
@@ -213,7 +213,7 @@ func (ac *ApplicationChecks) GetSession(ctx context.Context, publicKey, chain st
 	return dispatch.Session, nil
 }
 
-func (ac *ApplicationChecks) ChainCheck(ctx context.Context, options pocket.ChainCheckOptions, blockchain models.Blockchain, caches []*cache.Redis) []string {
+func (ac *applicationChecks) chainCheck(ctx context.Context, options pocket.ChainCheckOptions, blockchain models.Blockchain, caches []*cache.Redis) []string {
 	if blockchain.ChainIDCheck == "" {
 		return []string{}
 	}
@@ -237,7 +237,7 @@ func (ac *ApplicationChecks) ChainCheck(ctx context.Context, options pocket.Chai
 	return nodes
 }
 
-func (ac *ApplicationChecks) SyncCheck(ctx context.Context, options pocket.SyncCheckOptions, blockchain models.Blockchain, caches []*cache.Redis) []string {
+func (ac *applicationChecks) syncCheck(ctx context.Context, options pocket.SyncCheckOptions, blockchain models.Blockchain, caches []*cache.Redis) []string {
 	if blockchain.SyncCheckOptions.Body == "" {
 		return []string{}
 	}
@@ -264,5 +264,5 @@ func (ac *ApplicationChecks) SyncCheck(ctx context.Context, options pocket.SyncC
 }
 
 func main() {
-	lambda.Start(LambdaHandler)
+	lambda.Start(lambdaHandler)
 }
