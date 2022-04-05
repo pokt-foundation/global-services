@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/pokt-foundation/pocket-go/pkg/provider"
 	"github.com/pokt-foundation/pocket-go/pkg/relayer"
 )
 
-func GetIntFromRelay(pocketRelayer relayer.PocketRelayer, input relayer.RelayInput, key string) (int64, error) {
-	relay, err := pocketRelayer.Relay(&input, nil)
+func GetIntFromRelay(pocketRelayer relayer.PocketRelayer, input relayer.RelayInput, requestOptions *provider.RequestOptions, key string) (int64, error) {
+	relay, err := pocketRelayer.Relay(&input, &provider.RelayRequestOptions{
+		RequestOptions: requestOptions,
+	})
 	if err != nil {
 		return 0, errors.New("error relaying: " + err.Error())
 	}
@@ -17,7 +20,7 @@ func GetIntFromRelay(pocketRelayer relayer.PocketRelayer, input relayer.RelayInp
 	result, err := ParseIntegerFromPayload(
 		bytes.NewReader([]byte(relay.RelayOutput.Response)), key)
 	if err != nil {
-		return 0, errors.New(fmt.Sprintf("error parsing key %s: %s", key, err.Error()))
+		return 0, fmt.Errorf("error parsing key %s: %s", key, err.Error())
 	}
 
 	return result, nil

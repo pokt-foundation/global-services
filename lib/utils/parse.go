@@ -30,7 +30,7 @@ func ParseIntegerFromPayload(r io.Reader, key string) (int64, error) {
 
 	valueDecimal, err := strconv.ParseInt(valueStr, 0, 64)
 	if err != nil {
-		return 0, errors.New(fmt.Sprintf("error parsing field %s: %s", key, err.Error()))
+		return 0, fmt.Errorf("error parsing field %s: %s", key, err.Error())
 	}
 
 	return valueDecimal, nil
