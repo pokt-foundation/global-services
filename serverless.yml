@@ -19,11 +19,21 @@ functions:
     memorySize: 256
     timeout: 360
     maximumRetryAttempts: 2
-
     events:
       - schedule:
           rate: rate(1 minute)
           enabled: true
+
+  dispatch-globally-canary:
+    handler: bin/dispatch-globally
+    environment: ${file(.env.dispatch-globally.canary.yml)}
+    memorySize: 256
+    timeout: 360
+    maximumRetryAttempts: 2
+    events:
+      - schedule:
+          rate: rate(1 minute)
+          enabled: false
 
   run-application-checks:
     handler: bin/run-application-checks
@@ -31,7 +41,22 @@ functions:
     memorySize: 256
     timeout: 360
     maximumRetryAttempts: 2
-  
+    events:
+      - schedule:
+          rate: rate(4 minutes)
+          enabled: false
+
+  run-application-checks-canary:
+    handler: bin/run-application-checks
+    environment: ${file(.env.run-application-checks.canary.yml)}
+    memorySize: 256
+    timeout: 360
+    maximumRetryAttempts: 2
+    events:
+      - schedule:
+          rate: rate(4 minutes)
+          enabled: false
+
   flush-cache:
     handler: bin/flush-cache
     environment: ${file(.env.flush-cache.yml)}
