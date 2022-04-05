@@ -18,7 +18,6 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-lambda-go/lambdacontext"
-	"github.com/pokt-foundation/pocket-go/pkg/client"
 	"github.com/pokt-foundation/pocket-go/pkg/provider"
 	"golang.org/x/sync/semaphore"
 
@@ -91,9 +90,9 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 		return 0, errors.New("error connecting to redis: " + err.Error())
 	}
 
-	rpcProvider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs, client.NewDefaultClient())
+	rpcProvider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs)
 
-	blockHeight, err := rpcProvider.GetBlockHeight()
+	blockHeight, err := rpcProvider.GetBlockHeight(nil)
 	if err != nil {
 		return 0, errors.New("error obtaining block height: " + err.Error())
 	}

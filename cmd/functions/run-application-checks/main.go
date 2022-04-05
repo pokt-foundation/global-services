@@ -21,7 +21,6 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-lambda-go/lambdacontext"
-	"github.com/pokt-foundation/pocket-go/pkg/client"
 	"github.com/pokt-foundation/pocket-go/pkg/provider"
 	"github.com/pokt-foundation/pocket-go/pkg/relayer"
 	"github.com/pokt-foundation/pocket-go/pkg/signer"
@@ -102,7 +101,7 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 		return errors.New("error connecting to redis: " + err.Error())
 	}
 
-	rpcProvider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs, client.NewDefaultClient())
+	rpcProvider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs)
 
 	wallet, err := signer.NewWalletFromPrivatekey(appPrivateKey)
 	if err != nil {
@@ -111,7 +110,7 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 
 	pocketRelayer := relayer.NewPocketRelayer(wallet, rpcProvider)
 
-	blockHeight, err := rpcProvider.GetBlockHeight()
+	blockHeight, err := rpcProvider.GetBlockHeight(nil)
 	if err != nil {
 		return err
 	}
