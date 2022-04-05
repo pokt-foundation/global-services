@@ -114,6 +114,9 @@ func (cc *ChainChecker) GetNodeChainLog(ctx context.Context, node *provider.Node
 		Session:    &options.Session,
 		Node:       node,
 		Path:       options.Path,
+	}, &provider.RequestOptions{
+		HTTPTimeout: 8 * time.Second,
+		HTTPRetries: 0,
 	}, "result")
 	if err != nil {
 		logger.Log.WithFields(log.Fields{

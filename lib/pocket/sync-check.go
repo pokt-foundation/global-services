@@ -89,9 +89,6 @@ func (sc *SyncChecker) Check(ctx context.Context, options SyncCheckOptions) []st
 				"serviceDomain": utils.GetDomainFromURL(node.Node.ServiceURL),
 				"serviceNode":   node.Node.PublicKey,
 			}).Warn(fmt.Sprintf("SYNC CHECK BEHIND: %s height: %d", publicKey, blockHeight))
-
-			// TODO: send error to metrics db
-
 			continue
 		}
 
@@ -153,6 +150,9 @@ func (sc *SyncChecker) GetNodeSyncLog(ctx context.Context, node *provider.Node, 
 		Session:    &options.Session,
 		Node:       node,
 		Path:       options.Path,
+	}, &provider.RequestOptions{
+		HTTPTimeout: 8 * time.Second,
+		HTTPRetries: 0,
 	}, options.SyncCheckOptions.ResultKey)
 
 	if err != nil {
@@ -295,17 +295,17 @@ func getAltruistBlockHeight(options models.SyncCheckOptions, altruistURL string)
 
 	req, err := http.NewRequest(http.MethodPost, altruistURL,
 		bytes.NewBuffer([]byte(strings.Replace(options.Body, `\`, "", -1))))
+	defer utils.CloseOrLog(req.Response)
 	if err != nil {
 		return 0, errors.New("error making altruist request: " + err.Error())
 	}
-	defer req.Body.Close()
 	req.Header.Add("Content-Type", "application/json")
 
 	res, err := httpClient.NewClient().Do(req)
+	defer utils.CloseOrLog(req.Response)
 	if err != nil {
 		return 0, errors.New("error performing altruist request: " + err.Error())
 	}
-	defer res.Body.Close()
 
 	return utils.ParseIntegerFromPayload(res.Body, options.ResultKey)
 }
