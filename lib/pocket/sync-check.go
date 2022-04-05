@@ -2,6 +2,7 @@ package pocket
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -9,9 +10,11 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Pocket/global-dispatcher/common/gateway/models"
 	logger "github.com/Pocket/global-dispatcher/lib/logger"
+	"github.com/Pocket/global-dispatcher/lib/metrics"
 	"github.com/Pocket/global-dispatcher/lib/utils"
 	"github.com/pokt-foundation/pocket-go/pkg/provider"
 	"github.com/pokt-foundation/pocket-go/pkg/relayer"
@@ -25,6 +28,8 @@ type SyncChecker struct {
 	CommitHash             string
 	DefaultSyncAllowance   int
 	AltruistTrustThreshold float32
+	MetricsRecorder        *metrics.Recorder
+	RequestID              string
 }
 
 type SyncCheckOptions struct {
@@ -34,7 +39,6 @@ type SyncCheckOptions struct {
 	Path             string
 	AltruistURL      string
 	Blockchain       string
-	RequestID        string
 }
 
 type NodeSyncLog struct {
@@ -42,14 +46,14 @@ type NodeSyncLog struct {
 	BlockHeight int64
 }
 
-func (sc *SyncChecker) Check(options SyncCheckOptions) []string {
+func (sc *SyncChecker) Check(ctx context.Context, options SyncCheckOptions) []string {
 	if options.SyncCheckOptions.Allowance == 0 {
 		options.SyncCheckOptions.Allowance = sc.DefaultSyncAllowance
 	}
 	allowance := int64(options.SyncCheckOptions.Allowance)
 
 	checkedNodes := []string{}
-	nodeLogs := sc.GetNodeSyncLogs(&options)
+	nodeLogs := sc.GetNodeSyncLogs(ctx, &options)
 	sort.Slice(nodeLogs, func(i, j int) bool {
 		return nodeLogs[i].BlockHeight > nodeLogs[j].BlockHeight
 	})
@@ -80,7 +84,7 @@ func (sc *SyncChecker) Check(options SyncCheckOptions) []string {
 			logger.Log.WithFields(log.Fields{
 				"sessionKey":    options.Session.Key,
 				"blockhainID":   options.Blockchain,
-				"requestID":     options.RequestID,
+				"requestID":     sc.RequestID,
 				"serviceURL":    node.Node.ServiceURL,
 				"serviceDomain": utils.GetDomainFromURL(node.Node.ServiceURL),
 				"serviceNode":   node.Node.PublicKey,
@@ -94,7 +98,7 @@ func (sc *SyncChecker) Check(options SyncCheckOptions) []string {
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":    options.Session.Key,
 			"blockhainID":   options.Blockchain,
-			"requestID":     options.RequestID,
+			"requestID":     sc.RequestID,
 			"serviceURL":    node.Node.ServiceURL,
 			"serviceDomain": utils.GetDomainFromURL(node.Node.ServiceURL),
 			"serviceNode":   node.Node.PublicKey,
@@ -107,7 +111,7 @@ func (sc *SyncChecker) Check(options SyncCheckOptions) []string {
 	logger.Log.WithFields(log.Fields{
 		"sessionKey":  options.Session.Key,
 		"blockhainID": options.Blockchain,
-		"requestID":   options.RequestID,
+		"requestID":   sc.RequestID,
 	}).Info(fmt.Sprintf("SYNC CHECK COMPLETE: %d nodes in sync", len(checkedNodes)))
 
 	// TODO: Implement challenge
@@ -115,7 +119,7 @@ func (sc *SyncChecker) Check(options SyncCheckOptions) []string {
 	return checkedNodes
 }
 
-func (sc *SyncChecker) GetNodeSyncLogs(options *SyncCheckOptions) []*NodeSyncLog {
+func (sc *SyncChecker) GetNodeSyncLogs(ctx context.Context, options *SyncCheckOptions) []*NodeSyncLog {
 	nodeLogsChan := make(chan *NodeSyncLog, len(options.Session.Nodes))
 	nodeLogs := []*NodeSyncLog{}
 
@@ -124,7 +128,7 @@ func (sc *SyncChecker) GetNodeSyncLogs(options *SyncCheckOptions) []*NodeSyncLog
 		wg.Add(1)
 		go func(n *provider.Node) {
 			defer wg.Done()
-			sc.GetNodeSyncLog(n, nodeLogsChan, options)
+			sc.GetNodeSyncLog(ctx, n, nodeLogsChan, options)
 		}(node)
 	}
 	wg.Wait()
@@ -138,7 +142,9 @@ func (sc *SyncChecker) GetNodeSyncLogs(options *SyncCheckOptions) []*NodeSyncLog
 	return nodeLogs
 }
 
-func (sc *SyncChecker) GetNodeSyncLog(node *provider.Node, nodeLogs chan<- *NodeSyncLog, options *SyncCheckOptions) {
+func (sc *SyncChecker) GetNodeSyncLog(ctx context.Context, node *provider.Node, nodeLogs chan<- *NodeSyncLog, options *SyncCheckOptions) {
+	start := time.Now()
+
 	blockHeight, err := utils.GetIntFromRelay(*sc.Relayer, relayer.RelayInput{
 		Blockchain: options.Blockchain,
 		Data:       strings.Replace(options.SyncCheckOptions.Body, `\`, "", -1),
@@ -153,13 +159,25 @@ func (sc *SyncChecker) GetNodeSyncLog(node *provider.Node, nodeLogs chan<- *Node
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":    options.Session.Key,
 			"blockhainID":   options.Blockchain,
-			"requestID":     options.RequestID,
+			"requestID":     sc.RequestID,
 			"serviceURL":    node.ServiceURL,
 			"serviceDomain": utils.GetDomainFromURL(node.ServiceURL),
 			"error":         err.Error(),
 		}).Error("sync check: error relaying: " + err.Error())
 
-		// TODO: Send metric to error db
+		sc.MetricsRecorder.WriteErrorMetric(ctx, &metrics.MetricData{
+			Metric: &metrics.Metric{
+				Timestamp:            time.Now(),
+				ApplicationPublicKey: options.Session.Header.AppPublicKey,
+				Blockchain:           options.Blockchain,
+				NodePublicKey:        node.PublicKey,
+				ElapsedTime:          time.Since(start).Seconds(),
+				Bytes:                len(err.Error()),
+				Method:               "synccheck",
+				Message:              err.Error(),
+			},
+		})
+
 		nodeLogs <- &NodeSyncLog{
 			Node:        node,
 			BlockHeight: 0,
@@ -190,7 +208,7 @@ func (sc *SyncChecker) GetAltruistDataAndHighestBlockHeight(nodeLogs []*NodeSync
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":  options.Session.Key,
 			"blockhainID": options.Blockchain,
-			"requestID":   options.RequestID,
+			"requestID":   sc.RequestID,
 		},
 		).Error(fmt.Sprintf("sync check: altruist failure: %d out of %d sync nodes are ahead of altruist", nodesAheadOfAltruist, validNodes))
 
@@ -222,7 +240,7 @@ func (sc *SyncChecker) getValidNodesCountAndHighestNode(nodeLogs []*NodeSyncLog,
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":  options.Session.Key,
 			"blockhainID": options.Blockchain,
-			"requestID":   options.RequestID,
+			"requestID":   sc.RequestID,
 		}).Error("sync check error: fewer than 3 nodes returned sync")
 	}
 
@@ -231,7 +249,7 @@ func (sc *SyncChecker) getValidNodesCountAndHighestNode(nodeLogs []*NodeSyncLog,
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":  options.Session.Key,
 			"blockhainID": options.Blockchain,
-			"requestID":   options.RequestID,
+			"requestID":   sc.RequestID,
 		}).Error("sync check: top synced node result is invalid")
 	}
 
@@ -246,14 +264,14 @@ func (sc *SyncChecker) getValidatedAltruist(nodeLogs []*NodeSyncLog, options *Sy
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":  options.Session.Key,
 			"blockhainID": options.Blockchain,
-			"requestID":   options.RequestID,
+			"requestID":   sc.RequestID,
 			"serviceNode": "ALTRUIST",
 		}).Error("sync check: altruist failure: ", err)
 	}
 	logger.Log.WithFields(log.Fields{
 		"sessionKey":  options.Session.Key,
 		"blockhainID": options.Blockchain,
-		"requestID":   options.RequestID,
+		"requestID":   sc.RequestID,
 		"relayType":   "FALLBACK",
 		"blockHeight": altruistBlockHeight,
 	}).Info("sync check: altruist check: ", altruistBlockHeight)

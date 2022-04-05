@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Pocket/global-dispatcher/common/apigateway"
 	"github.com/Pocket/global-dispatcher/common/environment"
@@ -13,6 +15,7 @@ import (
 	"github.com/Pocket/global-dispatcher/common/gateway/models"
 	"github.com/Pocket/global-dispatcher/lib/cache"
 	"github.com/Pocket/global-dispatcher/lib/database"
+	"github.com/Pocket/global-dispatcher/lib/metrics"
 	"github.com/Pocket/global-dispatcher/lib/pocket"
 	"github.com/Pocket/global-dispatcher/lib/utils"
 	"github.com/aws/aws-lambda-go/events"
@@ -46,6 +49,7 @@ var (
 	altruistTrustThreshold = environment.GetFloat64("ALTRUIST_TRUST_THRESHOLD", 0.5)
 	syncCheckKeyPrefix     = environment.GetString("SYNC_CHECK_KEY_PREFIX", "")
 	chainheckKeyPrefix     = environment.GetString("CHAIN_CHECK_KEY_PREFIX", "")
+	metricsConnection      = environment.GetString("METRICS_CONNECTION", "")
 
 	headers = map[string]string{
 		"Content-Type": "application/json",
@@ -53,13 +57,14 @@ var (
 )
 
 type applicationChecks struct {
-	Caches      []*cache.Redis
-	Provider    *provider.JSONRPCProvider
-	Relayer     *relayer.PocketRelayer
-	BlockHeight int
-	CommitHash  string
-	Blockchains map[string]*models.Blockchain
-	RequestID   string
+	Caches          []*cache.Redis
+	Provider        *provider.JSONRPCProvider
+	Relayer         *relayer.PocketRelayer
+	MetricsRecorder *metrics.Recorder
+	BlockHeight     int
+	CommitHash      string
+	Blockchains     map[string]*models.Blockchain
+	RequestID       string
 }
 
 func lambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
@@ -85,6 +90,11 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 	db, err := database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
 	if err != nil {
 		return errors.New("error connecting to mongo: " + err.Error())
+	}
+
+	metricsRecorder, err := metrics.NewMetricsRecorder(ctx, metricsConnection)
+	if err != nil {
+		return errors.New("error connecting to metrics db: " + err.Error())
 	}
 
 	caches, err := cache.ConnectoCacheClients(redisConnectionStrings, "", isRedisCluster)
@@ -121,11 +131,12 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 	})
 
 	appChecks := applicationChecks{
-		Caches:      caches,
-		Provider:    rpcProvider,
-		Relayer:     pocketRelayer,
-		BlockHeight: blockHeight,
-		RequestID:   requestID,
+		Caches:          caches,
+		Provider:        rpcProvider,
+		Relayer:         pocketRelayer,
+		MetricsRecorder: metricsRecorder,
+		BlockHeight:     blockHeight,
+		RequestID:       requestID,
 	}
 
 	var sem = semaphore.NewWeighted(dispatchConcurrency)
@@ -171,7 +182,6 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 						ChainID:    blockchain.ChainID,
 						Path:       blockchain.Path,
 						PocketAAT:  pocketAAT,
-						RequestID:  requestID,
 					}, blockchain, caches)
 				}()
 
@@ -185,7 +195,6 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 						Path:             blockchain.Path,
 						AltruistURL:      blockchain.Altruist,
 						Blockchain:       blockchain.ID,
-						RequestID:        requestID,
 					}, blockchain, caches)
 				}()
 			}(app.PublicKey, chain, index)
@@ -194,7 +203,12 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 
 	wg.Wait()
 
-	return cache.CloseConnections(caches)
+	err = cache.CloseConnections(caches)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (ac *applicationChecks) getSession(ctx context.Context, publicKey, chain string) (*provider.Session, error) {
@@ -219,9 +233,11 @@ func (ac *applicationChecks) chainCheck(ctx context.Context, options pocket.Chai
 	}
 
 	nodes := (&pocket.ChainChecker{
-		Relayer:    ac.Relayer,
-		CommitHash: ac.CommitHash,
-	}).Check(options)
+		Relayer:         ac.Relayer,
+		CommitHash:      ac.CommitHash,
+		MetricsRecorder: ac.MetricsRecorder,
+		RequestID:       ac.RequestID,
+	}).Check(ctx, options)
 
 	cacheKey := ac.CommitHash + syncCheckKeyPrefix + options.Session.Key
 
@@ -247,7 +263,9 @@ func (ac *applicationChecks) syncCheck(ctx context.Context, options pocket.SyncC
 		CommitHash:             ac.CommitHash,
 		DefaultSyncAllowance:   int(defaultSyncAllowance),
 		AltruistTrustThreshold: float32(altruistTrustThreshold),
-	}).Check(options)
+		MetricsRecorder:        ac.MetricsRecorder,
+		RequestID:              ac.RequestID,
+	}).Check(ctx, options)
 
 	cacheKey := ac.CommitHash + chainheckKeyPrefix + options.Session.Key
 
@@ -257,8 +275,29 @@ func (ac *applicationChecks) syncCheck(ctx context.Context, options pocket.SyncC
 			"chain":        options.Session.Header.Chain,
 			"error":        err.Error(),
 			"requestID":    ac.RequestID,
-		}).Error("chain check: error writing to cache: " + err.Error())
+		}).Error("sync check: error writing to cache: " + err.Error())
 	}
+
+	// Erase failure mark
+	var wg sync.WaitGroup
+	for _, node := range nodes {
+		wg.Add(1)
+		go func(n string) {
+			defer wg.Done()
+			err := cache.RunFunctionOnAllClients(caches, func(ins *cache.Redis) error {
+				return ins.Client.Set(ctx, fmt.Sprintf("%s%s-%s-failure", ac.CommitHash, options.Blockchain, n), "false", 1*time.Hour).Err()
+			})
+			if err != nil {
+				logger.Log.WithFields(log.Fields{
+					"appPublicKey": options.Session.Header.AppPublicKey,
+					"chain":        options.Session.Header.Chain,
+					"error":        err.Error(),
+					"requestID":    ac.RequestID,
+				}).Error("sync check: error erasing failure mark on cache: " + err.Error())
+			}
+		}(node)
+	}
+	wg.Wait()
 
 	return nodes
 }
