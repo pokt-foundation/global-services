@@ -40,10 +40,6 @@ var (
 	maxDispatchersErrorsAllowed = environment.GetInt64("MAX_DISPATCHER_ERRORS_ALLOWED", 2000)
 	dispatchGigastake           = environment.GetBool("DISPATCH_GIGASTAKE", false)
 	maxClientsCacheCheck        = environment.GetInt64("MAX_CLIENTS_CACHE_CHECK", 3)
-
-	headers = map[string]string{
-		"Content-Type": "application/json",
-	}
 )
 
 // LambdaHandler manages the DispatchSession call to return as an APIGatewayProxyResponse

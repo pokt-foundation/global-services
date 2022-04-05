@@ -16,10 +16,6 @@ import (
 var (
 	redisConnectionStrings = strings.Split(environment.GetString("REDIS_CONNECTION_STRINGS", ""), ",")
 	isRedisCluster         = environment.GetBool("IS_REDIS_CLUSTER", true)
-
-	headers = map[string]string{
-		"Content-Type": "application/json",
-	}
 )
 
 // LambdaHandler manages the DispatchSession call to return as an APIGatewayProxyResponse
