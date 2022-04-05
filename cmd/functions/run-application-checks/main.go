@@ -49,10 +49,6 @@ var (
 	syncCheckKeyPrefix     = environment.GetString("SYNC_CHECK_KEY_PREFIX", "")
 	chainheckKeyPrefix     = environment.GetString("CHAIN_CHECK_KEY_PREFIX", "")
 	metricsConnection      = environment.GetString("METRICS_CONNECTION", "")
-
-	headers = map[string]string{
-		"Content-Type": "application/json",
-	}
 )
 
 type applicationChecks struct {
@@ -140,7 +136,6 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 
 	var sem = semaphore.NewWeighted(dispatchConcurrency)
 	var wg sync.WaitGroup
-
 	for index, app := range ntApps {
 		for _, chain := range app.Chains {
 			sem.Acquire(ctx, 1)
@@ -199,15 +194,10 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 			}(app.PublicKey, chain, index)
 		}
 	}
-
 	wg.Wait()
 
-	err = cache.CloseConnections(caches)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	metricsRecorder.Conn.Close()
+	return cache.CloseConnections(caches)
 }
 
 func (ac *applicationChecks) getSession(ctx context.Context, publicKey, chain string) (*provider.Session, error) {
@@ -240,6 +230,10 @@ func (ac *applicationChecks) chainCheck(ctx context.Context, options pocket.Chai
 
 	cacheKey := ac.CommitHash + syncCheckKeyPrefix + options.Session.Key
 
+	if len(nodes) == 0 {
+		return nodes
+	}
+
 	if err := cache.WriteJSONToCaches(ctx, caches, cacheKey, nodes, uint(cacheTTL)); err != nil {
 		logger.Log.WithFields(log.Fields{
 			"appPublicKey": options.Session.Header.AppPublicKey,
@@ -268,15 +262,6 @@ func (ac *applicationChecks) syncCheck(ctx context.Context, options pocket.SyncC
 
 	cacheKey := ac.CommitHash + chainheckKeyPrefix + options.Session.Key
 
-	if err := cache.WriteJSONToCaches(ctx, caches, cacheKey, nodes, uint(cacheTTL)); err != nil {
-		logger.Log.WithFields(log.Fields{
-			"appPublicKey": options.Session.Header.AppPublicKey,
-			"chain":        options.Session.Header.Chain,
-			"error":        err.Error(),
-			"requestID":    ac.RequestID,
-		}).Error("sync check: error writing to cache: " + err.Error())
-	}
-
 	// Erase failure mark
 	var wg sync.WaitGroup
 	for _, node := range nodes {
@@ -297,6 +282,19 @@ func (ac *applicationChecks) syncCheck(ctx context.Context, options pocket.SyncC
 		}(node)
 	}
 	wg.Wait()
+
+	if len(nodes) == 0 {
+		return nodes
+	}
+
+	if err := cache.WriteJSONToCaches(ctx, caches, cacheKey, nodes, uint(cacheTTL)); err != nil {
+		logger.Log.WithFields(log.Fields{
+			"appPublicKey": options.Session.Header.AppPublicKey,
+			"chain":        options.Session.Header.Chain,
+			"error":        err.Error(),
+			"requestID":    ac.RequestID,
+		}).Error("sync check: error writing to cache: " + err.Error())
+	}
 
 	return nodes
 }
