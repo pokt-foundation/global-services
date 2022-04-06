@@ -20,8 +20,10 @@ import (
 	"github.com/pokt-foundation/pocket-go/pkg/relayer"
 	log "github.com/sirupsen/logrus"
 
-	httpClient "github.com/Pocket/global-dispatcher/lib/http"
+	_http "github.com/Pocket/global-dispatcher/lib/http"
 )
+
+var httpClient = _http.NewClient()
 
 type SyncChecker struct {
 	Relayer                *relayer.PocketRelayer
@@ -163,7 +165,7 @@ func (sc *SyncChecker) GetNodeSyncLog(ctx context.Context, node *provider.Node, 
 			"serviceURL":    node.ServiceURL,
 			"serviceDomain": utils.GetDomainFromURL(node.ServiceURL),
 			"error":         err.Error(),
-		}).Error("sync check: error relaying: " + err.Error())
+		}).Error("sync check: error obtaining block height: " + err.Error())
 
 		go sc.MetricsRecorder.WriteErrorMetric(ctx, &metrics.MetricData{
 			Metric: &metrics.Metric{
@@ -301,7 +303,7 @@ func getAltruistBlockHeight(options models.SyncCheckOptions, altruistURL string)
 	}
 	req.Header.Add("Content-Type", "application/json")
 
-	res, err := httpClient.NewClient().Do(req)
+	res, err := httpClient.Do(req)
 	defer utils.CloseOrLog(req.Response)
 	if err != nil {
 		return 0, errors.New("error performing altruist request: " + err.Error())

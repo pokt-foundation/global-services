@@ -127,7 +127,7 @@ func (cc *ChainChecker) GetNodeChainLog(ctx context.Context, node *provider.Node
 			"serviceDomain": utils.GetDomainFromURL(node.ServiceURL),
 			"serviceNode":   node.PublicKey,
 			"error":         err.Error(),
-		}).Error("chain check: error relaying: ", err)
+		}).Error("chain check: error obtaining chain ID: ", err)
 
 		go cc.MetricsRecorder.WriteErrorMetric(ctx, &metrics.MetricData{
 			Metric: &metrics.Metric{
