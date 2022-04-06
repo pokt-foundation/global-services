@@ -14,7 +14,7 @@ import (
 
 // ConnectoCacheClients instantiates n number of cache connections and returns error
 // if any of those connection attempts fails
-func ConnectoCacheClients(connectionStrings []string, commitHash string, isCluster bool) ([]*Redis, error) {
+func ConnectoCacheClients(ctx context.Context, connectionStrings []string, commitHash string, isCluster bool) ([]*Redis, error) {
 	clients := make(chan *Redis, len(connectionStrings))
 
 	var wg sync.WaitGroup
@@ -23,7 +23,7 @@ func ConnectoCacheClients(connectionStrings []string, commitHash string, isClust
 		wg.Add(1)
 		go func(addr string) {
 			defer wg.Done()
-			err := connectToInstance(clients, addr, commitHash, isCluster)
+			err := connectToInstance(ctx, clients, addr, commitHash, isCluster)
 			if err != nil {
 				logger.Log.WithFields(logrus.Fields{
 					"address": addr,
@@ -63,12 +63,12 @@ func CloseConnections(cacheClients []*Redis) error {
 	})
 }
 
-func connectToInstance(clients chan *Redis, address string, commitHash string, isCluster bool) error {
+func connectToInstance(ctx context.Context, clients chan *Redis, address string, commitHash string, isCluster bool) error {
 	var redisClient *Redis
 	var err error
 
 	if isCluster {
-		redisClient, err = NewRedisClusterClient(RedisClientOptions{
+		redisClient, err = NewRedisClusterClient(ctx, RedisClientOptions{
 			BaseOptions: &redis.Options{
 				Addr:     address,
 				Password: "",
@@ -80,7 +80,7 @@ func connectToInstance(clients chan *Redis, address string, commitHash string, i
 			return err
 		}
 	} else {
-		redisClient, err = NewRedisClient(RedisClientOptions{
+		redisClient, err = NewRedisClient(ctx, RedisClientOptions{
 			BaseOptions: &redis.Options{
 				Addr:     address,
 				Password: "",

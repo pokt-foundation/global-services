@@ -27,23 +27,20 @@ type Redis struct {
 }
 
 // NewRedisClient returns a client for a non-cluster instance
-func NewRedisClient(options RedisClientOptions) (*Redis, error) {
-	return connectToRedis(redis.NewClient(options.BaseOptions), options.KeyPrefix)
+func NewRedisClient(ctx context.Context, options RedisClientOptions) (*Redis, error) {
+	return connectToRedis(ctx, redis.NewClient(options.BaseOptions), options.KeyPrefix)
 }
 
 // NewRedisClient returns a client for a cluster instance
-func NewRedisClusterClient(options RedisClientOptions) (*Redis, error) {
-	return connectToRedis(redis.NewClusterClient(&redis.ClusterOptions{
+func NewRedisClusterClient(ctx context.Context, options RedisClientOptions) (*Redis, error) {
+	return connectToRedis(ctx, redis.NewClusterClient(&redis.ClusterOptions{
 		PoolSize: poolsize,
 		Addrs:    []string{options.BaseOptions.Addr},
 	}), options.KeyPrefix)
 }
 
 // connectToRedis pings the given client to confirm the connection is successful
-func connectToRedis(client redis.Cmdable, keyPrefix string) (*Redis, error) {
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(actionTimeout)*time.Second)
-	defer cancel()
-
+func connectToRedis(ctx context.Context, client redis.Cmdable, keyPrefix string) (*Redis, error) {
 	_, err := client.Ping(ctx).Result()
 	if err != nil {
 		return nil, err

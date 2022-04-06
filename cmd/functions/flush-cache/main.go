@@ -33,7 +33,7 @@ func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 }
 
 func FlushAll(ctx context.Context) error {
-	cacheClients, err := cache.ConnectoCacheClients(redisConnectionStrings, "", isRedisCluster)
+	cacheClients, err := cache.ConnectoCacheClients(ctx, redisConnectionStrings, "", isRedisCluster)
 
 	if err != nil {
 		return errors.New("error connecting to redis: " + err.Error())

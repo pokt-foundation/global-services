@@ -92,7 +92,7 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 		return errors.New("error connecting to metrics db: " + err.Error())
 	}
 
-	caches, err := cache.ConnectoCacheClients(redisConnectionStrings, "", isRedisCluster)
+	caches, err := cache.ConnectoCacheClients(ctx, redisConnectionStrings, "", isRedisCluster)
 	if err != nil {
 		return errors.New("error connecting to redis: " + err.Error())
 	}
