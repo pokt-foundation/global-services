@@ -19,7 +19,6 @@ import (
 
 type ChainChecker struct {
 	Relayer         *relayer.PocketRelayer
-	CommitHash      string
 	MetricsRecorder *metrics.Recorder
 	RequestID       string
 }
@@ -57,7 +56,7 @@ func (cc *ChainChecker) Check(ctx context.Context, options ChainCheckOptions) []
 		publicKey := node.Node.PublicKey
 		nodeChainID := node.Chain
 
-		if nodeChainID != int64(chainID) && chainID != 0 {
+		if nodeChainID != int64(chainID) {
 			logger.Log.WithFields(log.Fields{
 				"sessionKey":    options.Session.Key,
 				"blockhainID":   options.Blockchain,
@@ -126,10 +125,7 @@ func (cc *ChainChecker) GetNodeChainLog(ctx context.Context, node *provider.Node
 		Session:    &options.Session,
 		Node:       node,
 		Path:       options.Path,
-	}, &provider.RequestOptions{
-		HTTPTimeout: 8 * time.Second,
-		HTTPRetries: 0,
-	}, "result")
+	}, nil, "result")
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":    options.Session.Key,
@@ -156,7 +152,7 @@ func (cc *ChainChecker) GetNodeChainLog(ctx context.Context, node *provider.Node
 
 		nodeLogs <- &NodeChainLog{
 			Node:  node,
-			Chain: -1,
+			Chain: 0,
 		}
 		return
 	}
