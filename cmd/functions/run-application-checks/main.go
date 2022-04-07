@@ -267,6 +267,15 @@ func (ac *applicationChecks) syncCheck(ctx context.Context, options pocket.SyncC
 		return nodes
 	}
 
+	if err := cache.WriteJSONToCaches(ctx, caches, cacheKey, nodes, uint(cacheTTL)); err != nil {
+		logger.Log.WithFields(log.Fields{
+			"appPublicKey": options.Session.Header.AppPublicKey,
+			"chain":        options.Session.Header.Chain,
+			"error":        err.Error(),
+			"requestID":    ac.RequestID,
+		}).Errorf("sync check: error writing to cache: %s", err.Error())
+	}
+
 	// Erase failure mark
 	var wg sync.WaitGroup
 	for _, node := range nodes {
@@ -287,15 +296,6 @@ func (ac *applicationChecks) syncCheck(ctx context.Context, options pocket.SyncC
 		}(node)
 	}
 	wg.Wait()
-
-	if err := cache.WriteJSONToCaches(ctx, caches, cacheKey, nodes, uint(cacheTTL)); err != nil {
-		logger.Log.WithFields(log.Fields{
-			"appPublicKey": options.Session.Header.AppPublicKey,
-			"chain":        options.Session.Header.Chain,
-			"error":        err.Error(),
-			"requestID":    ac.RequestID,
-		}).Errorf("sync check: error writing to cache: %s", err.Error())
-	}
 
 	return nodes
 }
