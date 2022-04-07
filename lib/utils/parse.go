@@ -8,7 +8,7 @@ import (
 	"strconv"
 )
 
-// ParseIntegerFromPayload parses a string value as an int from a JSON payload
+// ParseIntegerFromPayload parses a string (or integer if any) value as an int from a JSON payload
 // Should this be refactored to also support strings?
 func ParseIntegerFromPayload(r io.Reader, key string) (int64, error) {
 	// TODO: Parse nested fields
@@ -23,12 +23,19 @@ func ParseIntegerFromPayload(r io.Reader, key string) (int64, error) {
 		return 0, errors.New("key not found in payload, key: " + key)
 	}
 
-	valueStr, ok := value.(string)
-	if !ok {
-		return 0, errors.New("invalid cast for field: " + key)
+	var valueDecimal int64
+	var err error
+	switch v := value.(type) {
+	case string:
+		valueDecimal, err = strconv.ParseInt(v, 0, 64)
+	case int64:
+		valueDecimal = int64(v)
+	case float64:
+		valueDecimal = int64(v)
+	default:
+		err = fmt.Errorf("invalid type for payload: %T", v)
 	}
 
-	valueDecimal, err := strconv.ParseInt(valueStr, 0, 64)
 	if err != nil {
 		return 0, fmt.Errorf("error parsing field %s: %s", key, err.Error())
 	}
