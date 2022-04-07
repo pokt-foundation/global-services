@@ -268,8 +268,11 @@ func (ac *applicationChecks) syncCheck(ctx context.Context, options pocket.SyncC
 	}
 
 	// Erase failure mark
+	var wg sync.WaitGroup
 	for _, node := range nodes {
+		wg.Add(1)
 		go func(n string) {
+			defer wg.Done()
 			err := cache.RunFunctionOnAllClients(caches, func(ins *cache.Redis) error {
 				return ins.Client.Set(ctx, fmt.Sprintf("%s%s-%s-failure", ac.CommitHash, options.Blockchain, n), "false", 1*time.Hour).Err()
 			})
@@ -283,6 +286,7 @@ func (ac *applicationChecks) syncCheck(ctx context.Context, options pocket.SyncC
 			}
 		}(node)
 	}
+	wg.Wait()
 
 	if err := cache.WriteJSONToCaches(ctx, caches, cacheKey, nodes, uint(cacheTTL)); err != nil {
 		logger.Log.WithFields(log.Fields{
