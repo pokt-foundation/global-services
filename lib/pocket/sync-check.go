@@ -27,7 +27,6 @@ var httpClient = _http.NewClient()
 
 type SyncChecker struct {
 	Relayer                *relayer.PocketRelayer
-	CommitHash             string
 	DefaultSyncAllowance   int
 	AltruistTrustThreshold float32
 	MetricsRecorder        *metrics.Recorder
@@ -152,10 +151,7 @@ func (sc *SyncChecker) GetNodeSyncLog(ctx context.Context, node *provider.Node, 
 		Session:    &options.Session,
 		Node:       node,
 		Path:       options.Path,
-	}, &provider.RequestOptions{
-		HTTPTimeout: 8 * time.Second,
-		HTTPRetries: 0,
-	}, options.SyncCheckOptions.ResultKey)
+	}, nil, options.SyncCheckOptions.ResultKey)
 
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
