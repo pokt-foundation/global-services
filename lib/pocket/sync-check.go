@@ -257,7 +257,7 @@ func (sc *SyncChecker) getValidNodesCountAndHighestNode(nodeLogs []*NodeSyncLog,
 // getValidatedAltruist obtains and validates altruist block height and also returns,
 // how many nodes are ahead of it
 func (sc *SyncChecker) getValidatedAltruist(nodeLogs []*NodeSyncLog, options *SyncCheckOptions) (int64, int) {
-	altruistBlockHeight, err := getAltruistBlockHeight(options.SyncCheckOptions, options.AltruistURL)
+	altruistBlockHeight, err := getAltruistBlockHeight(options.SyncCheckOptions, options.AltruistURL, options.Path)
 	if altruistBlockHeight == 0 || err != nil {
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":  options.Session.Key,
@@ -287,11 +287,11 @@ func (sc *SyncChecker) getValidatedAltruist(nodeLogs []*NodeSyncLog, options *Sy
 	return altruistBlockHeight, nodesAheadOfAltruist
 }
 
-func getAltruistBlockHeight(options models.SyncCheckOptions, altruistURL string) (int64, error) {
+func getAltruistBlockHeight(options models.SyncCheckOptions, altruistURL string, path string) (int64, error) {
 	regex := regexp.MustCompile(`/[\w]*:\/\/[^\/]*@/g`)
 	regex.ReplaceAllString(altruistURL, "")
 
-	req, err := http.NewRequest(http.MethodPost, altruistURL,
+	req, err := http.NewRequest(http.MethodPost, altruistURL+path,
 		bytes.NewBuffer([]byte(strings.Replace(options.Body, `\`, "", -1))))
 	defer utils.CloseOrLog(req.Response)
 	if err != nil {
