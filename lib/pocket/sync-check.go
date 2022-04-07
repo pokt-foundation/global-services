@@ -234,21 +234,25 @@ func (sc *SyncChecker) getValidNodesCountAndHighestNode(nodeLogs []*NodeSyncLog,
 		return validNodesCount
 	}()
 	// This should never happen
+	errMsg := "sync check error: fewer than 3 nodes returned sync"
 	if validNodes <= 2 {
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":  options.Session.Key,
 			"blockhainID": options.Blockchain,
 			"requestID":   sc.RequestID,
-		}).Error("sync check error: fewer than 3 nodes returned sync")
+			"error":       errMsg,
+		}).Error(errMsg)
 	}
 
+	errMsg = "sync check: top synced node result is invalid"
 	highestBlockHeight = nodeLogs[0].BlockHeight
 	if highestBlockHeight <= 0 {
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":  options.Session.Key,
 			"blockhainID": options.Blockchain,
 			"requestID":   sc.RequestID,
-		}).Error("sync check: top synced node result is invalid")
+			"error":       "sync check: top synced node result is invalid",
+		}).Error(errMsg)
 	}
 
 	return
