@@ -26,6 +26,8 @@ import (
 	"github.com/pokt-foundation/pocket-go/pkg/signer"
 	"golang.org/x/sync/semaphore"
 
+	relayerClient "github.com/pokt-foundation/pocket-go/pkg/client"
+
 	logger "github.com/Pocket/global-dispatcher/lib/logger"
 	log "github.com/sirupsen/logrus"
 )
@@ -60,6 +62,8 @@ type applicationChecks struct {
 	CommitHash      string
 	Blockchains     map[string]*models.Blockchain
 	RequestID       string
+	SyncChecker     *pocket.SyncChecker
+	ChainChecker    *pocket.ChainChecker
 }
 
 func lambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
@@ -70,6 +74,7 @@ func lambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 	err := runApplicationChecks(ctx, lc.AwsRequestID)
 	if err != nil {
 		return *apigateway.NewErrorResponse(http.StatusInternalServerError, err), err
+
 	}
 
 	return *apigateway.NewJSONResponse(statusCode, map[string]interface{}{
@@ -98,7 +103,7 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 	}
 
 	rpcProvider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs)
-
+	rpcProvider.Client = relayerClient.NewCustomClient(1, 8*time.Second)
 	wallet, err := signer.NewWalletFromPrivatekey(appPrivateKey)
 	if err != nil {
 		return errors.New("error creating wallet: " + err.Error())
@@ -132,66 +137,74 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 		MetricsRecorder: metricsRecorder,
 		BlockHeight:     blockHeight,
 		RequestID:       requestID,
+		SyncChecker: &pocket.SyncChecker{
+			Relayer:                pocketRelayer,
+			DefaultSyncAllowance:   int(defaultSyncAllowance),
+			AltruistTrustThreshold: float32(altruistTrustThreshold),
+			MetricsRecorder:        metricsRecorder,
+			RequestID:              requestID,
+		},
+		ChainChecker: &pocket.ChainChecker{
+			Relayer:         pocketRelayer,
+			MetricsRecorder: metricsRecorder,
+			RequestID:       requestID,
+		},
 	}
 
 	var sem = semaphore.NewWeighted(dispatchConcurrency)
 	var wg sync.WaitGroup
 	for index, app := range ntApps {
 		for _, chain := range app.Chains {
+			dbApp := dbApps[index]
+
+			session, err := appChecks.getSession(ctx, app.PublicKey, chain)
+			if err != nil {
+				logger.Log.WithFields(log.Fields{
+					"appPublicKey": app.PublicKey,
+					"chain":        chain,
+					"error":        err.Error(),
+				}).Errorf("error dispatching: %s", err.Error())
+				continue
+			}
+
+			blockchain := *blockchains[chain]
+
+			pocketAAT := provider.PocketAAT{
+				AppPubKey:    dbApp.GatewayAAT.ApplicationPublicKey,
+				ClientPubKey: dbApp.GatewayAAT.ClientPublicKey,
+				Version:      dbApp.GatewayAAT.Version,
+				Signature:    dbApp.GatewayAAT.ApplicationSignature,
+			}
+
 			sem.Acquire(ctx, 1)
 			wg.Add(1)
-
-			go func(publicKey, ch string, idx int) {
+			go func() {
 				defer sem.Release(1)
 				defer wg.Done()
+				appChecks.chainCheck(ctx, pocket.ChainCheckOptions{
+					Session:    *session,
+					Blockchain: blockchain.ID,
+					Data:       blockchain.ChainIDCheck,
+					ChainID:    blockchain.ChainID,
+					Path:       blockchain.Path,
+					PocketAAT:  pocketAAT,
+				}, blockchain, caches)
+			}()
 
-				dbApp := dbApps[idx]
-
-				session, err := appChecks.getSession(ctx, publicKey, ch)
-				if err != nil {
-					logger.Log.WithFields(log.Fields{
-						"appPublicKey": publicKey,
-						"chain":        ch,
-						"error":        err.Error(),
-					}).Error("error dispatching: " + err.Error())
-					return
-				}
-
-				blockchain := *blockchains[ch]
-
-				pocketAAT := provider.PocketAAT{
-					AppPubKey:    dbApp.GatewayAAT.ApplicationPublicKey,
-					ClientPubKey: dbApp.GatewayAAT.ClientPublicKey,
-					Version:      dbApp.GatewayAAT.Version,
-					Signature:    dbApp.GatewayAAT.ApplicationSignature,
-				}
-
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					appChecks.chainCheck(ctx, pocket.ChainCheckOptions{
-						Session:    *session,
-						Blockchain: blockchain.ID,
-						Data:       blockchain.ChainIDCheck,
-						ChainID:    blockchain.ChainID,
-						Path:       blockchain.Path,
-						PocketAAT:  pocketAAT,
-					}, blockchain, caches)
-				}()
-
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					appChecks.syncCheck(ctx, pocket.SyncCheckOptions{
-						Session:          *session,
-						PocketAAT:        pocketAAT,
-						SyncCheckOptions: blockchain.SyncCheckOptions,
-						Path:             blockchain.Path,
-						AltruistURL:      blockchain.Altruist,
-						Blockchain:       blockchain.ID,
-					}, blockchain, caches)
-				}()
-			}(app.PublicKey, chain, index)
+			sem.Acquire(ctx, 1)
+			wg.Add(1)
+			go func() {
+				defer sem.Release(1)
+				defer wg.Done()
+				appChecks.syncCheck(ctx, pocket.SyncCheckOptions{
+					Session:          *session,
+					PocketAAT:        pocketAAT,
+					SyncCheckOptions: blockchain.SyncCheckOptions,
+					Path:             blockchain.Path,
+					AltruistURL:      blockchain.Altruist,
+					Blockchain:       blockchain.ID,
+				}, blockchain, caches)
+			}()
 		}
 	}
 	wg.Wait()
@@ -221,18 +234,13 @@ func (ac *applicationChecks) chainCheck(ctx context.Context, options pocket.Chai
 		return []string{}
 	}
 
-	nodes := (&pocket.ChainChecker{
-		Relayer:         ac.Relayer,
-		CommitHash:      ac.CommitHash,
-		MetricsRecorder: ac.MetricsRecorder,
-		RequestID:       ac.RequestID,
-	}).Check(ctx, options)
-
-	cacheKey := ac.CommitHash + syncCheckKeyPrefix + options.Session.Key
+	nodes := ac.ChainChecker.Check(ctx, options)
 
 	if len(nodes) == 0 {
 		return nodes
 	}
+
+	cacheKey := ac.CommitHash + syncCheckKeyPrefix + options.Session.Key
 
 	if err := cache.WriteJSONToCaches(ctx, caches, cacheKey, nodes, uint(cacheTTL)); err != nil {
 		logger.Log.WithFields(log.Fields{
@@ -240,7 +248,7 @@ func (ac *applicationChecks) chainCheck(ctx context.Context, options pocket.Chai
 			"chain":        options.Session.Header.Chain,
 			"error":        err.Error(),
 			"requestID":    ac.RequestID,
-		}).Error("sync check: error writing to cache: " + err.Error())
+		}).Errorf("sync check: error writing to cache: %s", err.Error())
 	}
 
 	return nodes
@@ -251,23 +259,17 @@ func (ac *applicationChecks) syncCheck(ctx context.Context, options pocket.SyncC
 		return []string{}
 	}
 
-	nodes := (&pocket.SyncChecker{
-		Relayer:                ac.Relayer,
-		CommitHash:             ac.CommitHash,
-		DefaultSyncAllowance:   int(defaultSyncAllowance),
-		AltruistTrustThreshold: float32(altruistTrustThreshold),
-		MetricsRecorder:        ac.MetricsRecorder,
-		RequestID:              ac.RequestID,
-	}).Check(ctx, options)
+	nodes := ac.SyncChecker.Check(ctx, options)
 
 	cacheKey := ac.CommitHash + chainheckKeyPrefix + options.Session.Key
 
+	if len(nodes) == 0 {
+		return nodes
+	}
+
 	// Erase failure mark
-	var wg sync.WaitGroup
 	for _, node := range nodes {
-		wg.Add(1)
 		go func(n string) {
-			defer wg.Done()
 			err := cache.RunFunctionOnAllClients(caches, func(ins *cache.Redis) error {
 				return ins.Client.Set(ctx, fmt.Sprintf("%s%s-%s-failure", ac.CommitHash, options.Blockchain, n), "false", 1*time.Hour).Err()
 			})
@@ -277,14 +279,9 @@ func (ac *applicationChecks) syncCheck(ctx context.Context, options pocket.SyncC
 					"chain":        options.Session.Header.Chain,
 					"error":        err.Error(),
 					"requestID":    ac.RequestID,
-				}).Error("sync check: error erasing failure mark on cache: " + err.Error())
+				}).Errorf("sync check: error erasing failure mark on cache: %s", err.Error())
 			}
 		}(node)
-	}
-	wg.Wait()
-
-	if len(nodes) == 0 {
-		return nodes
 	}
 
 	if err := cache.WriteJSONToCaches(ctx, caches, cacheKey, nodes, uint(cacheTTL)); err != nil {
@@ -293,7 +290,7 @@ func (ac *applicationChecks) syncCheck(ctx context.Context, options pocket.SyncC
 			"chain":        options.Session.Header.Chain,
 			"error":        err.Error(),
 			"requestID":    ac.RequestID,
-		}).Error("sync check: error writing to cache: " + err.Error())
+		}).Errorf("sync check: error writing to cache: %s", err.Error())
 	}
 
 	return nodes
