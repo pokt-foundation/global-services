@@ -303,7 +303,7 @@ func getAltruistBlockHeight(options models.SyncCheckOptions, altruistURL string,
 	req.Header.Add("Content-Type", "application/json")
 
 	res, err := httpClient.Do(req)
-	defer utils.CloseOrLog(req.Response)
+	defer utils.CloseOrLog(res)
 	if err != nil {
 		return 0, errors.New("error performing altruist request: " + err.Error())
 	}
