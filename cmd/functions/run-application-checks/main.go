@@ -291,8 +291,8 @@ func (ac *applicationChecks) eraseNodesFailureMark(ctx context.Context, options 
 		return fmt.Sprintf("%s%s-%s-failure", ac.CommitHash, blockchain, node)
 	}
 
-	err := cache.RunFunctionOnAllClients(caches, func(cache *cache.Redis) error {
-		pipe := cache.Client.Pipeline()
+	err := cache.RunFunctionOnAllClients(caches, func(ch *cache.Redis) error {
+		pipe := ch.Client.Pipeline()
 		for _, node := range nodes {
 			pipe.Set(ctx, getNodeFailureKey(options.Blockchain, node), "false", 1*time.Hour)
 		}
