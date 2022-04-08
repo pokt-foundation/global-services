@@ -10,7 +10,6 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-var actionTimeout = int(environment.GetInt64("CACHE_ACTION_TIMEOUT", 5))
 var poolsize = int(environment.GetInt64("CACHE_CONNECTION_POOL_SIZE", 10))
 
 // RedisClientOptions is the struct for the baseOptions of the library client and
@@ -27,20 +26,20 @@ type Redis struct {
 }
 
 // NewRedisClient returns a client for a non-cluster instance
-func NewRedisClient(ctx context.Context, options RedisClientOptions) (*Redis, error) {
-	return connectToRedis(ctx, redis.NewClient(options.BaseOptions), options.KeyPrefix)
+func NewRedisClient(ctx context.Context, options *RedisClientOptions) (*Redis, error) {
+	return connectToRedis(ctx, redis.NewClient(options.BaseOptions), options)
 }
 
 // NewRedisClient returns a client for a cluster instance
-func NewRedisClusterClient(ctx context.Context, options RedisClientOptions) (*Redis, error) {
+func NewRedisClusterClient(ctx context.Context, options *RedisClientOptions) (*Redis, error) {
 	return connectToRedis(ctx, redis.NewClusterClient(&redis.ClusterOptions{
 		PoolSize: poolsize,
 		Addrs:    []string{options.BaseOptions.Addr},
-	}), options.KeyPrefix)
+	}), options)
 }
 
 // connectToRedis pings the given client to confirm the connection is successful
-func connectToRedis(ctx context.Context, client redis.Cmdable, keyPrefix string) (*Redis, error) {
+func connectToRedis(ctx context.Context, client redis.Cmdable, options *RedisClientOptions) (*Redis, error) {
 	_, err := client.Ping(ctx).Result()
 	if err != nil {
 		return nil, err
@@ -48,7 +47,7 @@ func connectToRedis(ctx context.Context, client redis.Cmdable, keyPrefix string)
 
 	return &Redis{
 		Client:    client,
-		KeyPrefix: keyPrefix,
+		KeyPrefix: options.KeyPrefix,
 	}, nil
 }
 

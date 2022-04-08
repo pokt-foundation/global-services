@@ -68,7 +68,7 @@ func connectToInstance(ctx context.Context, clients chan *Redis, address string,
 	var err error
 
 	if isCluster {
-		redisClient, err = NewRedisClusterClient(ctx, RedisClientOptions{
+		redisClient, err = NewRedisClusterClient(ctx, &RedisClientOptions{
 			BaseOptions: &redis.Options{
 				Addr:     address,
 				Password: "",
@@ -80,7 +80,7 @@ func connectToInstance(ctx context.Context, clients chan *Redis, address string,
 			return err
 		}
 	} else {
-		redisClient, err = NewRedisClient(ctx, RedisClientOptions{
+		redisClient, err = NewRedisClient(ctx, &RedisClientOptions{
 			BaseOptions: &redis.Options{
 				Addr:     address,
 				Password: "",
