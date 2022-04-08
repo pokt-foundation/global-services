@@ -125,6 +125,12 @@ github.com/pokt-foundation/pocket-go v0.7.2 h1:80NS9l1BJ/WBdbbVz8XSZRyOiz6Pjf080
 github.com/pokt-foundation/pocket-go v0.7.2/go.mod h1:MkkWf9dNjLaKCKns46XM4NvYTXUGtrxZC4vHI4yCFVU=
 github.com/pokt-foundation/pocket-go v0.7.4 h1:8tsmd7g3vJMxuDlUEV/aasMRfbMz0uCa1EJU3ge9S6I=
 github.com/pokt-foundation/pocket-go v0.7.4/go.mod h1:MkkWf9dNjLaKCKns46XM4NvYTXUGtrxZC4vHI4yCFVU=
+github.com/pokt-foundation/pocket-go v0.8.0 h1:ATwzUtCoGCSC8uBg23oLd6ex7VdxA78f8UDs3zgAeOg=
+github.com/pokt-foundation/pocket-go v0.8.0/go.mod h1:MkkWf9dNjLaKCKns46XM4NvYTXUGtrxZC4vHI4yCFVU=
+github.com/pokt-foundation/pocket-go v0.8.1 h1:DYXX5heH0M9S10b3xeHtGl8wAJ5p4kClI63KW2+slFc=
+github.com/pokt-foundation/pocket-go v0.8.1/go.mod h1:MkkWf9dNjLaKCKns46XM4NvYTXUGtrxZC4vHI4yCFVU=
+github.com/pokt-foundation/pocket-go v0.8.2 h1:jLqpicnSQhLXN1AjoWIQsYTORBEKsFRaNKOKhelBPjg=
+github.com/pokt-foundation/pocket-go v0.8.2/go.mod h1:MkkWf9dNjLaKCKns46XM4NvYTXUGtrxZC4vHI4yCFVU=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rs/xid v1.2.1/go.mod h1:+uKXf+4Djp6Md1KODXJxgGQPKngRmWyn10oCKFzNHOQ=
 github.com/rs/zerolog v1.13.0/go.mod h1:YbFCdg8HfsridGWAh22vktObvhZbQsZXe4/zB0OKkWU=

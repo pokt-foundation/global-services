@@ -88,7 +88,7 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 
 	rpcProvider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs)
 
-	blockHeight, err := rpcProvider.GetBlockHeight(nil)
+	blockHeight, err := rpcProvider.GetBlockHeight()
 	if err != nil {
 		return 0, errors.New("error obtaining block height: " + err.Error())
 	}
