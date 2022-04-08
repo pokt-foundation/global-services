@@ -43,8 +43,8 @@ functions:
     maximumRetryAttempts: 2
     events:
       - schedule:
-          rate: rate(4 minutes)
-          enabled: false
+          rate: rate(3 minutes)
+          enabled: true
 
   run-application-checks-canary:
     handler: bin/run-application-checks
