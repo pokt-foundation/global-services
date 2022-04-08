@@ -125,7 +125,7 @@ func (cc *ChainChecker) GetNodeChainLog(ctx context.Context, node *provider.Node
 		Session:    &options.Session,
 		Node:       node,
 		Path:       options.Path,
-	}, nil, "result")
+	}, "result")
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":    options.Session.Key,
