@@ -16,10 +16,6 @@ import (
 var (
 	redisConnectionStrings = strings.Split(environment.GetString("REDIS_CONNECTION_STRINGS", ""), ",")
 	isRedisCluster         = environment.GetBool("IS_REDIS_CLUSTER", true)
-
-	headers = map[string]string{
-		"Content-Type": "application/json",
-	}
 )
 
 // LambdaHandler manages the DispatchSession call to return as an APIGatewayProxyResponse
@@ -37,7 +33,7 @@ func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 }
 
 func FlushAll(ctx context.Context) error {
-	cacheClients, err := cache.ConnectoCacheClients(redisConnectionStrings, "", isRedisCluster)
+	cacheClients, err := cache.ConnectoCacheClients(ctx, redisConnectionStrings, "", isRedisCluster)
 
 	if err != nil {
 		return errors.New("error connecting to redis: " + err.Error())

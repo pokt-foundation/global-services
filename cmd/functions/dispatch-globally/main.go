@@ -40,10 +40,6 @@ var (
 	maxDispatchersErrorsAllowed = environment.GetInt64("MAX_DISPATCHER_ERRORS_ALLOWED", 2000)
 	dispatchGigastake           = environment.GetBool("DISPATCH_GIGASTAKE", false)
 	maxClientsCacheCheck        = environment.GetInt64("MAX_CLIENTS_CACHE_CHECK", 3)
-
-	headers = map[string]string{
-		"Content-Type": "application/json",
-	}
 )
 
 // LambdaHandler manages the DispatchSession call to return as an APIGatewayProxyResponse
@@ -85,14 +81,14 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 		return 0, errors.New("error connecting to mongo: " + err.Error())
 	}
 
-	caches, err := cache.ConnectoCacheClients(redisConnectionStrings, "", isRedisCluster)
+	caches, err := cache.ConnectoCacheClients(ctx, redisConnectionStrings, "", isRedisCluster)
 	if err != nil {
 		return 0, errors.New("error connecting to redis: " + err.Error())
 	}
 
 	rpcProvider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs)
 
-	blockHeight, err := rpcProvider.GetBlockHeight(nil)
+	blockHeight, err := rpcProvider.GetBlockHeight()
 	if err != nil {
 		return 0, errors.New("error obtaining block height: " + err.Error())
 	}

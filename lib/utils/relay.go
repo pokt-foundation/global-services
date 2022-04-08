@@ -17,7 +17,7 @@ func GetIntFromRelay(pocketRelayer relayer.PocketRelayer, input relayer.RelayInp
 	result, err := ParseIntegerFromPayload(
 		bytes.NewReader([]byte(relay.RelayOutput.Response)), key)
 	if err != nil {
-		return 0, errors.New(fmt.Sprintf("error parsing key %s: %s", key, err.Error()))
+		return 0, fmt.Errorf("error parsing key %s: %s", key, err.Error())
 	}
 
 	return result, nil

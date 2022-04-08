@@ -8,10 +8,10 @@ require (
 	github.com/gojektech/heimdall v5.0.2+incompatible
 	github.com/jackc/pgx/v4 v4.15.0
 	github.com/pkg/errors v0.9.1
-	github.com/pokt-foundation/pocket-go v0.7.0
+	github.com/pokt-foundation/pocket-go v0.8.0
 	github.com/sirupsen/logrus v1.8.1
-	go.mongodb.org/mongo-driver v1.8.4
-	golang.org/x/exp v0.0.0-20220328175248-053ad81199eb
+	go.mongodb.org/mongo-driver v1.9.0
+	golang.org/x/exp v0.0.0-20220407100705-7b9b53b0aca4
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 )
 
@@ -36,6 +36,6 @@ require (
 	github.com/xdg-go/stringprep v1.0.3 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
 	golang.org/x/crypto v0.0.0-20220331220935-ae2d96664a29 // indirect
-	golang.org/x/sys v0.0.0-20220405052023-b1e9470b6e64 // indirect
+	golang.org/x/sys v0.0.0-20220406163625-3f8b81556e12 // indirect
 	golang.org/x/text v0.3.7 // indirect
 )

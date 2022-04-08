@@ -2,8 +2,9 @@ package metrics
 
 import (
 	"context"
+	"fmt"
 
-	logger "github.com/Pocket/global-dispatcher/lib/logger"
+	"github.com/Pocket/global-dispatcher/lib/logger"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -19,8 +20,13 @@ type MetricData struct {
 	TypeID    string
 }
 
-func NewMetricsRecorder(ctx context.Context, connectionString string) (*Recorder, error) {
-	conn, err := pgxpool.Connect(ctx, connectionString)
+func NewMetricsRecorder(ctx context.Context, connectionString string, minPoolSize, maxPoolSize int) (*Recorder, error) {
+	config, err := pgxpool.ParseConfig(fmt.Sprintf("%s?pool_min_conns=%d&pool_max_conns=%d", connectionString, minPoolSize, maxPoolSize))
+	if err != nil {
+		return nil, errors.New("unable to connect to database" + err.Error())
+	}
+
+	conn, err := pgxpool.ConnectConfig(ctx, config)
 	if err != nil {
 		return nil, errors.New("unable to connect to database: " + err.Error())
 	}
@@ -32,18 +38,18 @@ func NewMetricsRecorder(ctx context.Context, connectionString string) (*Recorder
 
 func (mr *Recorder) WriteErrorMetric(ctx context.Context, metric *MetricData) {
 	_, err := mr.Conn.Exec(ctx, `
-	INSERT INTO 
+	INSERT INTO
 	 error
-	 (timestamp, 
-		applicationpublickey, 
-		blockchain, 
-		nodepublickey, 
-		elapsedTime, 
+	 (timestamp,
+		applicationpublickey,
+		blockchain,
+		nodepublickey,
+		elapsedTime,
 		bytes,
 		method,
 		message,
 		code
-		) 
+		)
 	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
 		metric.Metric.Timestamp,
 		metric.Metric.ApplicationPublicKey,

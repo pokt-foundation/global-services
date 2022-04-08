@@ -32,6 +32,7 @@ type Blockchain struct {
 type SyncCheckOptions struct {
 	Body      string `json:"body"`
 	ResultKey string `json:"resultKey"`
+	Path      string `json:"path"`
 	Allowance int    `json:"allowance"`
 }
 

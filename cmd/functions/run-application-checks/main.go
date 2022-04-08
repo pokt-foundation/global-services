@@ -39,7 +39,7 @@ var (
 	isRedisCluster         = environment.GetBool("IS_REDIS_CLUSTER", false)
 	mongoConnectionString  = environment.GetString("MONGODB_CONNECTION_STRING", "")
 	mongoDatabase          = environment.GetString("MONGODB_DATABASE", "")
-	cacheTTL               = environment.GetInt64("CACHE_TTL", 3600)
+	cacheTTL               = environment.GetInt64("CACHE_TTL", 300)
 	dispatchConcurrency    = environment.GetInt64("DISPATCH_CONCURRENCY", 2)
 	dispatchGigastake      = environment.GetBool("DISPATCH_GIGASTAKE", true)
 	maxClientsCacheCheck   = environment.GetInt64("MAX_CLIENTS_CACHE_CHECK", 3)
@@ -49,10 +49,9 @@ var (
 	syncCheckKeyPrefix     = environment.GetString("SYNC_CHECK_KEY_PREFIX", "")
 	chainheckKeyPrefix     = environment.GetString("CHAIN_CHECK_KEY_PREFIX", "")
 	metricsConnection      = environment.GetString("METRICS_CONNECTION", "")
-
-	headers = map[string]string{
-		"Content-Type": "application/json",
-	}
+	minMetricsPoolSize     = environment.GetInt64("MIN_METRICS_POOL_SIZE", 5)
+	maxMetricsPoolSize     = environment.GetInt64("MAX_METRICS_POOL_SIZE", 20)
+	defaultTimeOut         = environment.GetInt64("DEFAULT_TIMEOUT", 8)
 )
 
 type applicationChecks struct {
@@ -64,6 +63,8 @@ type applicationChecks struct {
 	CommitHash      string
 	Blockchains     map[string]*models.Blockchain
 	RequestID       string
+	SyncChecker     *pocket.SyncChecker
+	ChainChecker    *pocket.ChainChecker
 }
 
 func lambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
@@ -74,6 +75,7 @@ func lambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 	err := runApplicationChecks(ctx, lc.AwsRequestID)
 	if err != nil {
 		return *apigateway.NewErrorResponse(http.StatusInternalServerError, err), err
+
 	}
 
 	return *apigateway.NewJSONResponse(statusCode, map[string]interface{}{
@@ -91,18 +93,18 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 		return errors.New("error connecting to mongo: " + err.Error())
 	}
 
-	metricsRecorder, err := metrics.NewMetricsRecorder(ctx, metricsConnection)
+	metricsRecorder, err := metrics.NewMetricsRecorder(ctx, metricsConnection, int(minMetricsPoolSize), int(maxMetricsPoolSize))
 	if err != nil {
 		return errors.New("error connecting to metrics db: " + err.Error())
 	}
 
-	caches, err := cache.ConnectoCacheClients(redisConnectionStrings, "", isRedisCluster)
+	caches, err := cache.ConnectoCacheClients(ctx, redisConnectionStrings, "", isRedisCluster)
 	if err != nil {
 		return errors.New("error connecting to redis: " + err.Error())
 	}
 
 	rpcProvider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs)
-
+	rpcProvider.UpdateRequestConfig(0, time.Duration(defaultTimeOut)*time.Second)
 	wallet, err := signer.NewWalletFromPrivatekey(appPrivateKey)
 	if err != nil {
 		return errors.New("error creating wallet: " + err.Error())
@@ -110,7 +112,7 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 
 	pocketRelayer := relayer.NewPocketRelayer(wallet, rpcProvider)
 
-	blockHeight, err := rpcProvider.GetBlockHeight(nil)
+	blockHeight, err := rpcProvider.GetBlockHeight()
 	if err != nil {
 		return err
 	}
@@ -136,78 +138,79 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 		MetricsRecorder: metricsRecorder,
 		BlockHeight:     blockHeight,
 		RequestID:       requestID,
+		SyncChecker: &pocket.SyncChecker{
+			Relayer:                pocketRelayer,
+			DefaultSyncAllowance:   int(defaultSyncAllowance),
+			AltruistTrustThreshold: float32(altruistTrustThreshold),
+			MetricsRecorder:        metricsRecorder,
+			RequestID:              requestID,
+		},
+		ChainChecker: &pocket.ChainChecker{
+			Relayer:         pocketRelayer,
+			MetricsRecorder: metricsRecorder,
+			RequestID:       requestID,
+		},
 	}
 
 	var sem = semaphore.NewWeighted(dispatchConcurrency)
 	var wg sync.WaitGroup
-
 	for index, app := range ntApps {
 		for _, chain := range app.Chains {
+			dbApp := dbApps[index]
+
+			session, err := appChecks.getSession(ctx, app.PublicKey, chain)
+			if err != nil {
+				logger.Log.WithFields(log.Fields{
+					"appPublicKey": app.PublicKey,
+					"chain":        chain,
+					"error":        err.Error(),
+				}).Errorf("error dispatching: %s", err.Error())
+				continue
+			}
+
+			blockchain := *blockchains[chain]
+
+			pocketAAT := provider.PocketAAT{
+				AppPubKey:    dbApp.GatewayAAT.ApplicationPublicKey,
+				ClientPubKey: dbApp.GatewayAAT.ClientPublicKey,
+				Version:      dbApp.GatewayAAT.Version,
+				Signature:    dbApp.GatewayAAT.ApplicationSignature,
+			}
+
 			sem.Acquire(ctx, 1)
 			wg.Add(1)
-
-			go func(publicKey, ch string, idx int) {
+			go func() {
 				defer sem.Release(1)
 				defer wg.Done()
+				appChecks.chainCheck(ctx, pocket.ChainCheckOptions{
+					Session:    *session,
+					Blockchain: blockchain.ID,
+					Data:       blockchain.ChainIDCheck,
+					ChainID:    blockchain.ChainID,
+					Path:       blockchain.Path,
+					PocketAAT:  pocketAAT,
+				}, blockchain, caches)
+			}()
 
-				dbApp := dbApps[idx]
-
-				session, err := appChecks.getSession(ctx, publicKey, ch)
-				if err != nil {
-					logger.Log.WithFields(log.Fields{
-						"appPublicKey": publicKey,
-						"chain":        ch,
-						"error":        err.Error(),
-					}).Error("error dispatching: " + err.Error())
-					return
-				}
-
-				blockchain := *blockchains[ch]
-
-				pocketAAT := provider.PocketAAT{
-					AppPubKey:    dbApp.GatewayAAT.ApplicationPublicKey,
-					ClientPubKey: dbApp.GatewayAAT.ClientPublicKey,
-					Version:      dbApp.GatewayAAT.Version,
-					Signature:    dbApp.GatewayAAT.ApplicationSignature,
-				}
-
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					appChecks.chainCheck(ctx, pocket.ChainCheckOptions{
-						Session:    *session,
-						Blockchain: blockchain.ID,
-						Data:       blockchain.ChainIDCheck,
-						ChainID:    blockchain.ChainID,
-						Path:       blockchain.Path,
-						PocketAAT:  pocketAAT,
-					}, blockchain, caches)
-				}()
-
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					appChecks.syncCheck(ctx, pocket.SyncCheckOptions{
-						Session:          *session,
-						PocketAAT:        pocketAAT,
-						SyncCheckOptions: blockchain.SyncCheckOptions,
-						Path:             blockchain.Path,
-						AltruistURL:      blockchain.Altruist,
-						Blockchain:       blockchain.ID,
-					}, blockchain, caches)
-				}()
-			}(app.PublicKey, chain, index)
+			sem.Acquire(ctx, 1)
+			wg.Add(1)
+			go func() {
+				defer sem.Release(1)
+				defer wg.Done()
+				appChecks.syncCheck(ctx, pocket.SyncCheckOptions{
+					Session:          *session,
+					PocketAAT:        pocketAAT,
+					SyncCheckOptions: blockchain.SyncCheckOptions,
+					AltruistURL:      blockchain.Altruist,
+					Blockchain:       blockchain.ID,
+				}, blockchain, caches)
+			}()
 		}
 	}
-
 	wg.Wait()
 
-	err = cache.CloseConnections(caches)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	metricsRecorder.Conn.Close()
+	return cache.CloseConnections(caches)
 }
 
 func (ac *applicationChecks) getSession(ctx context.Context, publicKey, chain string) (*provider.Session, error) {
@@ -231,74 +234,73 @@ func (ac *applicationChecks) chainCheck(ctx context.Context, options pocket.Chai
 		return []string{}
 	}
 
-	nodes := (&pocket.ChainChecker{
-		Relayer:         ac.Relayer,
-		CommitHash:      ac.CommitHash,
-		MetricsRecorder: ac.MetricsRecorder,
-		RequestID:       ac.RequestID,
-	}).Check(ctx, options)
-
+	nodes := ac.ChainChecker.Check(ctx, options)
 	cacheKey := ac.CommitHash + syncCheckKeyPrefix + options.Session.Key
+	ttl := cacheTTL
+	if len(nodes) == 0 {
+		ttl = 30
+	}
 
-	if err := cache.WriteJSONToCaches(ctx, caches, cacheKey, nodes, uint(cacheTTL)); err != nil {
+	if err := cache.WriteJSONToCaches(ctx, caches, cacheKey, nodes, uint(ttl)); err != nil {
 		logger.Log.WithFields(log.Fields{
-			"appPublicKey": options.Session.Header.AppPublicKey,
-			"chain":        options.Session.Header.Chain,
-			"error":        err.Error(),
-			"requestID":    ac.RequestID,
-		}).Error("sync check: error writing to cache: " + err.Error())
+			"chain":     options.Session.Header.Chain,
+			"error":     err.Error(),
+			"requestID": ac.RequestID,
+		}).Errorf("sync check: error writing to cache: %s", err.Error())
 	}
 
 	return nodes
 }
 
 func (ac *applicationChecks) syncCheck(ctx context.Context, options pocket.SyncCheckOptions, blockchain models.Blockchain, caches []*cache.Redis) []string {
-	if blockchain.SyncCheckOptions.Body == "" {
+	if blockchain.SyncCheckOptions.Body == "" && blockchain.SyncCheckOptions.Path == "" {
 		return []string{}
 	}
 
-	nodes := (&pocket.SyncChecker{
-		Relayer:                ac.Relayer,
-		CommitHash:             ac.CommitHash,
-		DefaultSyncAllowance:   int(defaultSyncAllowance),
-		AltruistTrustThreshold: float32(altruistTrustThreshold),
-		MetricsRecorder:        ac.MetricsRecorder,
-		RequestID:              ac.RequestID,
-	}).Check(ctx, options)
-
+	nodes := ac.SyncChecker.Check(ctx, options)
 	cacheKey := ac.CommitHash + chainheckKeyPrefix + options.Session.Key
+	ttl := cacheTTL
+	if len(nodes) == 0 {
+		ttl = 30
+	}
 
-	if err := cache.WriteJSONToCaches(ctx, caches, cacheKey, nodes, uint(cacheTTL)); err != nil {
+	if err := cache.WriteJSONToCaches(ctx, caches, cacheKey, nodes, uint(ttl)); err != nil {
+		logger.Log.WithFields(log.Fields{
+			"chain":     options.Session.Header.Chain,
+			"error":     err.Error(),
+			"requestID": ac.RequestID,
+		}).Errorf("sync check: error writing to cache: %s", err.Error())
+	}
+
+	if err := ac.eraseNodesFailureMark(ctx, options, nodes, caches); err != nil {
 		logger.Log.WithFields(log.Fields{
 			"appPublicKey": options.Session.Header.AppPublicKey,
 			"chain":        options.Session.Header.Chain,
 			"error":        err.Error(),
 			"requestID":    ac.RequestID,
-		}).Error("sync check: error writing to cache: " + err.Error())
+		}).Errorf("sync check: error erasing failure mark on cache: %s", err.Error())
 	}
-
-	// Erase failure mark
-	var wg sync.WaitGroup
-	for _, node := range nodes {
-		wg.Add(1)
-		go func(n string) {
-			defer wg.Done()
-			err := cache.RunFunctionOnAllClients(caches, func(ins *cache.Redis) error {
-				return ins.Client.Set(ctx, fmt.Sprintf("%s%s-%s-failure", ac.CommitHash, options.Blockchain, n), "false", 1*time.Hour).Err()
-			})
-			if err != nil {
-				logger.Log.WithFields(log.Fields{
-					"appPublicKey": options.Session.Header.AppPublicKey,
-					"chain":        options.Session.Header.Chain,
-					"error":        err.Error(),
-					"requestID":    ac.RequestID,
-				}).Error("sync check: error erasing failure mark on cache: " + err.Error())
-			}
-		}(node)
-	}
-	wg.Wait()
 
 	return nodes
+}
+
+// eraseNodesFailureMark deletes the failure status on nodes on the api that were failing
+// a significant amount of relays
+func (ac *applicationChecks) eraseNodesFailureMark(ctx context.Context, options pocket.SyncCheckOptions, nodes []string, caches []*cache.Redis) error {
+	getNodeFailureKey := func(blockchain, node string) string {
+		return fmt.Sprintf("%s%s-%s-failure", ac.CommitHash, blockchain, node)
+	}
+
+	err := cache.RunFunctionOnAllClients(caches, func(ch *cache.Redis) error {
+		pipe := ch.Client.Pipeline()
+		for _, node := range nodes {
+			pipe.Set(ctx, getNodeFailureKey(options.Blockchain, node), "false", 1*time.Hour)
+		}
+		_, err := pipe.Exec(ctx)
+		return err
+	})
+
+	return err
 }
 
 func main() {

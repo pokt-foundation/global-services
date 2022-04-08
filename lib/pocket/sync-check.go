@@ -20,12 +20,13 @@ import (
 	"github.com/pokt-foundation/pocket-go/pkg/relayer"
 	log "github.com/sirupsen/logrus"
 
-	httpClient "github.com/Pocket/global-dispatcher/lib/http"
+	_http "github.com/Pocket/global-dispatcher/lib/http"
 )
+
+var httpClient = _http.NewClient()
 
 type SyncChecker struct {
 	Relayer                *relayer.PocketRelayer
-	CommitHash             string
 	DefaultSyncAllowance   int
 	AltruistTrustThreshold float32
 	MetricsRecorder        *metrics.Recorder
@@ -36,7 +37,6 @@ type SyncCheckOptions struct {
 	Session          provider.Session
 	PocketAAT        provider.PocketAAT
 	SyncCheckOptions models.SyncCheckOptions
-	Path             string
 	AltruistURL      string
 	Blockchain       string
 }
@@ -89,9 +89,6 @@ func (sc *SyncChecker) Check(ctx context.Context, options SyncCheckOptions) []st
 				"serviceDomain": utils.GetDomainFromURL(node.Node.ServiceURL),
 				"serviceNode":   node.Node.PublicKey,
 			}).Warn(fmt.Sprintf("SYNC CHECK BEHIND: %s height: %d", publicKey, blockHeight))
-
-			// TODO: send error to metrics db
-
 			continue
 		}
 
@@ -152,7 +149,7 @@ func (sc *SyncChecker) GetNodeSyncLog(ctx context.Context, node *provider.Node, 
 		PocketAAT:  &options.PocketAAT,
 		Session:    &options.Session,
 		Node:       node,
-		Path:       options.Path,
+		Path:       options.SyncCheckOptions.Path,
 	}, options.SyncCheckOptions.ResultKey)
 
 	if err != nil {
@@ -163,7 +160,7 @@ func (sc *SyncChecker) GetNodeSyncLog(ctx context.Context, node *provider.Node, 
 			"serviceURL":    node.ServiceURL,
 			"serviceDomain": utils.GetDomainFromURL(node.ServiceURL),
 			"error":         err.Error(),
-		}).Error("sync check: error relaying: " + err.Error())
+		}).Error("sync check: error obtaining block height: " + err.Error())
 
 		go sc.MetricsRecorder.WriteErrorMetric(ctx, &metrics.MetricData{
 			Metric: &metrics.Metric{
@@ -236,21 +233,25 @@ func (sc *SyncChecker) getValidNodesCountAndHighestNode(nodeLogs []*NodeSyncLog,
 		return validNodesCount
 	}()
 	// This should never happen
+	errMsg := "sync check error: fewer than 3 nodes returned sync"
 	if validNodes <= 2 {
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":  options.Session.Key,
 			"blockhainID": options.Blockchain,
 			"requestID":   sc.RequestID,
-		}).Error("sync check error: fewer than 3 nodes returned sync")
+			"error":       errMsg,
+		}).Error(errMsg)
 	}
 
+	errMsg = "sync check: top synced node result is invalid"
 	highestBlockHeight = nodeLogs[0].BlockHeight
 	if highestBlockHeight <= 0 {
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":  options.Session.Key,
 			"blockhainID": options.Blockchain,
 			"requestID":   sc.RequestID,
-		}).Error("sync check: top synced node result is invalid")
+			"error":       "sync check: top synced node result is invalid",
+		}).Error(errMsg)
 	}
 
 	return
@@ -259,7 +260,7 @@ func (sc *SyncChecker) getValidNodesCountAndHighestNode(nodeLogs []*NodeSyncLog,
 // getValidatedAltruist obtains and validates altruist block height and also returns,
 // how many nodes are ahead of it
 func (sc *SyncChecker) getValidatedAltruist(nodeLogs []*NodeSyncLog, options *SyncCheckOptions) (int64, int) {
-	altruistBlockHeight, err := getAltruistBlockHeight(options.SyncCheckOptions, options.AltruistURL)
+	altruistBlockHeight, err := getAltruistBlockHeight(options.SyncCheckOptions, options.AltruistURL, options.SyncCheckOptions.Path)
 	if altruistBlockHeight == 0 || err != nil {
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":  options.Session.Key,
@@ -289,23 +290,23 @@ func (sc *SyncChecker) getValidatedAltruist(nodeLogs []*NodeSyncLog, options *Sy
 	return altruistBlockHeight, nodesAheadOfAltruist
 }
 
-func getAltruistBlockHeight(options models.SyncCheckOptions, altruistURL string) (int64, error) {
+func getAltruistBlockHeight(options models.SyncCheckOptions, altruistURL string, path string) (int64, error) {
 	regex := regexp.MustCompile(`/[\w]*:\/\/[^\/]*@/g`)
 	regex.ReplaceAllString(altruistURL, "")
 
-	req, err := http.NewRequest(http.MethodPost, altruistURL,
+	req, err := http.NewRequest(http.MethodPost, altruistURL+path,
 		bytes.NewBuffer([]byte(strings.Replace(options.Body, `\`, "", -1))))
+	defer utils.CloseOrLog(req.Response)
 	if err != nil {
 		return 0, errors.New("error making altruist request: " + err.Error())
 	}
-	defer req.Body.Close()
 	req.Header.Add("Content-Type", "application/json")
 
-	res, err := httpClient.NewClient().Do(req)
+	res, err := httpClient.Do(req)
+	defer utils.CloseOrLog(res)
 	if err != nil {
 		return 0, errors.New("error performing altruist request: " + err.Error())
 	}
-	defer res.Body.Close()
 
 	return utils.ParseIntegerFromPayload(res.Body, options.ResultKey)
 }

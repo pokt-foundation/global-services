@@ -19,7 +19,6 @@ import (
 
 type ChainChecker struct {
 	Relayer         *relayer.PocketRelayer
-	CommitHash      string
 	MetricsRecorder *metrics.Recorder
 	RequestID       string
 }
@@ -35,17 +34,29 @@ type ChainCheckOptions struct {
 
 type NodeChainLog struct {
 	Node  *provider.Node
-	Chain string
+	Chain int64
 }
 
 func (cc *ChainChecker) Check(ctx context.Context, options ChainCheckOptions) []string {
 	checkedNodes := []string{}
+
+	chainID, err := strconv.Atoi(options.ChainID)
+	if err != nil {
+		logger.Log.WithFields(log.Fields{
+			"sessionKey":  options.Session.Key,
+			"blockhainID": options.Blockchain,
+			"requestID":   cc.RequestID,
+		}).Errorf("chain check: error parsing blockchain's chainID: %s", err.Error())
+
+		return checkedNodes
+	}
+
 	nodeLogs := cc.GetNodeChainLogs(ctx, &options)
 	for _, node := range nodeLogs {
 		publicKey := node.Node.PublicKey
-		chainID := node.Chain
+		nodeChainID := node.Chain
 
-		if node.Chain != options.ChainID {
+		if nodeChainID != int64(chainID) {
 			logger.Log.WithFields(log.Fields{
 				"sessionKey":    options.Session.Key,
 				"blockhainID":   options.Blockchain,
@@ -53,7 +64,7 @@ func (cc *ChainChecker) Check(ctx context.Context, options ChainCheckOptions) []
 				"serviceURL":    node.Node.ServiceURL,
 				"serviceDomain": utils.GetDomainFromURL(node.Node.ServiceURL),
 				"serviceNode":   node.Node.PublicKey,
-			}).Warn(fmt.Sprintf("CHAIN CHECK FAILURE: %s chainiD: %s", publicKey, chainID))
+			}).Warn(fmt.Sprintf("CHAIN CHECK FAILURE: %s chainiD: %d", publicKey, nodeChainID))
 			continue
 		}
 
@@ -64,7 +75,7 @@ func (cc *ChainChecker) Check(ctx context.Context, options ChainCheckOptions) []
 			"serviceURL":    node.Node.ServiceURL,
 			"serviceDomain": utils.GetDomainFromURL(node.Node.ServiceURL),
 			"serviceNode":   node.Node.PublicKey,
-		}).Info(fmt.Sprintf("CHAIN CHECK SUCCESS: %s chainiD: %s", publicKey, chainID))
+		}).Info(fmt.Sprintf("CHAIN CHECK SUCCESS: %s chainiD: %d", publicKey, nodeChainID))
 
 		checkedNodes = append(checkedNodes, publicKey)
 	}
@@ -124,7 +135,7 @@ func (cc *ChainChecker) GetNodeChainLog(ctx context.Context, node *provider.Node
 			"serviceDomain": utils.GetDomainFromURL(node.ServiceURL),
 			"serviceNode":   node.PublicKey,
 			"error":         err.Error(),
-		}).Error("chain check: error relaying: ", err)
+		}).Error("chain check: error obtaining chain ID: ", err)
 
 		go cc.MetricsRecorder.WriteErrorMetric(ctx, &metrics.MetricData{
 			Metric: &metrics.Metric{
@@ -141,13 +152,13 @@ func (cc *ChainChecker) GetNodeChainLog(ctx context.Context, node *provider.Node
 
 		nodeLogs <- &NodeChainLog{
 			Node:  node,
-			Chain: "0",
+			Chain: 0,
 		}
 		return
 	}
 
 	nodeLogs <- &NodeChainLog{
 		Node:  node,
-		Chain: strconv.Itoa(int(chain)),
+		Chain: chain,
 	}
 }

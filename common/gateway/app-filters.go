@@ -12,7 +12,7 @@ func GetStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store model
 	var databaseApps []*models.Application
 	var err error
 
-	if gigastaked == true {
+	if gigastaked {
 		databaseApps, err = store.GetGigastakedApplications(ctx)
 		if err != nil {
 			return nil, nil, err
