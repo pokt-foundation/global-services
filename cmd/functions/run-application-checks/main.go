@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -52,7 +53,14 @@ var (
 	minMetricsPoolSize     = environment.GetInt64("MIN_METRICS_POOL_SIZE", 5)
 	maxMetricsPoolSize     = environment.GetInt64("MAX_METRICS_POOL_SIZE", 20)
 	defaultTimeOut         = environment.GetInt64("DEFAULT_TIMEOUT", 8)
+	cacheBatchSize         = environment.GetInt64("CACHE_BATCH_SIZE", 50)
 )
+
+type cacheItem struct {
+	Key   string
+	Value interface{}
+	Ttl   time.Duration
+}
 
 type applicationChecks struct {
 	Caches          []*cache.Redis
@@ -65,6 +73,7 @@ type applicationChecks struct {
 	RequestID       string
 	SyncChecker     *pocket.SyncChecker
 	ChainChecker    *pocket.ChainChecker
+	CacheBatch      chan *cacheItem
 }
 
 func lambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
@@ -131,6 +140,7 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 		return bc.ID
 	})
 
+	batch := make(chan *cacheItem, cacheBatchSize)
 	appChecks := applicationChecks{
 		Caches:          caches,
 		Provider:        rpcProvider,
@@ -138,6 +148,7 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 		MetricsRecorder: metricsRecorder,
 		BlockHeight:     blockHeight,
 		RequestID:       requestID,
+		CacheBatch:      batch,
 		SyncChecker: &pocket.SyncChecker{
 			Relayer:                pocketRelayer,
 			DefaultSyncAllowance:   int(defaultSyncAllowance),
@@ -152,8 +163,12 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 		},
 	}
 
-	var sem = semaphore.NewWeighted(dispatchConcurrency)
+	var cacheWg sync.WaitGroup
+	cacheWg.Add(1)
+	go appChecks.monitorCacheBatch(ctx, batch, &cacheWg)
+
 	var wg sync.WaitGroup
+	var sem = semaphore.NewWeighted(dispatchConcurrency)
 	for index, app := range ntApps {
 		for _, chain := range app.Chains {
 			dbApp := dbApps[index]
@@ -209,6 +224,10 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 	}
 	wg.Wait()
 
+	close(batch)
+	// Wait for the remaining items in the batch if any
+	cacheWg.Wait()
+
 	metricsRecorder.Conn.Close()
 	return cache.CloseConnections(caches)
 }
@@ -241,12 +260,21 @@ func (ac *applicationChecks) chainCheck(ctx context.Context, options pocket.Chai
 		ttl = 30
 	}
 
-	if err := cache.WriteJSONToCaches(ctx, caches, cacheKey, nodes, uint(ttl)); err != nil {
+	marshalledNodes, err := json.Marshal(nodes)
+	if err != nil {
 		logger.Log.WithFields(log.Fields{
-			"chain":     options.Session.Header.Chain,
-			"error":     err.Error(),
-			"requestID": ac.RequestID,
-		}).Errorf("sync check: error writing to cache: %s", err.Error())
+			"error":        err.Error(),
+			"requestID":    ac.RequestID,
+			"blockchainID": blockchain,
+			"sessionKey":   options.Session.Key,
+		}).Errorf("sync check: error marshalling nodes: %s", err.Error())
+		return nodes
+	}
+
+	ac.CacheBatch <- &cacheItem{
+		Key:   cacheKey,
+		Value: marshalledNodes,
+		Ttl:   time.Duration(ttl) * time.Second,
 	}
 
 	return nodes
@@ -264,43 +292,73 @@ func (ac *applicationChecks) syncCheck(ctx context.Context, options pocket.SyncC
 		ttl = 30
 	}
 
-	if err := cache.WriteJSONToCaches(ctx, caches, cacheKey, nodes, uint(ttl)); err != nil {
+	marshalledNodes, err := json.Marshal(nodes)
+	if err != nil {
 		logger.Log.WithFields(log.Fields{
-			"chain":     options.Session.Header.Chain,
-			"error":     err.Error(),
-			"requestID": ac.RequestID,
-		}).Errorf("sync check: error writing to cache: %s", err.Error())
-	}
-
-	if err := ac.eraseNodesFailureMark(ctx, options, nodes, caches); err != nil {
-		logger.Log.WithFields(log.Fields{
-			"appPublicKey": options.Session.Header.AppPublicKey,
-			"chain":        options.Session.Header.Chain,
 			"error":        err.Error(),
 			"requestID":    ac.RequestID,
-		}).Errorf("sync check: error erasing failure mark on cache: %s", err.Error())
+			"blockchainID": blockchain,
+			"sessionKey":   options.Session.Key,
+		}).Errorf("sync check: error marshalling nodes: %s", err.Error())
+		return nodes
 	}
+	ac.CacheBatch <- &cacheItem{
+		Key:   cacheKey,
+		Value: marshalledNodes,
+		Ttl:   time.Duration(ttl) * time.Second,
+	}
+
+	ac.eraseNodesFailureMark(ctx, options, nodes, caches)
 
 	return nodes
 }
 
 // eraseNodesFailureMark deletes the failure status on nodes on the api that were failing
 // a significant amount of relays
-func (ac *applicationChecks) eraseNodesFailureMark(ctx context.Context, options pocket.SyncCheckOptions, nodes []string, caches []*cache.Redis) error {
-	getNodeFailureKey := func(blockchain, node string) string {
+func (ac *applicationChecks) eraseNodesFailureMark(ctx context.Context, options pocket.SyncCheckOptions, nodes []string, caches []*cache.Redis) {
+	nodeFailureKey := func(blockchain, node string) string {
 		return fmt.Sprintf("%s%s-%s-failure", ac.CommitHash, blockchain, node)
 	}
+	for _, node := range nodes {
+		ac.CacheBatch <- &cacheItem{
+			Key:   nodeFailureKey(options.Blockchain, node),
+			Value: node,
+			Ttl:   1 * time.Hour,
+		}
+	}
+}
 
-	err := cache.RunFunctionOnAllClients(caches, func(ch *cache.Redis) error {
-		pipe := ch.Client.Pipeline()
-		for _, node := range nodes {
-			pipe.Set(ctx, getNodeFailureKey(options.Blockchain, node), "false", 1*time.Hour)
+func (ac applicationChecks) monitorCacheBatch(ctx context.Context, ch chan *cacheItem, wg *sync.WaitGroup) {
+	defer wg.Done()
+	items := []*cacheItem{}
+
+	for x := range ch {
+		items = append(items, x)
+		if len(items) < int(cacheBatchSize) {
+			continue
+		}
+		ac.writeCacheBatch(ctx, items)
+		items = nil
+	}
+
+	// There might be items left
+	ac.writeCacheBatch(ctx, items)
+}
+
+func (ac applicationChecks) writeCacheBatch(ctx context.Context, items []*cacheItem) {
+	if err := cache.RunFunctionOnAllClients(ac.Caches, func(cache *cache.Redis) error {
+		pipe := cache.Client.Pipeline()
+		for _, item := range items {
+			pipe.Set(ctx, item.Key, item.Value, item.Ttl)
 		}
 		_, err := pipe.Exec(ctx)
 		return err
-	})
-
-	return err
+	}); err != nil {
+		logger.Log.WithFields(log.Fields{
+			"error":     err.Error(),
+			"requestID": ac.RequestID,
+		}).Errorf("cache: error writing cache batch: %s", err.Error())
+	}
 }
 
 func main() {
