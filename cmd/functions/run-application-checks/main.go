@@ -59,7 +59,7 @@ var (
 type cacheItem struct {
 	Key   string
 	Value interface{}
-	Ttl   time.Duration
+	TTL   time.Duration
 }
 
 type applicationChecks struct {
@@ -274,7 +274,7 @@ func (ac *applicationChecks) chainCheck(ctx context.Context, options pocket.Chai
 	ac.CacheBatch <- &cacheItem{
 		Key:   cacheKey,
 		Value: marshalledNodes,
-		Ttl:   time.Duration(ttl) * time.Second,
+		TTL:   time.Duration(ttl) * time.Second,
 	}
 
 	return nodes
@@ -305,7 +305,7 @@ func (ac *applicationChecks) syncCheck(ctx context.Context, options pocket.SyncC
 	ac.CacheBatch <- &cacheItem{
 		Key:   cacheKey,
 		Value: marshalledNodes,
-		Ttl:   time.Duration(ttl) * time.Second,
+		TTL:   time.Duration(ttl) * time.Second,
 	}
 
 	ac.eraseNodesFailureMark(ctx, options, nodes, caches)
@@ -323,7 +323,7 @@ func (ac *applicationChecks) eraseNodesFailureMark(ctx context.Context, options 
 		ac.CacheBatch <- &cacheItem{
 			Key:   nodeFailureKey(options.Blockchain, node),
 			Value: node,
-			Ttl:   1 * time.Hour,
+			TTL:   1 * time.Hour,
 		}
 	}
 }
@@ -349,7 +349,7 @@ func (ac applicationChecks) writeCacheBatch(ctx context.Context, items []*cacheI
 	if err := cache.RunFunctionOnAllClients(ac.Caches, func(cache *cache.Redis) error {
 		pipe := cache.Client.Pipeline()
 		for _, item := range items {
-			pipe.Set(ctx, item.Key, item.Value, item.Ttl)
+			pipe.Set(ctx, item.Key, item.Value, item.TTL)
 		}
 		_, err := pipe.Exec(ctx)
 		return err
