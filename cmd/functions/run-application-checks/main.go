@@ -54,6 +54,11 @@ var (
 	maxMetricsPoolSize     = environment.GetInt64("MAX_METRICS_POOL_SIZE", 20)
 	defaultTimeOut         = environment.GetInt64("DEFAULT_TIMEOUT", 8)
 	cacheBatchSize         = environment.GetInt64("CACHE_BATCH_SIZE", 50)
+
+	caches          []*cache.Redis
+	metricsRecorder *metrics.Recorder
+	db              *database.Mongo
+	rpcProvider     *provider.JSONRPCProvider
 )
 
 type applicationChecks struct {
@@ -90,23 +95,24 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 	if len(redisConnectionStrings) <= 0 {
 		return errNoCacheClientProvided
 	}
+	var err error
 
-	db, err := database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
+	db, err = database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
 	if err != nil {
 		return errors.New("error connecting to mongo: " + err.Error())
 	}
 
-	metricsRecorder, err := metrics.NewMetricsRecorder(ctx, metricsConnection, int(minMetricsPoolSize), int(maxMetricsPoolSize))
+	metricsRecorder, err = metrics.NewMetricsRecorder(ctx, metricsConnection, int(minMetricsPoolSize), int(maxMetricsPoolSize))
 	if err != nil {
 		return errors.New("error connecting to metrics db: " + err.Error())
 	}
 
-	caches, err := cache.ConnectoCacheClients(ctx, redisConnectionStrings, "", isRedisCluster)
+	caches, err = cache.ConnectoCacheClients(ctx, redisConnectionStrings, "", isRedisCluster)
 	if err != nil {
 		return errors.New("error connecting to redis: " + err.Error())
 	}
 
-	rpcProvider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs)
+	rpcProvider = provider.NewJSONRPCProvider(rpcURL, dispatchURLs)
 	rpcProvider.UpdateRequestConfig(0, time.Duration(defaultTimeOut)*time.Second)
 	wallet, err := signer.NewWalletFromPrivatekey(appPrivateKey)
 	if err != nil {
@@ -171,55 +177,59 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 	var sem = semaphore.NewWeighted(dispatchConcurrency)
 	for index, app := range ntApps {
 		for _, chain := range app.Chains {
-			dbApp := dbApps[index]
-
-			session, err := appChecks.getSession(ctx, app.PublicKey, chain)
-			if err != nil {
-				logger.Log.WithFields(log.Fields{
-					"appPublicKey": app.PublicKey,
-					"chain":        chain,
-					"error":        err.Error(),
-				}).Errorf("error dispatching: %s", err.Error())
-				continue
-			}
-
-			blockchain := *blockchains[chain]
-
-			pocketAAT := provider.PocketAAT{
-				AppPubKey:    dbApp.GatewayAAT.ApplicationPublicKey,
-				ClientPubKey: dbApp.GatewayAAT.ClientPublicKey,
-				Version:      dbApp.GatewayAAT.Version,
-				Signature:    dbApp.GatewayAAT.ApplicationSignature,
-			}
-
-			sem.Acquire(ctx, 1)
 			wg.Add(1)
-			go func() {
-				defer sem.Release(1)
+			go func(publicKey, ch string, idx int) {
 				defer wg.Done()
-				appChecks.chainCheck(ctx, pocket.ChainCheckOptions{
-					Session:    *session,
-					Blockchain: blockchain.ID,
-					Data:       blockchain.ChainIDCheck,
-					ChainID:    blockchain.ChainID,
-					Path:       blockchain.Path,
-					PocketAAT:  pocketAAT,
-				}, blockchain, caches)
-			}()
+				dbApp := dbApps[idx]
 
-			sem.Acquire(ctx, 1)
-			wg.Add(1)
-			go func() {
-				defer sem.Release(1)
-				defer wg.Done()
-				appChecks.syncCheck(ctx, pocket.SyncCheckOptions{
-					Session:          *session,
-					PocketAAT:        pocketAAT,
-					SyncCheckOptions: blockchain.SyncCheckOptions,
-					AltruistURL:      blockchain.Altruist,
-					Blockchain:       blockchain.ID,
-				}, blockchain, caches)
-			}()
+				session, err := appChecks.getSession(ctx, publicKey, ch)
+				if err != nil {
+					logger.Log.WithFields(log.Fields{
+						"appPublicKey": publicKey,
+						"chain":        ch,
+						"error":        err.Error(),
+					}).Errorf("error dispatching: %s", err.Error())
+					return
+				}
+
+				blockchain := *blockchains[ch]
+
+				pocketAAT := provider.PocketAAT{
+					AppPubKey:    dbApp.GatewayAAT.ApplicationPublicKey,
+					ClientPubKey: dbApp.GatewayAAT.ClientPublicKey,
+					Version:      dbApp.GatewayAAT.Version,
+					Signature:    dbApp.GatewayAAT.ApplicationSignature,
+				}
+
+				sem.Acquire(ctx, 1)
+				wg.Add(1)
+				go func() {
+					defer sem.Release(1)
+					defer wg.Done()
+					appChecks.chainCheck(ctx, pocket.ChainCheckOptions{
+						Session:    *session,
+						Blockchain: blockchain.ID,
+						Data:       blockchain.ChainIDCheck,
+						ChainID:    blockchain.ChainID,
+						Path:       blockchain.Path,
+						PocketAAT:  pocketAAT,
+					}, blockchain, caches)
+				}()
+
+				sem.Acquire(ctx, 1)
+				wg.Add(1)
+				go func() {
+					defer sem.Release(1)
+					defer wg.Done()
+					appChecks.syncCheck(ctx, pocket.SyncCheckOptions{
+						Session:          *session,
+						PocketAAT:        pocketAAT,
+						SyncCheckOptions: blockchain.SyncCheckOptions,
+						AltruistURL:      blockchain.Altruist,
+						Blockchain:       blockchain.ID,
+					}, blockchain, caches)
+				}()
+			}(app.PublicKey, chain, index)
 		}
 	}
 	wg.Wait()
