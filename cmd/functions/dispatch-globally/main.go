@@ -169,6 +169,8 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 	}
 
 	wg.Wait()
+	// Wait for the remaining items in the batch if any
+	cacheWg.Wait()
 
 	if failedDispatcherCalls > uint32(maxDispatchersErrorsAllowed) {
 		return failedDispatcherCalls, ErrMaxDispatchErrorsExceeded
