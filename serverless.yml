@@ -38,7 +38,7 @@ functions:
   run-application-checks:
     handler: bin/run-application-checks
     environment: ${file(.env.run-application-checks.yml)}
-    memorySize: 2048
+    memorySize: 4096
     timeout: 360
     maximumRetryAttempts: 2
     events:
@@ -49,7 +49,7 @@ functions:
   run-application-checks-canary:
     handler: bin/run-application-checks
     environment: ${file(.env.run-application-checks.canary.yml)}
-    memorySize: 2048
+    memorySize: 4096
     timeout: 360
     maximumRetryAttempts: 2
     events:
