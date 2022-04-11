@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/Pocket/global-dispatcher/common/apigateway"
 	"github.com/Pocket/global-dispatcher/common/environment"
@@ -40,6 +42,7 @@ var (
 	maxDispatchersErrorsAllowed = environment.GetInt64("MAX_DISPATCHER_ERRORS_ALLOWED", 2000)
 	dispatchGigastake           = environment.GetBool("DISPATCH_GIGASTAKE", false)
 	maxClientsCacheCheck        = environment.GetInt64("MAX_CLIENTS_CACHE_CHECK", 3)
+	cacheBatchSize              = environment.GetInt64("CACHE_BATCH_SIZE", 100)
 )
 
 // LambdaHandler manages the DispatchSession call to return as an APIGatewayProxyResponse
@@ -98,6 +101,17 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 		return 0, errors.New("error obtaining staked apps on db: " + err.Error())
 	}
 
+	batch := make(chan *cache.Item, cacheBatchSize)
+	var cacheWg sync.WaitGroup
+	cacheWg.Add(1)
+	go cache.BatchWriter(ctx, cache.BatchWriterOptions{
+		Caches:    caches,
+		BatchSize: int(cacheBatchSize),
+		Chan:      batch,
+		WaitGroup: &cacheWg,
+		RequestID: requestID,
+	})
+
 	var failedDispatcherCalls uint32
 	var sem = semaphore.NewWeighted(dispatchConcurrency)
 	var wg sync.WaitGroup
@@ -131,19 +145,24 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 				}
 
 				session := pocket.NewSessionCamelCase(dispatch.Session)
-
 				// Embedding current block height within session so can be checked for cache
 				session.BlockHeight = dispatch.BlockHeight
 
-				err = cache.WriteJSONToCaches(ctx, caches, cacheKey, session, uint(cacheTTL))
+				sessionMarshalled, err := json.Marshal(session)
 				if err != nil {
-					atomic.AddUint32(&failedDispatcherCalls, 1)
 					logger.Log.WithFields(log.Fields{
-						"appPublicKey": publicKey,
-						"chain":        ch,
 						"error":        err.Error(),
 						"requestID":    requestID,
-					}).Error("error writing to cache: " + err.Error())
+						"blockchainID": ch,
+						"sessionKey":   session.Key,
+					}).Errorf("sync check: error marshalling nodes: %s", err.Error())
+					return
+				}
+
+				batch <- &cache.Item{
+					Key:   cacheKey,
+					Value: sessionMarshalled,
+					TTL:   time.Duration(cacheTTL) * time.Second,
 				}
 			}(app.PublicKey, chain)
 		}

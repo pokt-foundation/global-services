@@ -56,12 +56,6 @@ var (
 	cacheBatchSize         = environment.GetInt64("CACHE_BATCH_SIZE", 50)
 )
 
-type cacheItem struct {
-	Key   string
-	Value interface{}
-	TTL   time.Duration
-}
-
 type applicationChecks struct {
 	Caches          []*cache.Redis
 	Provider        *provider.JSONRPCProvider
@@ -73,7 +67,7 @@ type applicationChecks struct {
 	RequestID       string
 	SyncChecker     *pocket.SyncChecker
 	ChainChecker    *pocket.ChainChecker
-	CacheBatch      chan *cacheItem
+	CacheBatch      chan *cache.Item
 }
 
 func lambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
@@ -140,7 +134,7 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 		return bc.ID
 	})
 
-	batch := make(chan *cacheItem, cacheBatchSize)
+	batch := make(chan *cache.Item, cacheBatchSize)
 	appChecks := applicationChecks{
 		Caches:          caches,
 		Provider:        rpcProvider,
@@ -165,7 +159,13 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 
 	var cacheWg sync.WaitGroup
 	cacheWg.Add(1)
-	go appChecks.monitorCacheBatch(ctx, batch, &cacheWg)
+	go cache.BatchWriter(ctx, cache.BatchWriterOptions{
+		Caches:    caches,
+		BatchSize: int(cacheBatchSize),
+		Chan:      batch,
+		WaitGroup: &cacheWg,
+		RequestID: requestID,
+	})
 
 	var wg sync.WaitGroup
 	var sem = semaphore.NewWeighted(dispatchConcurrency)
@@ -271,7 +271,7 @@ func (ac *applicationChecks) chainCheck(ctx context.Context, options pocket.Chai
 		return nodes
 	}
 
-	ac.CacheBatch <- &cacheItem{
+	ac.CacheBatch <- &cache.Item{
 		Key:   cacheKey,
 		Value: marshalledNodes,
 		TTL:   time.Duration(ttl) * time.Second,
@@ -292,7 +292,7 @@ func (ac *applicationChecks) syncCheck(ctx context.Context, options pocket.SyncC
 		ttl = 30
 	}
 
-	marshalledNodes, err := json.Marshal(nodes)
+	nodesMarshalled, err := json.Marshal(nodes)
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
 			"error":        err.Error(),
@@ -302,9 +302,9 @@ func (ac *applicationChecks) syncCheck(ctx context.Context, options pocket.SyncC
 		}).Errorf("sync check: error marshalling nodes: %s", err.Error())
 		return nodes
 	}
-	ac.CacheBatch <- &cacheItem{
+	ac.CacheBatch <- &cache.Item{
 		Key:   cacheKey,
-		Value: marshalledNodes,
+		Value: nodesMarshalled,
 		TTL:   time.Duration(ttl) * time.Second,
 	}
 
@@ -320,44 +320,11 @@ func (ac *applicationChecks) eraseNodesFailureMark(ctx context.Context, options 
 		return fmt.Sprintf("%s%s-%s-failure", ac.CommitHash, blockchain, node)
 	}
 	for _, node := range nodes {
-		ac.CacheBatch <- &cacheItem{
+		ac.CacheBatch <- &cache.Item{
 			Key:   nodeFailureKey(options.Blockchain, node),
 			Value: node,
 			TTL:   1 * time.Hour,
 		}
-	}
-}
-
-func (ac applicationChecks) monitorCacheBatch(ctx context.Context, ch chan *cacheItem, wg *sync.WaitGroup) {
-	defer wg.Done()
-	items := []*cacheItem{}
-
-	for x := range ch {
-		items = append(items, x)
-		if len(items) < int(cacheBatchSize) {
-			continue
-		}
-		ac.writeCacheBatch(ctx, items)
-		items = nil
-	}
-
-	// There might be items left
-	ac.writeCacheBatch(ctx, items)
-}
-
-func (ac applicationChecks) writeCacheBatch(ctx context.Context, items []*cacheItem) {
-	if err := cache.RunFunctionOnAllClients(ac.Caches, func(cache *cache.Redis) error {
-		pipe := cache.Client.Pipeline()
-		for _, item := range items {
-			pipe.Set(ctx, item.Key, item.Value, item.TTL)
-		}
-		_, err := pipe.Exec(ctx)
-		return err
-	}); err != nil {
-		logger.Log.WithFields(log.Fields{
-			"error":     err.Error(),
-			"requestID": ac.RequestID,
-		}).Errorf("cache: error writing cache batch: %s", err.Error())
 	}
 }
 
