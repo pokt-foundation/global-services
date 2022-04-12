@@ -22,6 +22,8 @@ type BatchWriterOptions struct {
 	RequestID string
 }
 
+// BatchWriter spans a monitor goroutine which is constantly checking for items to write to redis,
+// once the items reached the minimum threshold it is sent to be written as a single Redis SET operation.
 func BatchWriter(ctx context.Context, options *BatchWriterOptions) chan *Item {
 	batch := make(chan *Item, options.BatchSize)
 	go monitorBatch(ctx, batch, *options)
