@@ -171,8 +171,6 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 		},
 	}
 
-	ntApps = ntApps[15:17]
-
 	var wg sync.WaitGroup
 	var sem = semaphore.NewWeighted(dispatchConcurrency)
 	for index, app := range ntApps {
