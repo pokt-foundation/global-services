@@ -302,7 +302,7 @@ func (ac *applicationChecks) syncCheck(ctx context.Context, options pocket.SyncC
 		ttl = 30
 	}
 
-	nodesMarshalled, err := json.Marshal(nodes)
+	marshalledNodes, err := json.Marshal(nodes)
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
 			"error":        err.Error(),
@@ -314,7 +314,7 @@ func (ac *applicationChecks) syncCheck(ctx context.Context, options pocket.SyncC
 	}
 	ac.CacheBatch <- &cache.Item{
 		Key:   cacheKey,
-		Value: nodesMarshalled,
+		Value: marshalledNodes,
 		TTL:   time.Duration(ttl) * time.Second,
 	}
 

@@ -146,7 +146,7 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 				// Embedding current block height within session so can be checked for cache
 				session.BlockHeight = dispatch.BlockHeight
 
-				sessionMarshalled, err := json.Marshal(session)
+				marshalledSession, err := json.Marshal(session)
 				if err != nil {
 					logger.Log.WithFields(log.Fields{
 						"error":        err.Error(),
@@ -159,7 +159,7 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 
 				cacheBatch <- &cache.Item{
 					Key:   cacheKey,
-					Value: sessionMarshalled,
+					Value: marshalledSession,
 					TTL:   time.Duration(cacheTTL) * time.Second,
 				}
 			}(app.PublicKey, chain)
