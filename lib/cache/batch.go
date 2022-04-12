@@ -18,29 +18,39 @@ type Item struct {
 type BatchWriterOptions struct {
 	Caches    []*Redis
 	BatchSize int
-	Chan      chan *Item
 	WaitGroup *sync.WaitGroup
 	RequestID string
 }
 
-func BatchWriter(ctx context.Context, options BatchWriterOptions) {
+func BatchWriter(ctx context.Context, options *BatchWriterOptions) chan *Item {
+	batch := make(chan *Item, options.BatchSize)
+	go monitorBatch(ctx, batch, *options)
+	return batch
+}
+
+func monitorBatch(ctx context.Context, batch chan *Item, options BatchWriterOptions) {
 	defer options.WaitGroup.Done()
 	items := []*Item{}
 
-	for x := range options.Chan {
-		items = append(items, x)
-		if len(items) < options.BatchSize {
+	for {
+		item, ok := <-batch
+		if item != nil {
+			items = append(items, item)
+		}
+
+		if ok && len(items) < options.BatchSize {
 			continue
 		}
-		WriteBatch(ctx, items, options.Caches, options.RequestID)
+		writeBatch(ctx, items, options.Caches, options.RequestID)
 		items = nil
-	}
 
-	// There might be items left
-	WriteBatch(ctx, items, options.Caches, options.RequestID)
+		if !ok {
+			break
+		}
+	}
 }
 
-func WriteBatch(ctx context.Context, items []*Item, caches []*Redis, requestID string) {
+func writeBatch(ctx context.Context, items []*Item, caches []*Redis, requestID string) {
 	if err := RunFunctionOnAllClients(caches, func(cache *Redis) error {
 		pipe := cache.Client.Pipeline()
 		for _, item := range items {

@@ -38,24 +38,24 @@ functions:
   run-application-checks:
     handler: bin/run-application-checks
     environment: ${file(.env.run-application-checks.yml)}
-    memorySize: 4096
+    memorySize: 2048
     timeout: 360
     maximumRetryAttempts: 2
     events:
       - schedule:
           rate: rate(3 minutes)
-          enabled: true
+          enabled: false
 
   run-application-checks-canary:
     handler: bin/run-application-checks
     environment: ${file(.env.run-application-checks.canary.yml)}
-    memorySize: 4096
+    memorySize: 2048
     timeout: 360
     maximumRetryAttempts: 2
     events:
       - schedule:
           rate: rate(4 minutes)
-          enabled: false
+          enabled: true
 
   flush-cache:
     handler: bin/flush-cache

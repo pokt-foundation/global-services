@@ -101,13 +101,11 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 		return 0, errors.New("error obtaining staked apps on db: " + err.Error())
 	}
 
-	batch := make(chan *cache.Item, cacheBatchSize)
 	var cacheWg sync.WaitGroup
 	cacheWg.Add(1)
-	go cache.BatchWriter(ctx, cache.BatchWriterOptions{
+	cacheBatch := cache.BatchWriter(ctx, &cache.BatchWriterOptions{
 		Caches:    caches,
 		BatchSize: int(cacheBatchSize),
-		Chan:      batch,
 		WaitGroup: &cacheWg,
 		RequestID: requestID,
 	})
@@ -159,7 +157,7 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 					return
 				}
 
-				batch <- &cache.Item{
+				cacheBatch <- &cache.Item{
 					Key:   cacheKey,
 					Value: sessionMarshalled,
 					TTL:   time.Duration(cacheTTL) * time.Second,

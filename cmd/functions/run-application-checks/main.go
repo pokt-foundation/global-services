@@ -140,7 +140,15 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 		return bc.ID
 	})
 
-	batch := make(chan *cache.Item, cacheBatchSize)
+	var cacheWg sync.WaitGroup
+	cacheWg.Add(1)
+	cacheBatch := cache.BatchWriter(ctx, &cache.BatchWriterOptions{
+		Caches:    caches,
+		BatchSize: int(cacheBatchSize),
+		WaitGroup: &cacheWg,
+		RequestID: requestID,
+	})
+
 	appChecks := applicationChecks{
 		Caches:          caches,
 		Provider:        rpcProvider,
@@ -148,7 +156,7 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 		MetricsRecorder: metricsRecorder,
 		BlockHeight:     blockHeight,
 		RequestID:       requestID,
-		CacheBatch:      batch,
+		CacheBatch:      cacheBatch,
 		SyncChecker: &pocket.SyncChecker{
 			Relayer:                pocketRelayer,
 			DefaultSyncAllowance:   int(defaultSyncAllowance),
@@ -163,15 +171,7 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 		},
 	}
 
-	var cacheWg sync.WaitGroup
-	cacheWg.Add(1)
-	go cache.BatchWriter(ctx, cache.BatchWriterOptions{
-		Caches:    caches,
-		BatchSize: int(cacheBatchSize),
-		Chan:      batch,
-		WaitGroup: &cacheWg,
-		RequestID: requestID,
-	})
+	ntApps = ntApps[15:17]
 
 	var wg sync.WaitGroup
 	var sem = semaphore.NewWeighted(dispatchConcurrency)
@@ -234,7 +234,7 @@ func runApplicationChecks(ctx context.Context, requestID string) error {
 	}
 	wg.Wait()
 
-	close(batch)
+	close(cacheBatch)
 	// Wait for the remaining items in the batch if any
 	cacheWg.Wait()
 
