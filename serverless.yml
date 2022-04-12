@@ -7,6 +7,13 @@ provider:
   region: us-west-2
   vpc: ${file(.env.global.yml):vpc}
 
+  	
+  # ecr:
+  #   # In this section you can define images that will be built locally and uploaded to ECR
+  #   images:
+  #     appimage:
+  #       path: ./
+
 package:
   patterns:
     - '!./**'
@@ -44,7 +51,7 @@ functions:
     events:
       - schedule:
           rate: rate(3 minutes)
-          enabled: false
+          enabled: true
 
   run-application-checks-canary:
     handler: bin/run-application-checks
@@ -55,7 +62,7 @@ functions:
     events:
       - schedule:
           rate: rate(4 minutes)
-          enabled: true
+          enabled: false
 
   flush-cache:
     handler: bin/flush-cache
