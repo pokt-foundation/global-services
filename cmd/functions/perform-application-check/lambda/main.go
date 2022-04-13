@@ -34,8 +34,8 @@ var (
 )
 
 const (
-	MIN_METRICS_POOL_SIZE = 10
-	MAX_METRICS_POOL_SIZE = 20
+	MIN_METRICS_POOL_SIZE = 2
+	MAX_METRICS_POOL_SIZE = 2
 )
 
 func lambdaHandler(ctx context.Context, payload base.Payload) (events.APIGatewayProxyResponse, error) {
