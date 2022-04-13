@@ -68,7 +68,7 @@ functions:
   perform-application-check:
     handler: bin/perform-application-check
     environment: ${file(.env.perform-application-check.yml)}
-    memorySize: 1024
+    memorySize: 256
     timeout: 360
 
   flush-cache:
