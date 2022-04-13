@@ -8,7 +8,7 @@ require (
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/gojektech/heimdall v5.0.2+incompatible
 	github.com/jackc/pgx/v4 v4.15.0
-	github.com/pokt-foundation/pocket-go v0.8.2
+	github.com/pokt-foundation/pocket-go v0.8.0
 	github.com/sirupsen/logrus v1.8.1
 	go.mongodb.org/mongo-driver v1.9.0
 	golang.org/x/exp v0.0.0-20220407100705-7b9b53b0aca4
