@@ -99,7 +99,7 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 
 	metricsRecorder, err = metrics.NewMetricsRecorder(ctx, metricsConnection, int(minMetricsPoolSize), int(maxMetricsPoolSize))
 	if err != nil {
-		return errors.New("error2 connecting to metrics db: " + err.Error())
+		return errors.New("error connecting to metrics db: " + err.Error())
 	}
 
 	caches, err = cache.ConnectoCacheClients(ctx, redisConnectionStrings, "", isRedisCluster)
