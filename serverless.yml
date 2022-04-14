@@ -7,12 +7,13 @@ provider:
   region: us-west-2
   vpc: ${file(.env.global.yml):vpc}
 
-  	
-  # ecr:
-  #   # In this section you can define images that will be built locally and uploaded to ECR
-  #   images:
-  #     appimage:
-  #       path: ./
+  iam:
+    role:
+      statements: 
+        - Effect: 'Allow'
+          Action:
+            - "lambda:InvokeFunction"
+          Resource: "*"
 
 package:
   patterns:
@@ -45,7 +46,7 @@ functions:
   run-application-checks:
     handler: bin/run-application-checks
     environment: ${file(.env.run-application-checks.yml)}
-    memorySize: 2048
+    memorySize: 768
     timeout: 360
     maximumRetryAttempts: 2
     events:
@@ -56,13 +57,19 @@ functions:
   run-application-checks-canary:
     handler: bin/run-application-checks
     environment: ${file(.env.run-application-checks.canary.yml)}
-    memorySize: 2048
+    memorySize: 768
     timeout: 360
     maximumRetryAttempts: 2
     events:
       - schedule:
           rate: rate(4 minutes)
           enabled: false
+
+  perform-application-check:
+    handler: bin/perform-application-check
+    environment: ${file(.env.perform-application-check.yml)}
+    memorySize: 256
+    timeout: 360
 
   flush-cache:
     handler: bin/flush-cache

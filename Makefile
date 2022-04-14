@@ -5,7 +5,7 @@ ifndef NAME
 $(error NAME is not set)
 endif
 	export GO111MODULE=on
-	env GOARCH=amd64 GOOS=linux go build -ldflags="-s -w" -o bin/$(NAME) cmd/functions/$(NAME)/main.go
+	env GOARCH=amd64 GOOS=linux go build -ldflags="-s -w" -o bin/$(NAME) cmd/functions/$(NAME)/lambda/main.go
 
 clean:
 	rm -rf ./bin ./vendor go.sum
