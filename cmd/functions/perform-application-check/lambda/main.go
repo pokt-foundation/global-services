@@ -62,7 +62,7 @@ func PerformApplicationCheck(ctx context.Context, payload *base.Payload, request
 	var err error
 	metricsRecorder, err = metrics.NewMetricsRecorder(ctx, metricsConnection, MIN_METRICS_POOL_SIZE, MAX_METRICS_POOL_SIZE)
 	if err != nil {
-		return nil, nil, errors.New("error4 connecting to metrics db: " + err.Error())
+		return nil, nil, errors.New("error connecting to metrics db: " + err.Error())
 	}
 
 	rpcProvider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs)
@@ -104,7 +104,7 @@ func PerformApplicationCheck(ctx context.Context, payload *base.Payload, request
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if payload.Blockchain.ChainIDCheck != "" {
+		if payload.Blockchain.ChainIDCheck == "" {
 			return
 		}
 

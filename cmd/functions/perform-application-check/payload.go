@@ -16,5 +16,5 @@ type Payload struct {
 
 type Response struct {
 	SyncCheckedNodes  []string `json:"syncCheckedNodes"`
-	ChainCheckedNodes []string `json:"chainChecedkNodes"`
+	ChainCheckedNodes []string `json:"chainCheckedNodes"`
 }
