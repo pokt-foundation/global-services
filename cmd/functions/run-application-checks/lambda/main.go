@@ -124,11 +124,11 @@ func invokeChecks(options *base.PerformChecksOptions) (*performAppCheck.Response
 	}
 
 	var response events.APIGatewayProxyResponse
-	if err = json.Unmarshal(result.Payload, &response); err != nil {
+	if err = json.Unmarshal(result.Payload, &response); err != nil || response.StatusCode != http.StatusOK {
 		logger.Log.WithFields(log.Fields{
 			"requestID": options.Ac.RequestID,
-			"error":     err.Error(),
-		}).Error("perform checks: error unmarshalling invoke response: " + err.Error())
+			"error":     err,
+		}).Error("perform checks: error unmarshalling invoke response")
 		return nil, err
 	}
 

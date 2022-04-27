@@ -39,8 +39,6 @@ const (
 )
 
 func lambdaHandler(ctx context.Context, payload base.Payload) (events.APIGatewayProxyResponse, error) {
-	var statusCode int
-
 	syncCheckNodes, chainCheckNodes, err := PerformApplicationCheck(ctx, &payload, payload.RequestID)
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
@@ -52,7 +50,7 @@ func lambdaHandler(ctx context.Context, payload base.Payload) (events.APIGateway
 		return *apigateway.NewErrorResponse(http.StatusInternalServerError, err), err
 	}
 
-	return *apigateway.NewJSONResponse(statusCode, base.Response{
+	return *apigateway.NewJSONResponse(http.StatusOK, base.Response{
 		SyncCheckedNodes:  syncCheckNodes,
 		ChainCheckedNodes: chainCheckNodes,
 	}), err
