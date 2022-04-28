@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	base "github.com/Pocket/global-dispatcher/cmd/functions/run-application-checks"
@@ -125,9 +126,13 @@ func invokeChecks(options *base.PerformChecksOptions) (*performAppCheck.Response
 
 	var response events.APIGatewayProxyResponse
 	if err = json.Unmarshal(result.Payload, &response); err != nil || response.StatusCode != http.StatusOK {
+		if err == nil {
+			err = fmt.Errorf("invalid status code: %d", response.StatusCode)
+		}
+
 		logger.Log.WithFields(log.Fields{
 			"requestID": options.Ac.RequestID,
-			"error":     err,
+			"error":     err.Error(),
 		}).Error("perform checks: error unmarshalling invoke response")
 		return nil, err
 	}
