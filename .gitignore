@@ -25,3 +25,6 @@ vendor
 
 # Environment variables
 .env*
+
+# Main binary
+main
