@@ -108,12 +108,12 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 
 	rpcProvider = provider.NewProvider(rpcURL, dispatchURLs)
 	rpcProvider.UpdateRequestConfig(0, time.Duration(defaultTimeOut)*time.Second)
-	wallet, err := signer.NewSignerFromPrivateKey(appPrivateKey)
+	signer, err := signer.NewSignerFromPrivateKey(appPrivateKey)
 	if err != nil {
-		return errors.New("error creating wallet: " + err.Error())
+		return errors.New("error creating signer: " + err.Error())
 	}
 
-	Relayer := relayer.NewRelayer(wallet, rpcProvider)
+	relayer := relayer.NewRelayer(signer, rpcProvider)
 
 	blockHeight, err := rpcProvider.GetBlockHeight()
 	if err != nil {
@@ -146,20 +146,20 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 	appChecks := ApplicationChecks{
 		Caches:          caches,
 		Provider:        rpcProvider,
-		Relayer:         Relayer,
+		Relayer:         relayer,
 		MetricsRecorder: metricsRecorder,
 		BlockHeight:     blockHeight,
 		RequestID:       requestID,
 		CacheBatch:      cacheBatch,
 		SyncChecker: &pocket.SyncChecker{
-			Relayer:                Relayer,
+			Relayer:                relayer,
 			DefaultSyncAllowance:   int(defaultSyncAllowance),
 			AltruistTrustThreshold: float32(altruistTrustThreshold),
 			MetricsRecorder:        metricsRecorder,
 			RequestID:              requestID,
 		},
 		ChainChecker: &pocket.ChainChecker{
-			Relayer:         Relayer,
+			Relayer:         relayer,
 			MetricsRecorder: metricsRecorder,
 			RequestID:       requestID,
 		},
