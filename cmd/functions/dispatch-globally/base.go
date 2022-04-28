@@ -34,7 +34,6 @@ var (
 	cacheTTL                    = environment.GetInt64("CACHE_TTL", 3600)
 	dispatchConcurrency         = environment.GetInt64("DISPATCH_CONCURRENCY", 200)
 	maxDispatchersErrorsAllowed = environment.GetInt64("MAX_DISPATCHER_ERRORS_ALLOWED", 2000)
-	dispatchGigastake           = environment.GetBool("DISPATCH_GIGASTAKE", true)
 	maxClientsCacheCheck        = environment.GetInt64("MAX_CLIENTS_CACHE_CHECK", 3)
 	cacheBatchSize              = environment.GetInt64("CACHE_BATCH_SIZE", 100)
 )
@@ -64,7 +63,7 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 		return 0, errors.New("error obtaining block height: " + err.Error())
 	}
 
-	apps, _, err := gateway.GetStakedApplicationsOnDB(ctx, dispatchGigastake, db, rpcProvider)
+	apps, _, err := gateway.GetGigastakedApplicationsOnDB(ctx, db, rpcProvider)
 	if err != nil {
 		return 0, errors.New("error obtaining staked apps on db: " + err.Error())
 	}

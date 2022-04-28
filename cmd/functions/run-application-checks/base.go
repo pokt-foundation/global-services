@@ -37,7 +37,6 @@ var (
 	mongoDatabase          = environment.GetString("MONGODB_DATABASE", "gateway")
 	cacheTTL               = environment.GetInt64("CACHE_TTL", 300)
 	dispatchConcurrency    = environment.GetInt64("DISPATCH_CONCURRENCY", 30)
-	dispatchGigastake      = environment.GetBool("DISPATCH_GIGASTAKE", true)
 	maxClientsCacheCheck   = environment.GetInt64("MAX_CLIENTS_CACHE_CHECK", 3)
 	appPrivateKey          = environment.GetString("APPLICATION_PRIVATE_KEY", "")
 	defaultSyncAllowance   = environment.GetInt64("DEFAULT_SYNC_ALLOWANCE", 5)
@@ -121,7 +120,7 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 		return err
 	}
 
-	ntApps, dbApps, err := gateway.GetStakedApplicationsOnDB(ctx, dispatchGigastake, db, rpcProvider)
+	ntApps, dbApps, err := gateway.GetGigastakedApplicationsOnDB(ctx, db, rpcProvider)
 	if err != nil {
 		return errors.New("error obtaining staked apps on db: " + err.Error())
 	}
