@@ -14,9 +14,9 @@ import (
 	"github.com/Pocket/global-dispatcher/lib/pocket"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/pokt-foundation/pocket-go/pkg/provider"
-	"github.com/pokt-foundation/pocket-go/pkg/relayer"
-	"github.com/pokt-foundation/pocket-go/pkg/signer"
+	"github.com/pokt-foundation/pocket-go/provider"
+	"github.com/pokt-foundation/pocket-go/relayer"
+	"github.com/pokt-foundation/pocket-go/signer"
 
 	base "github.com/Pocket/global-dispatcher/cmd/functions/perform-application-check"
 	logger "github.com/Pocket/global-dispatcher/lib/logger"
@@ -63,13 +63,13 @@ func PerformApplicationCheck(ctx context.Context, payload *base.Payload, request
 		return nil, nil, errors.New("error connecting to metrics db: " + err.Error())
 	}
 
-	rpcProvider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs)
+	rpcProvider := provider.NewProvider(rpcURL, dispatchURLs)
 	rpcProvider.UpdateRequestConfig(0, defaultTimeOut)
-	wallet, err := signer.NewWalletFromPrivatekey(appPrivateKey)
+	wallet, err := signer.NewSignerFromPrivateKey(appPrivateKey)
 	if err != nil {
 		return nil, nil, errors.New("error creating wallet: " + err.Error())
 	}
-	pocketRelayer := relayer.NewPocketRelayer(wallet, rpcProvider)
+	Relayer := relayer.NewRelayer(wallet, rpcProvider)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -83,7 +83,7 @@ func PerformApplicationCheck(ctx context.Context, payload *base.Payload, request
 		}
 
 		syncChecker := &pocket.SyncChecker{
-			Relayer:                pocketRelayer,
+			Relayer:                Relayer,
 			DefaultSyncAllowance:   payload.DefaultAllowance,
 			AltruistTrustThreshold: payload.AltruistTrustThreshold,
 			MetricsRecorder:        metricsRecorder,
@@ -107,7 +107,7 @@ func PerformApplicationCheck(ctx context.Context, payload *base.Payload, request
 		}
 
 		chainChecker := &pocket.ChainChecker{
-			Relayer:         pocketRelayer,
+			Relayer:         Relayer,
 			MetricsRecorder: metricsRecorder,
 			RequestID:       requestID,
 		}

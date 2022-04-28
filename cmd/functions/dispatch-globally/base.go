@@ -14,7 +14,7 @@ import (
 	"github.com/Pocket/global-dispatcher/lib/cache"
 	"github.com/Pocket/global-dispatcher/lib/database"
 	"github.com/Pocket/global-dispatcher/lib/pocket"
-	"github.com/pokt-foundation/pocket-go/pkg/provider"
+	"github.com/pokt-foundation/pocket-go/provider"
 	"golang.org/x/sync/semaphore"
 
 	logger "github.com/Pocket/global-dispatcher/lib/logger"
@@ -56,7 +56,7 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 		return 0, errors.New("error connecting to redis: " + err.Error())
 	}
 
-	rpcProvider := provider.NewJSONRPCProvider(rpcURL, dispatchURLs)
+	rpcProvider := provider.NewProvider(rpcURL, dispatchURLs)
 
 	blockHeight, err := rpcProvider.GetBlockHeight()
 	if err != nil {

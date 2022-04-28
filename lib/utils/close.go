@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	pocketUtils "github.com/pokt-foundation/pocket-go/pkg/utils"
+	pocketUtils "github.com/pokt-foundation/pocket-go/utils"
 )
 
 func CloseOrLog(response *http.Response) {

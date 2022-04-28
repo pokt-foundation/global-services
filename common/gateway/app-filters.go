@@ -5,10 +5,10 @@ import (
 
 	"github.com/Pocket/global-dispatcher/common/gateway/models"
 	"github.com/Pocket/global-dispatcher/lib/utils"
-	"github.com/pokt-foundation/pocket-go/pkg/provider"
+	"github.com/pokt-foundation/pocket-go/provider"
 )
 
-func GetStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store models.ApplicationStore, pocket *provider.JSONRPCProvider) ([]provider.GetAppOutput, []models.Application, error) {
+func GetStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store models.ApplicationStore, pocket *provider.Provider) ([]provider.GetAppOutput, []models.Application, error) {
 	databaseApps, err := store.GetStakedApplications(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -17,7 +17,7 @@ func GetStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store model
 	return FilterStakedAppsNotOnDB(databaseApps, pocket)
 }
 
-func GetGigastakedApplicationsOnDB(ctx context.Context, store models.ApplicationStore, pocket *provider.JSONRPCProvider) ([]provider.GetAppOutput, []models.Application, error) {
+func GetGigastakedApplicationsOnDB(ctx context.Context, store models.ApplicationStore, pocket *provider.Provider) ([]provider.GetAppOutput, []models.Application, error) {
 	databaseApps, err := store.GetGigastakedApplications(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -35,7 +35,7 @@ func GetGigastakedApplicationsOnDB(ctx context.Context, store models.Application
 	return FilterStakedAppsNotOnDB(databaseApps, pocket)
 }
 
-func FilterStakedAppsNotOnDB(dbApps []*models.Application, pocket *provider.JSONRPCProvider) ([]provider.GetAppOutput, []models.Application, error) {
+func FilterStakedAppsNotOnDB(dbApps []*models.Application, pocket *provider.Provider) ([]provider.GetAppOutput, []models.Application, error) {
 	var stakedApps []provider.GetAppOutput
 	var stakedAppsDB []models.Application
 
