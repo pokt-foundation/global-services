@@ -76,7 +76,7 @@ functions:
     environment: ${file(.env.perform-application-check.yml)}
     memorySize: 256
     timeout: 360
-
+    
   flush-cache:
     handler: bin/flush-cache
     environment: ${file(.env.flush-cache.yml)}
