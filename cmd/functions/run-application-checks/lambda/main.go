@@ -12,7 +12,6 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-lambda-go/lambdacontext"
-	"golang.org/x/sync/semaphore"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -27,6 +26,7 @@ import (
 type ApplicationData struct {
 	payload *performAppCheck.Payload
 	config  *base.PerformChecksOptions
+	wg      *sync.WaitGroup
 }
 
 var (
@@ -45,16 +45,12 @@ var (
 func lambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
 	lc, _ := lambdacontext.FromContext(ctx)
 	requestID := lc.AwsRequestID
-
 	// Prevent errors regarding the lambda caching the global variable value
 	application = make(chan *ApplicationData, checksPerInvoke)
 
 	go monitorAppBatch(ctx, requestID)
 
 	err := base.RunApplicationChecks(ctx, requestID, getAppToCheck)
-
-	close(application)
-
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
 			"requestID": lc.AwsRequestID,
@@ -69,34 +65,32 @@ func lambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 }
 
 func monitorAppBatch(ctx context.Context, requestID string) {
-	apps := make(map[string]ApplicationData)
-	var wg *sync.WaitGroup
-	var sem *semaphore.Weighted
+	batch := make(map[string]ApplicationData)
+	processedApps := 0
 
 	for {
-		app, ok := <-application
-
+		app := <-application
 		if app != nil {
-
-			apps[app.config.Session.Header.AppPublicKey] = *app
-			// Convenience for obtaining the wg/sem as is
-			// guaranteed to be the same across all apps
-			wg = app.config.Wg
-			sem = app.config.Sem
+			if !app.config.Invalid {
+				batch[app.config.Session.Header.AppPublicKey] = *app
+			}
+			processedApps++
 		}
 
-		if ok && len(apps) < int(checksPerInvoke) {
+		processedAll := processedApps >= app.config.TotalApps
+		if !processedAll && len(batch) < int(checksPerInvoke) {
+			app.wg.Done()
 			continue
 		}
-		go performChecks(apps, ctx, requestID, wg, sem)
-		apps = make(map[string]ApplicationData)
-		if !ok {
-			break
-		}
+
+		go performChecks(batch, ctx, requestID, app.wg)
+		batch = make(map[string]ApplicationData)
 	}
 }
 
 func getAppToCheck(ctx context.Context, options *base.PerformChecksOptions) {
+	var wg sync.WaitGroup
+	wg.Add(1)
 	application <- &ApplicationData{
 		payload: &performAppCheck.Payload{
 			Session:                *options.Session,
@@ -107,13 +101,12 @@ func getAppToCheck(ctx context.Context, options *base.PerformChecksOptions) {
 			RequestID:              options.Ac.RequestID,
 		},
 		config: options,
+		wg:     &wg,
 	}
+	wg.Wait()
 }
 
-func performChecks(apps map[string]ApplicationData, ctx aws.Context, requestID string, wg *sync.WaitGroup, sem *semaphore.Weighted) {
-	sem.Acquire(ctx, 1)
-	defer sem.Release(1)
-	wg.Add(1)
+func performChecks(apps map[string]ApplicationData, ctx aws.Context, requestID string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	payloads := []*performAppCheck.Payload{}
