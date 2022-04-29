@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"sync"
 
 	base "github.com/Pocket/global-dispatcher/cmd/functions/run-application-checks"
 	"github.com/Pocket/global-dispatcher/common/apigateway"
@@ -11,6 +12,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-lambda-go/lambdacontext"
+	"golang.org/x/sync/semaphore"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -22,23 +24,39 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type ApplicationData struct {
+	payload *performAppCheck.Payload
+	config  *base.PerformChecksOptions
+	wg      *sync.WaitGroup
+	sem     *semaphore.Weighted
+}
+
 var (
 	region                   = environment.GetString("AWS_REGION", "")
 	performCheckFunctionName = environment.GetString("PERFORM_CHECK_FUNCTION_NAME", "")
+	checksPerInvoke          = environment.GetInt64("CHECKS_PER_INVOKE", 10)
 
 	sess = session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
 	client = awsLambda.New(sess, &aws.Config{
 		Region: aws.String(region)})
+	application chan *ApplicationData
 )
 
 func lambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
 	lc, _ := lambdacontext.FromContext(ctx)
+	requestID := lc.AwsRequestID
 
-	var statusCode int
+	// Prevent errors regarding the lambda caching the global variable value
+	application = make(chan *ApplicationData, checksPerInvoke)
 
-	err := base.RunApplicationChecks(ctx, lc.AwsRequestID, PerformChecks)
+	go monitorAppBatch(ctx, requestID)
+
+	err := base.RunApplicationChecks(ctx, requestID, getAppToCheck)
+
+	close(application)
+
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
 			"requestID": lc.AwsRequestID,
@@ -47,66 +65,113 @@ func lambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 		return *apigateway.NewErrorResponse(http.StatusInternalServerError, err), err
 	}
 
-	return *apigateway.NewJSONResponse(statusCode, map[string]interface{}{
+	return *apigateway.NewJSONResponse(http.StatusOK, map[string]interface{}{
 		"ok": true,
 	}), err
 }
 
-func PerformChecks(ctx context.Context, options *base.PerformChecksOptions) {
-	options.Sem.Acquire(ctx, 2)
-	defer options.Sem.Release(2)
-	options.Wg.Add(1)
-	defer options.Wg.Done()
+func monitorAppBatch(ctx context.Context, requestID string) {
+	apps := make(map[string]ApplicationData)
+	var wg *sync.WaitGroup
+	var sem *semaphore.Weighted
 
-	nodes, err := invokeChecks(options)
+	for {
+		app, ok := <-application
+
+		if app != nil {
+
+			apps[app.config.Session.Header.AppPublicKey] = *app
+			// Convenience for obtaining the wg/sem as is
+			// guaranteed to be the same across all apps
+			wg = app.wg
+			sem = app.sem
+		}
+
+		if ok && len(apps) < int(checksPerInvoke) {
+			continue
+		}
+		go performChecks(apps, ctx, requestID, wg, sem)
+		apps = make(map[string]ApplicationData)
+		if !ok {
+			break
+		}
+	}
+}
+
+func getAppToCheck(ctx context.Context, options *base.PerformChecksOptions) {
+	application <- &ApplicationData{
+		payload: &performAppCheck.Payload{
+			Session:                *options.Session,
+			Blockchain:             options.Blockchain,
+			AAT:                    *options.PocketAAT,
+			DefaultAllowance:       options.Ac.SyncChecker.DefaultSyncAllowance,
+			AltruistTrustThreshold: options.Ac.SyncChecker.AltruistTrustThreshold,
+			RequestID:              options.Ac.RequestID,
+		},
+		config: options,
+		wg:     options.Wg,
+		sem:    options.Sem,
+	}
+}
+
+func performChecks(apps map[string]ApplicationData, ctx aws.Context, requestID string, wg *sync.WaitGroup, sem *semaphore.Weighted) {
+	sem.Acquire(ctx, 1)
+	defer sem.Release(1)
+	wg.Add(1)
+	defer wg.Done()
+
+	payloads := []*performAppCheck.Payload{}
+	for _, app := range apps {
+		payloads = append(payloads, app.payload)
+	}
+
+	nodeSet, err := invokeChecks(payloads, requestID)
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
-			"requestID":    options.Ac.RequestID,
-			"error":        err.Error(),
-			"blockchainID": options.Blockchain.ID,
-			"sessionKey":   options.Session.Key,
+			"requestID": requestID,
+			"error":     err.Error(),
 		}).Error("perform checks: error invoking check: " + err.Error())
 		return
 	}
 
-	if options.Blockchain.ChainIDCheck != "" {
-		if err = base.CacheNodes(nodes.ChainCheckedNodes, options.Ac.CacheBatch, options.ChainCheckKey, options.CacheTTL); err != nil {
-			logger.Log.WithFields(log.Fields{
-				"error":        err.Error(),
-				"requestID":    options.Ac.RequestID,
-				"blockchainID": options.Blockchain.ID,
-				"sessionKey":   options.Session.Key,
-			}).Error("perform checks: error caching chain check nodes: " + err.Error())
+	for publicKey, nodes := range nodeSet.ChainCheckedNodes {
+		options := apps[publicKey].config
+
+		if options.Blockchain.ChainIDCheck != "" {
+			if err = base.CacheNodes(nodes, options.Ac.CacheBatch, options.ChainCheckKey, options.CacheTTL); err != nil {
+				logger.Log.WithFields(log.Fields{
+					"error":        err.Error(),
+					"requestID":    options.Ac.RequestID,
+					"blockchainID": options.Blockchain.ID,
+					"sessionKey":   options.Session.Key,
+				}).Error("perform checks: error caching chain check nodes: " + err.Error())
+			}
 		}
 	}
-	syncCheckOptions := options.Blockchain.SyncCheckOptions
-	if !(syncCheckOptions.Body == "" && syncCheckOptions.Path == "") {
-		if err = base.CacheNodes(nodes.SyncCheckedNodes, options.Ac.CacheBatch, options.SyncCheckKey, options.CacheTTL); err != nil {
-			logger.Log.WithFields(log.Fields{
-				"error":        err.Error(),
-				"requestID":    options.Ac.RequestID,
-				"blockchainID": options.Blockchain.ID,
-				"sessionKey":   options.Session.Key,
-			}).Error("perform checks: error caching sync check nodes: " + err.Error())
+
+	for publicKey, nodes := range nodeSet.SyncCheckedNodes {
+		options := apps[publicKey].config
+
+		syncCheckOptions := options.Blockchain.SyncCheckOptions
+		if !(syncCheckOptions.Body == "" && syncCheckOptions.Path == "") {
+			if err = base.CacheNodes(nodes, options.Ac.CacheBatch, options.SyncCheckKey, options.CacheTTL); err != nil {
+				logger.Log.WithFields(log.Fields{
+					"error":        err.Error(),
+					"requestID":    options.Ac.RequestID,
+					"blockchainID": options.Blockchain.ID,
+					"sessionKey":   options.Session.Key,
+				}).Error("perform checks: error caching sync check nodes: " + err.Error())
+			}
+			base.EraseNodesFailureMark(nodes, options.Blockchain.ID, options.Ac.CommitHash, options.Ac.CacheBatch)
 		}
-		base.EraseNodesFailureMark(nodes.SyncCheckedNodes, options.Blockchain.ID, options.Ac.CommitHash, options.Ac.CacheBatch)
 	}
 }
 
-func invokeChecks(options *base.PerformChecksOptions) (*performAppCheck.Response, error) {
-	request := performAppCheck.Payload{
-		Session:                *options.Session,
-		Blockchain:             options.Blockchain,
-		AAT:                    *options.PocketAAT,
-		DefaultAllowance:       options.Ac.SyncChecker.DefaultSyncAllowance,
-		AltruistTrustThreshold: options.Ac.SyncChecker.AltruistTrustThreshold,
-		RequestID:              options.Ac.RequestID,
-	}
-
-	payload, err := json.Marshal(request)
+func invokeChecks(apps []*performAppCheck.Payload, requestID string) (*performAppCheck.Response, error) {
+	payload, err := json.Marshal(apps)
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
-			"requestID": options.Ac.RequestID,
+			"requestID": requestID,
 			"error":     err.Error(),
 		}).Error("perform checks: error marshalling payload: " + err.Error())
 		return nil, err
@@ -116,7 +181,7 @@ func invokeChecks(options *base.PerformChecksOptions) (*performAppCheck.Response
 		FunctionName: aws.String(performCheckFunctionName), Payload: payload})
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
-			"requestID":  options.Ac.RequestID,
+			"requestID":  requestID,
 			"error":      err.Error(),
 			"statusCode": result.StatusCode,
 		}).Error("perform checks: error invoking lambda: " + err.Error())
@@ -126,22 +191,22 @@ func invokeChecks(options *base.PerformChecksOptions) (*performAppCheck.Response
 	var response events.APIGatewayProxyResponse
 	if err = json.Unmarshal(result.Payload, &response); err != nil {
 		logger.Log.WithFields(log.Fields{
-			"requestID": options.Ac.RequestID,
+			"requestID": requestID,
 			"error":     err.Error(),
 		}).Error("perform checks: error unmarshalling invoke response")
 		return nil, err
 	}
 
-	var validNodes performAppCheck.Response
+	var validNodes *performAppCheck.Response
 	if err = json.Unmarshal([]byte(response.Body), &validNodes); err != nil {
 		logger.Log.WithFields(log.Fields{
-			"requestID": options.Ac.RequestID,
+			"requestID": requestID,
 			"error":     err.Error(),
 		}).Error("perform checks: error unmarshalling valid nodes: " + err.Error())
 		return nil, err
 	}
 
-	return &validNodes, nil
+	return validNodes, nil
 }
 
 func main() {
