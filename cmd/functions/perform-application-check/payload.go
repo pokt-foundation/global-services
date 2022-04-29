@@ -2,7 +2,7 @@ package base
 
 import (
 	"github.com/Pocket/global-dispatcher/common/gateway/models"
-	"github.com/pokt-foundation/pocket-go/pkg/provider"
+	"github.com/pokt-foundation/pocket-go/provider"
 )
 
 type Payload struct {

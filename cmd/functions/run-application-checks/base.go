@@ -17,9 +17,9 @@ import (
 	"github.com/Pocket/global-dispatcher/lib/metrics"
 	"github.com/Pocket/global-dispatcher/lib/pocket"
 	"github.com/Pocket/global-dispatcher/lib/utils"
-	"github.com/pokt-foundation/pocket-go/pkg/provider"
-	"github.com/pokt-foundation/pocket-go/pkg/relayer"
-	"github.com/pokt-foundation/pocket-go/pkg/signer"
+	"github.com/pokt-foundation/pocket-go/provider"
+	"github.com/pokt-foundation/pocket-go/relayer"
+	"github.com/pokt-foundation/pocket-go/signer"
 	"golang.org/x/sync/semaphore"
 
 	logger "github.com/Pocket/global-dispatcher/lib/logger"
@@ -37,7 +37,6 @@ var (
 	mongoDatabase          = environment.GetString("MONGODB_DATABASE", "gateway")
 	cacheTTL               = environment.GetInt64("CACHE_TTL", 300)
 	dispatchConcurrency    = environment.GetInt64("DISPATCH_CONCURRENCY", 30)
-	dispatchGigastake      = environment.GetBool("DISPATCH_GIGASTAKE", true)
 	maxClientsCacheCheck   = environment.GetInt64("MAX_CLIENTS_CACHE_CHECK", 3)
 	appPrivateKey          = environment.GetString("APPLICATION_PRIVATE_KEY", "")
 	defaultSyncAllowance   = environment.GetInt64("DEFAULT_SYNC_ALLOWANCE", 5)
@@ -53,15 +52,15 @@ var (
 	caches          []*cache.Redis
 	metricsRecorder *metrics.Recorder
 	db              *database.Mongo
-	rpcProvider     *provider.JSONRPCProvider
+	rpcProvider     *provider.Provider
 )
 
 const EMPTY_NODES_TTL = 30
 
 type ApplicationChecks struct {
 	Caches          []*cache.Redis
-	Provider        *provider.JSONRPCProvider
-	Relayer         *relayer.PocketRelayer
+	Provider        *provider.Provider
+	Relayer         *relayer.Relayer
 	MetricsRecorder *metrics.Recorder
 	BlockHeight     int
 	CommitHash      string
@@ -107,21 +106,21 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 		return errors.New("error connecting to redis: " + err.Error())
 	}
 
-	rpcProvider = provider.NewJSONRPCProvider(rpcURL, dispatchURLs)
+	rpcProvider = provider.NewProvider(rpcURL, dispatchURLs)
 	rpcProvider.UpdateRequestConfig(0, time.Duration(defaultTimeOut)*time.Second)
-	wallet, err := signer.NewWalletFromPrivatekey(appPrivateKey)
+	signer, err := signer.NewSignerFromPrivateKey(appPrivateKey)
 	if err != nil {
-		return errors.New("error creating wallet: " + err.Error())
+		return errors.New("error creating signer: " + err.Error())
 	}
 
-	pocketRelayer := relayer.NewPocketRelayer(wallet, rpcProvider)
+	relayer := relayer.NewRelayer(signer, rpcProvider)
 
 	blockHeight, err := rpcProvider.GetBlockHeight()
 	if err != nil {
 		return err
 	}
 
-	ntApps, dbApps, err := gateway.GetStakedApplicationsOnDB(ctx, dispatchGigastake, db, rpcProvider)
+	ntApps, dbApps, err := gateway.GetGigastakedApplicationsOnDB(ctx, db, rpcProvider)
 	if err != nil {
 		return errors.New("error obtaining staked apps on db: " + err.Error())
 	}
@@ -147,20 +146,20 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 	appChecks := ApplicationChecks{
 		Caches:          caches,
 		Provider:        rpcProvider,
-		Relayer:         pocketRelayer,
+		Relayer:         relayer,
 		MetricsRecorder: metricsRecorder,
 		BlockHeight:     blockHeight,
 		RequestID:       requestID,
 		CacheBatch:      cacheBatch,
 		SyncChecker: &pocket.SyncChecker{
-			Relayer:                pocketRelayer,
+			Relayer:                relayer,
 			DefaultSyncAllowance:   int(defaultSyncAllowance),
 			AltruistTrustThreshold: float32(altruistTrustThreshold),
 			MetricsRecorder:        metricsRecorder,
 			RequestID:              requestID,
 		},
 		ChainChecker: &pocket.ChainChecker{
-			Relayer:         pocketRelayer,
+			Relayer:         relayer,
 			MetricsRecorder: metricsRecorder,
 			RequestID:       requestID,
 		},

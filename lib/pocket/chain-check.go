@@ -12,13 +12,13 @@ import (
 	logger "github.com/Pocket/global-dispatcher/lib/logger"
 	"github.com/Pocket/global-dispatcher/lib/metrics"
 	"github.com/Pocket/global-dispatcher/lib/utils"
-	"github.com/pokt-foundation/pocket-go/pkg/provider"
-	"github.com/pokt-foundation/pocket-go/pkg/relayer"
+	"github.com/pokt-foundation/pocket-go/provider"
+	"github.com/pokt-foundation/pocket-go/relayer"
 	log "github.com/sirupsen/logrus"
 )
 
 type ChainChecker struct {
-	Relayer         *relayer.PocketRelayer
+	Relayer         *relayer.Relayer
 	MetricsRecorder *metrics.Recorder
 	RequestID       string
 }
@@ -117,7 +117,7 @@ func (cc *ChainChecker) GetNodeChainLogs(ctx context.Context, options *ChainChec
 func (cc *ChainChecker) GetNodeChainLog(ctx context.Context, node *provider.Node, nodeLogs chan<- *NodeChainLog, options *ChainCheckOptions) {
 	start := time.Now()
 
-	chain, err := utils.GetIntFromRelay(*cc.Relayer, relayer.RelayInput{
+	chain, err := utils.GetIntFromRelay(*cc.Relayer, relayer.Input{
 		Blockchain: options.Blockchain,
 		Data:       strings.Replace(options.Data, `\`, "", -1),
 		Method:     http.MethodPost,

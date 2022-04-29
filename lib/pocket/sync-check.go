@@ -16,8 +16,8 @@ import (
 	logger "github.com/Pocket/global-dispatcher/lib/logger"
 	"github.com/Pocket/global-dispatcher/lib/metrics"
 	"github.com/Pocket/global-dispatcher/lib/utils"
-	"github.com/pokt-foundation/pocket-go/pkg/provider"
-	"github.com/pokt-foundation/pocket-go/pkg/relayer"
+	"github.com/pokt-foundation/pocket-go/provider"
+	"github.com/pokt-foundation/pocket-go/relayer"
 	log "github.com/sirupsen/logrus"
 
 	_http "github.com/Pocket/global-dispatcher/lib/http"
@@ -26,7 +26,7 @@ import (
 var httpClient = _http.NewClient()
 
 type SyncChecker struct {
-	Relayer                *relayer.PocketRelayer
+	Relayer                *relayer.Relayer
 	DefaultSyncAllowance   int
 	AltruistTrustThreshold float32
 	MetricsRecorder        *metrics.Recorder
@@ -142,7 +142,7 @@ func (sc *SyncChecker) GetNodeSyncLogs(ctx context.Context, options *SyncCheckOp
 func (sc *SyncChecker) GetNodeSyncLog(ctx context.Context, node *provider.Node, nodeLogs chan<- *NodeSyncLog, options *SyncCheckOptions) {
 	start := time.Now()
 
-	blockHeight, err := utils.GetIntFromRelay(*sc.Relayer, relayer.RelayInput{
+	blockHeight, err := utils.GetIntFromRelay(*sc.Relayer, relayer.Input{
 		Blockchain: options.Blockchain,
 		Data:       strings.Replace(options.SyncCheckOptions.Body, `\`, "", -1),
 		Method:     http.MethodPost,

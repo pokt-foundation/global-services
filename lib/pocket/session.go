@@ -3,7 +3,7 @@ package pocket
 import (
 	"time"
 
-	"github.com/pokt-foundation/pocket-go/pkg/provider"
+	"github.com/pokt-foundation/pocket-go/provider"
 )
 
 // Session is a session object with all is fields made to be formatted

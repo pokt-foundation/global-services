@@ -12,7 +12,7 @@ import (
 	httpClient "github.com/Pocket/global-dispatcher/lib/http"
 	"github.com/Pocket/global-dispatcher/lib/pocket"
 	"github.com/Pocket/global-dispatcher/lib/utils"
-	"github.com/pokt-foundation/pocket-go/pkg/provider"
+	"github.com/pokt-foundation/pocket-go/provider"
 )
 
 var gatewayURL = environment.GetString("GATEWAY_PRODUCTION_URL", "")
