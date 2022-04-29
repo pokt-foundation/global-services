@@ -27,8 +27,6 @@ import (
 type ApplicationData struct {
 	payload *performAppCheck.Payload
 	config  *base.PerformChecksOptions
-	wg      *sync.WaitGroup
-	sem     *semaphore.Weighted
 }
 
 var (
@@ -83,8 +81,8 @@ func monitorAppBatch(ctx context.Context, requestID string) {
 			apps[app.config.Session.Header.AppPublicKey] = *app
 			// Convenience for obtaining the wg/sem as is
 			// guaranteed to be the same across all apps
-			wg = app.wg
-			sem = app.sem
+			wg = app.config.Wg
+			sem = app.config.Sem
 		}
 
 		if ok && len(apps) < int(checksPerInvoke) {
@@ -109,8 +107,6 @@ func getAppToCheck(ctx context.Context, options *base.PerformChecksOptions) {
 			RequestID:              options.Ac.RequestID,
 		},
 		config: options,
-		wg:     options.Wg,
-		sem:    options.Sem,
 	}
 }
 
