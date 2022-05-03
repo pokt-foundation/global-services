@@ -23,7 +23,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type ApplicationData struct {
+type applicationData struct {
 	payload *performAppCheck.Payload
 	config  *base.PerformChecksOptions
 	wg      *sync.WaitGroup
@@ -39,14 +39,14 @@ var (
 	}))
 	client = awsLambda.New(sess, &aws.Config{
 		Region: aws.String(region)})
-	application chan *ApplicationData
+	application chan *applicationData
 )
 
 func lambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
 	lc, _ := lambdacontext.FromContext(ctx)
 	requestID := lc.AwsRequestID
 	// Prevent errors regarding the lambda caching the global variable value
-	application = make(chan *ApplicationData, checksPerInvoke)
+	application = make(chan *applicationData, checksPerInvoke)
 
 	go monitorAppBatch(ctx, requestID)
 
@@ -65,7 +65,7 @@ func lambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 }
 
 func monitorAppBatch(ctx context.Context, requestID string) {
-	batch := make(map[string]ApplicationData)
+	batch := make(map[string]applicationData)
 	processedApps := 0
 
 	for {
@@ -84,14 +84,14 @@ func monitorAppBatch(ctx context.Context, requestID string) {
 		}
 
 		go performChecks(batch, ctx, requestID, app.wg)
-		batch = make(map[string]ApplicationData)
+		batch = make(map[string]applicationData)
 	}
 }
 
 func getAppToCheck(ctx context.Context, options *base.PerformChecksOptions) {
 	var wg sync.WaitGroup
 	wg.Add(1)
-	application <- &ApplicationData{
+	application <- &applicationData{
 		payload: &performAppCheck.Payload{
 			Session:                *options.Session,
 			Blockchain:             options.Blockchain,
@@ -106,7 +106,7 @@ func getAppToCheck(ctx context.Context, options *base.PerformChecksOptions) {
 	wg.Wait()
 }
 
-func performChecks(apps map[string]ApplicationData, ctx aws.Context, requestID string, wg *sync.WaitGroup) {
+func performChecks(apps map[string]applicationData, ctx aws.Context, requestID string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	payloads := []*performAppCheck.Payload{}

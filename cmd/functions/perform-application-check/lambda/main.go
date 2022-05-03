@@ -37,7 +37,7 @@ const (
 )
 
 func lambdaHandler(ctx context.Context, payload []base.Payload) (events.APIGatewayProxyResponse, error) {
-	syncChecks, chainChecks, err := PerformApplicationChecks(ctx, payload, payload[0].RequestID)
+	syncChecks, chainChecks, err := performApplicationChecks(ctx, payload, payload[0].RequestID)
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
 			"error":     err.Error(),
@@ -52,7 +52,7 @@ func lambdaHandler(ctx context.Context, payload []base.Payload) (events.APIGatew
 	}), err
 }
 
-func PerformApplicationChecks(ctx context.Context, payload []base.Payload, requestID string) (map[string][]string, map[string][]string, error) {
+func performApplicationChecks(ctx context.Context, payload []base.Payload, requestID string) (map[string][]string, map[string][]string, error) {
 	metricsRecorder, err := metrics.NewMetricsRecorder(ctx, metricsConnection, MIN_METRICS_POOL_SIZE, MAX_METRICS_POOL_SIZE)
 	if err != nil {
 		return nil, nil, errors.New("error connecting to metrics db: " + err.Error())
