@@ -69,13 +69,13 @@ functions:
     handler: bin/perform-application-check
     environment: ${file(.env.perform-application-check.yml)}
     memorySize: 256
-    timeout: 360
+    timeout: 60
 
   perform-application-check-canary:
     handler: bin/perform-application-check
     environment: ${file(.env.perform-application-check.yml)}
     memorySize: 256
-    timeout: 360
+    timeout: 60
     
   flush-cache:
     handler: bin/flush-cache
