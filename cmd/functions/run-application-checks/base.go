@@ -72,8 +72,6 @@ type ApplicationChecks struct {
 }
 
 type PerformChecksOptions struct {
-	Wg             *sync.WaitGroup
-	Sem            *semaphore.Weighted
 	Ac             *ApplicationChecks
 	SyncCheckOpts  *pocket.SyncCheckOptions
 	ChainCheckOpts *pocket.ChainCheckOptions
@@ -83,6 +81,8 @@ type PerformChecksOptions struct {
 	CacheTTL       int
 	SyncCheckKey   string
 	ChainCheckKey  string
+	TotalApps      int
+	Invalid        bool
 }
 
 func RunApplicationChecks(ctx context.Context, requestID string, performChecks func(ctx context.Context, options *PerformChecksOptions)) error {
@@ -165,6 +165,13 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 		},
 	}
 
+	totalApps := 0
+	for _, app := range ntApps {
+		for range app.Chains {
+			totalApps++
+		}
+	}
+
 	var wg sync.WaitGroup
 	var sem = semaphore.NewWeighted(dispatchConcurrency)
 	for index, app := range ntApps {
@@ -180,7 +187,7 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 						"chain":        ch,
 						"error":        err.Error(),
 					}).Errorf("error dispatching: %s", err.Error())
-					return
+					session = &provider.Session{}
 				}
 
 				dbApp := dbApps[idx]
@@ -190,34 +197,44 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 					Version:      dbApp.GatewayAAT.Version,
 					Signature:    dbApp.GatewayAAT.ApplicationSignature,
 				}
-				blockchain := *blockchains[ch]
+				blockchain, ok := blockchains[ch]
+				if !ok {
+					blockchain = &models.Blockchain{}
+				}
 
-				go performChecks(ctx, &PerformChecksOptions{
-					Wg:  &wg,
-					Sem: sem,
-					Ac:  &appChecks,
-					SyncCheckOpts: &pocket.SyncCheckOptions{
-						Session:          *session,
-						PocketAAT:        pocketAAT,
-						SyncCheckOptions: blockchain.SyncCheckOptions,
-						AltruistURL:      blockchain.Altruist,
-						Blockchain:       blockchain.ID,
-					},
-					ChainCheckOpts: &pocket.ChainCheckOptions{
-						Session:    *session,
-						Blockchain: blockchain.ID,
-						Data:       blockchain.ChainIDCheck,
-						ChainID:    blockchain.ChainID,
-						Path:       blockchain.Path,
-						PocketAAT:  pocketAAT,
-					},
-					SyncCheckKey:  appChecks.CommitHash + syncCheckKeyPrefix + session.Key,
-					ChainCheckKey: appChecks.CommitHash + chainheckKeyPrefix + session.Key,
-					CacheTTL:      int(cacheTTL),
-					Blockchain:    blockchain,
-					Session:       session,
-					PocketAAT:     &pocketAAT,
-				})
+				sem.Acquire(ctx, 1)
+				wg.Add(1)
+				go func() {
+					defer sem.Release(1)
+					defer wg.Done()
+
+					performChecks(ctx, &PerformChecksOptions{
+						Ac: &appChecks,
+						SyncCheckOpts: &pocket.SyncCheckOptions{
+							Session:          *session,
+							PocketAAT:        pocketAAT,
+							SyncCheckOptions: blockchain.SyncCheckOptions,
+							AltruistURL:      blockchain.Altruist,
+							Blockchain:       blockchain.ID,
+						},
+						ChainCheckOpts: &pocket.ChainCheckOptions{
+							Session:    *session,
+							Blockchain: blockchain.ID,
+							Data:       blockchain.ChainIDCheck,
+							ChainID:    blockchain.ChainID,
+							Path:       blockchain.Path,
+							PocketAAT:  pocketAAT,
+						},
+						SyncCheckKey:  appChecks.CommitHash + syncCheckKeyPrefix + session.Key,
+						ChainCheckKey: appChecks.CommitHash + chainheckKeyPrefix + session.Key,
+						CacheTTL:      int(cacheTTL),
+						Blockchain:    *blockchain,
+						Session:       session,
+						PocketAAT:     &pocketAAT,
+						TotalApps:     totalApps,
+						Invalid:       err != nil,
+					})
+				}()
 			}(app.PublicKey, chain, index)
 		}
 	}

@@ -19,11 +19,7 @@ import (
 var timeout = time.Duration(environment.GetInt64("TIMEOUT", 360)) * time.Second
 
 func PerformChecks(ctx context.Context, options *base.PerformChecksOptions) {
-	options.Sem.Acquire(ctx, 1)
-	options.Wg.Add(1)
 	go func() {
-		defer options.Sem.Release(1)
-		defer options.Wg.Done()
 		chainCheck(ctx, options.Ac, pocket.ChainCheckOptions{
 			Session:    *options.Session,
 			Blockchain: options.Blockchain.ID,
@@ -34,11 +30,7 @@ func PerformChecks(ctx context.Context, options *base.PerformChecksOptions) {
 		}, options.Blockchain, options.CacheTTL, options.ChainCheckKey)
 	}()
 
-	options.Sem.Acquire(ctx, 1)
-	options.Wg.Add(1)
 	go func() {
-		defer options.Sem.Release(1)
-		defer options.Wg.Done()
 		syncCheck(ctx, options.Ac, pocket.SyncCheckOptions{
 			Session:          *options.Session,
 			SyncCheckOptions: options.Blockchain.SyncCheckOptions,

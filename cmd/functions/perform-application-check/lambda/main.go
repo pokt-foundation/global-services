@@ -29,8 +29,6 @@ var (
 	appPrivateKey     = environment.GetString("APPLICATION_PRIVATE_KEY", "")
 	defaultTimeOut    = time.Duration(environment.GetInt64("DEFAULT_TIMEOUT", 8)) * time.Second
 	metricsConnection = environment.GetString("METRICS_CONNECTION", "")
-
-	metricsRecorder *metrics.Recorder
 )
 
 const (
@@ -38,27 +36,24 @@ const (
 	MAX_METRICS_POOL_SIZE = 2
 )
 
-func lambdaHandler(ctx context.Context, payload base.Payload) (events.APIGatewayProxyResponse, error) {
-	syncCheckNodes, chainCheckNodes, err := PerformApplicationCheck(ctx, &payload, payload.RequestID)
+func lambdaHandler(ctx context.Context, payload []base.Payload) (events.APIGatewayProxyResponse, error) {
+	syncChecks, chainChecks, err := performApplicationChecks(ctx, payload, payload[0].RequestID)
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
-			"error":        err.Error(),
-			"requestID":    payload.RequestID,
-			"blockchainID": payload.Blockchain.ID,
-			"sessionKey":   payload.Session.Key,
+			"error":     err.Error(),
+			"requestID": payload[0].RequestID,
 		}).Errorf("perform application check error: %s", err.Error())
 		return *apigateway.NewErrorResponse(http.StatusInternalServerError, err), err
 	}
 
 	return *apigateway.NewJSONResponse(http.StatusOK, base.Response{
-		SyncCheckedNodes:  syncCheckNodes,
-		ChainCheckedNodes: chainCheckNodes,
+		SyncCheckedNodes:  syncChecks,
+		ChainCheckedNodes: chainChecks,
 	}), err
 }
 
-func PerformApplicationCheck(ctx context.Context, payload *base.Payload, requestID string) ([]string, []string, error) {
-	var err error
-	metricsRecorder, err = metrics.NewMetricsRecorder(ctx, metricsConnection, MIN_METRICS_POOL_SIZE, MAX_METRICS_POOL_SIZE)
+func performApplicationChecks(ctx context.Context, payload []base.Payload, requestID string) (map[string][]string, map[string][]string, error) {
+	metricsRecorder, err := metrics.NewMetricsRecorder(ctx, metricsConnection, MIN_METRICS_POOL_SIZE, MAX_METRICS_POOL_SIZE)
 	if err != nil {
 		return nil, nil, errors.New("error connecting to metrics db: " + err.Error())
 	}
@@ -71,6 +66,34 @@ func PerformApplicationCheck(ctx context.Context, payload *base.Payload, request
 	}
 	relayer := relayer.NewRelayer(signer, rpcProvider)
 
+	syncChecks := map[string][]string{}
+	chainChecks := map[string][]string{}
+
+	var wg sync.WaitGroup
+	for index, application := range payload {
+		wg.Add(1)
+		go func(idx int, app base.Payload) {
+			defer wg.Done()
+			syncCheck, chainCheck, err := doPerformApplicationChecks(ctx, &app, metricsRecorder, relayer, requestID)
+			if err != nil {
+				logger.Log.WithFields(log.Fields{
+					"error":        err.Error(),
+					"requestID":    app.RequestID,
+					"blockchainID": app.Blockchain.ID,
+					"sessionKey":   app.Session.Key,
+				}).Errorf("perform application check error: %s", err.Error())
+			}
+			syncChecks[app.Session.Header.AppPublicKey] = syncCheck
+			chainChecks[app.Session.Header.AppPublicKey] = chainCheck
+
+		}(index, application)
+	}
+	wg.Wait()
+
+	return syncChecks, chainChecks, nil
+}
+
+func doPerformApplicationChecks(ctx context.Context, payload *base.Payload, metricsRecorder *metrics.Recorder, pocketRelayer *relayer.Relayer, requestID string) ([]string, []string, error) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	syncCheckNodes := []string{}
@@ -83,7 +106,7 @@ func PerformApplicationCheck(ctx context.Context, payload *base.Payload, request
 		}
 
 		syncChecker := &pocket.SyncChecker{
-			Relayer:                relayer,
+			Relayer:                pocketRelayer,
 			DefaultSyncAllowance:   payload.DefaultAllowance,
 			AltruistTrustThreshold: payload.AltruistTrustThreshold,
 			MetricsRecorder:        metricsRecorder,
@@ -107,7 +130,7 @@ func PerformApplicationCheck(ctx context.Context, payload *base.Payload, request
 		}
 
 		chainChecker := &pocket.ChainChecker{
-			Relayer:         relayer,
+			Relayer:         pocketRelayer,
 			MetricsRecorder: metricsRecorder,
 			RequestID:       requestID,
 		}
