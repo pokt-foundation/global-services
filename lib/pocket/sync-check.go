@@ -162,7 +162,7 @@ func (sc *SyncChecker) GetNodeSyncLog(ctx context.Context, node *provider.Node, 
 			"error":         err.Error(),
 		}).Error("sync check: error obtaining block height: " + err.Error())
 
-		go sc.MetricsRecorder.WriteErrorMetric(ctx, &metrics.MetricData{
+		sc.MetricsRecorder.WriteErrorMetric(ctx, &metrics.MetricData{
 			Metric: &metrics.Metric{
 				Timestamp:            time.Now(),
 				ApplicationPublicKey: options.Session.Header.AppPublicKey,

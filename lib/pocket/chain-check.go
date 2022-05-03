@@ -137,7 +137,7 @@ func (cc *ChainChecker) GetNodeChainLog(ctx context.Context, node *provider.Node
 			"error":         err.Error(),
 		}).Error("chain check: error obtaining chain ID: ", err)
 
-		go cc.MetricsRecorder.WriteErrorMetric(ctx, &metrics.MetricData{
+		cc.MetricsRecorder.WriteErrorMetric(ctx, &metrics.MetricData{
 			Metric: &metrics.Metric{
 				Timestamp:            time.Now(),
 				ApplicationPublicKey: options.Session.Header.AppPublicKey,
