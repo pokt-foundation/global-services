@@ -32,8 +32,8 @@ var (
 )
 
 const (
-	MIN_METRICS_POOL_SIZE = 2
-	MAX_METRICS_POOL_SIZE = 2
+	minMetricsPoolSize = 2
+	maxMetricsPoolSize = 2
 )
 
 func lambdaHandler(ctx context.Context, payload []models.Payload) (events.APIGatewayProxyResponse, error) {
@@ -53,7 +53,7 @@ func lambdaHandler(ctx context.Context, payload []models.Payload) (events.APIGat
 }
 
 func performApplicationChecks(ctx context.Context, payload []models.Payload, requestID string) (map[string][]string, map[string][]string, error) {
-	metricsRecorder, err := metrics.NewMetricsRecorder(ctx, metricsConnection, MIN_METRICS_POOL_SIZE, MAX_METRICS_POOL_SIZE)
+	metricsRecorder, err := metrics.NewMetricsRecorder(ctx, metricsConnection, minMetricsPoolSize, maxMetricsPoolSize)
 	if err != nil {
 		return nil, nil, errors.New("error connecting to metrics db: " + err.Error())
 	}
@@ -85,7 +85,6 @@ func performApplicationChecks(ctx context.Context, payload []models.Payload, req
 			}
 			syncChecks[app.Session.Header.AppPublicKey] = syncCheck
 			chainChecks[app.Session.Header.AppPublicKey] = chainCheck
-
 		}(index, application)
 	}
 	wg.Wait()
@@ -97,6 +96,7 @@ func doPerformApplicationChecks(ctx context.Context, payload *models.Payload, me
 	var wg sync.WaitGroup
 	wg.Add(1)
 	syncCheckNodes := []string{}
+
 	go func() {
 		defer wg.Done()
 
@@ -122,6 +122,7 @@ func doPerformApplicationChecks(ctx context.Context, payload *models.Payload, me
 	}()
 
 	chainCheckNodes := []string{}
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

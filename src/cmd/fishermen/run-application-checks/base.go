@@ -55,9 +55,10 @@ var (
 	rpcProvider     *provider.Provider
 )
 
-const EMPTY_NODES_TTL = 30
+const emptyNodesTTL = 30
 
-type ApplicationChecks struct {
+// ApplicationData saves all the info needed to run QoS checks on it
+type ApplicationData struct {
 	Caches          []*cache.Redis
 	Provider        *provider.Provider
 	Relayer         *relayer.Relayer
@@ -71,8 +72,9 @@ type ApplicationChecks struct {
 	CacheBatch      chan *cache.Item
 }
 
+// PerformChecksOptions options for the function that is going to perform the check
 type PerformChecksOptions struct {
-	Ac             *ApplicationChecks
+	Ac             *ApplicationData
 	SyncCheckOpts  *pocket.SyncCheckOptions
 	ChainCheckOpts *pocket.ChainCheckOptions
 	Blockchain     models.Blockchain
@@ -85,6 +87,8 @@ type PerformChecksOptions struct {
 	Invalid        bool
 }
 
+// RunApplicationChecks obtains all applicationes needed to run QoS checks, performs them and
+// sends successful results to be written into a cache
 func RunApplicationChecks(ctx context.Context, requestID string, performChecks func(ctx context.Context, options *PerformChecksOptions)) error {
 	if len(redisConnectionStrings) <= 0 {
 		return errNoCacheClientProvided
@@ -143,7 +147,7 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 		RequestID: requestID,
 	})
 
-	appChecks := ApplicationChecks{
+	appChecks := ApplicationData{
 		Caches:          caches,
 		Provider:        rpcProvider,
 		Relayer:         relayer,
@@ -174,6 +178,7 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 
 	var wg sync.WaitGroup
 	var sem = semaphore.NewWeighted(dispatchConcurrency)
+
 	for index, app := range ntApps {
 		for _, chain := range app.Chains {
 			wg.Add(1)
@@ -204,6 +209,7 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 
 				sem.Acquire(ctx, 1)
 				wg.Add(1)
+
 				go func() {
 					defer sem.Release(1)
 					defer wg.Done()
@@ -247,7 +253,7 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 	return cache.CloseConnections(caches)
 }
 
-func (ac *ApplicationChecks) getSession(ctx context.Context, publicKey, chain string) (*provider.Session, error) {
+func (ac *ApplicationData) getSession(ctx context.Context, publicKey, chain string) (*provider.Session, error) {
 	_, cachedSession := gateway.ShouldDispatch(ctx, ac.Caches, ac.BlockHeight,
 		gateway.GetSessionCacheKey(publicKey, chain, ac.CommitHash), int(maxClientsCacheCheck))
 
@@ -278,6 +284,7 @@ func EraseNodesFailureMark(nodes []string, blockchain, commitHash string, cacheB
 	}
 }
 
+// CacheNodes inserts a into the cache batch channel
 func CacheNodes(nodes []string, batch chan *cache.Item, key string, ttl int) error {
 	marshalledNodes, err := json.Marshal(nodes)
 	if err != nil {
@@ -285,7 +292,7 @@ func CacheNodes(nodes []string, batch chan *cache.Item, key string, ttl int) err
 	}
 
 	if len(nodes) == 0 {
-		ttl = EMPTY_NODES_TTL
+		ttl = emptyNodesTTL
 	}
 	batch <- &cache.Item{
 		Key:   key,

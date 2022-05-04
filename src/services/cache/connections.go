@@ -98,6 +98,8 @@ func connectToInstance(ctx context.Context, clients chan *Redis, address string,
 	return nil
 }
 
+// RunFunctionOnAllClients allows to run a single function on all the redis
+// connected clients, returns err on the first failure of any of them
 func RunFunctionOnAllClients(caches []*Redis, fn func(*Redis) error) error {
 	var g errgroup.Group
 	for _, cacheClient := range caches {

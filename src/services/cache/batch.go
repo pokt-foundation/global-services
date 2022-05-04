@@ -9,12 +9,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Item represents a single item to be written on the batch
 type Item struct {
 	Key   string
 	Value interface{}
 	TTL   time.Duration
 }
 
+// BatchWriterOptions is the config for the batch writer
 type BatchWriterOptions struct {
 	Caches    []*Redis
 	BatchSize int

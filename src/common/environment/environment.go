@@ -46,7 +46,7 @@ func GetFloat64(varName string, defaultValue float64) float64 {
 	return iVal
 }
 
-// GetBoolean gets the env var as a boolean
+// GetBool gets the env var as a boolean
 func GetBool(varName string, defaultValue bool) bool {
 	val, _ := os.LookupEnv(varName)
 	if strings.ToLower(val) == "true" {

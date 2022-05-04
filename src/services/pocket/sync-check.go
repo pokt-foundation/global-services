@@ -25,6 +25,7 @@ import (
 
 var httpClient = _http.NewClient()
 
+// SyncChecker is the struct to perform sync checks on app sessions
 type SyncChecker struct {
 	Relayer                *relayer.Relayer
 	DefaultSyncAllowance   int
@@ -33,6 +34,7 @@ type SyncChecker struct {
 	RequestID              string
 }
 
+// SyncCheckOptions is the struct of the data needed to perform a sync check
 type SyncCheckOptions struct {
 	Session          provider.Session
 	PocketAAT        provider.PocketAAT
@@ -41,11 +43,12 @@ type SyncCheckOptions struct {
 	Blockchain       string
 }
 
-type NodeSyncLog struct {
+type nodeSyncLog struct {
 	Node        *provider.Node
 	BlockHeight int64
 }
 
+// Check performs a sync check of all the nodes of a given session
 func (sc *SyncChecker) Check(ctx context.Context, options SyncCheckOptions) []string {
 	if options.SyncCheckOptions.Allowance == 0 {
 		options.SyncCheckOptions.Allowance = sc.DefaultSyncAllowance
@@ -53,12 +56,12 @@ func (sc *SyncChecker) Check(ctx context.Context, options SyncCheckOptions) []st
 	allowance := int64(options.SyncCheckOptions.Allowance)
 
 	checkedNodes := []string{}
-	nodeLogs := sc.GetNodeSyncLogs(ctx, &options)
+	nodeLogs := sc.getNodeSyncLogs(ctx, &options)
 	sort.Slice(nodeLogs, func(i, j int) bool {
 		return nodeLogs[i].BlockHeight > nodeLogs[j].BlockHeight
 	})
 
-	altruistBlockHeight, highestBlockHeight, isAltruistTrustworthy := sc.GetAltruistDataAndHighestBlockHeight(nodeLogs, &options)
+	altruistBlockHeight, highestBlockHeight, isAltruistTrustworthy := sc.getAltruistDataAndHighestBlockHeight(nodeLogs, &options)
 
 	maxAllowedBlockHeight := int64(0)
 	if isAltruistTrustworthy {
@@ -116,16 +119,16 @@ func (sc *SyncChecker) Check(ctx context.Context, options SyncCheckOptions) []st
 	return checkedNodes
 }
 
-func (sc *SyncChecker) GetNodeSyncLogs(ctx context.Context, options *SyncCheckOptions) []*NodeSyncLog {
-	nodeLogsChan := make(chan *NodeSyncLog, len(options.Session.Nodes))
-	nodeLogs := []*NodeSyncLog{}
+func (sc *SyncChecker) getNodeSyncLogs(ctx context.Context, options *SyncCheckOptions) []*nodeSyncLog {
+	nodeLogsChan := make(chan *nodeSyncLog, len(options.Session.Nodes))
+	nodeLogs := []*nodeSyncLog{}
 
 	var wg sync.WaitGroup
 	for _, node := range options.Session.Nodes {
 		wg.Add(1)
 		go func(n *provider.Node) {
 			defer wg.Done()
-			sc.GetNodeSyncLog(ctx, n, nodeLogsChan, options)
+			sc.getNodeSyncLog(ctx, n, nodeLogsChan, options)
 		}(node)
 	}
 	wg.Wait()
@@ -139,7 +142,7 @@ func (sc *SyncChecker) GetNodeSyncLogs(ctx context.Context, options *SyncCheckOp
 	return nodeLogs
 }
 
-func (sc *SyncChecker) GetNodeSyncLog(ctx context.Context, node *provider.Node, nodeLogs chan<- *NodeSyncLog, options *SyncCheckOptions) {
+func (sc *SyncChecker) getNodeSyncLog(ctx context.Context, node *provider.Node, nodeLogs chan<- *nodeSyncLog, options *SyncCheckOptions) {
 	start := time.Now()
 
 	blockHeight, err := utils.GetIntFromRelay(*sc.Relayer, relayer.Input{
@@ -162,33 +165,32 @@ func (sc *SyncChecker) GetNodeSyncLog(ctx context.Context, node *provider.Node, 
 			"error":         err.Error(),
 		}).Error("sync check: error obtaining block height: " + err.Error())
 
-		sc.MetricsRecorder.WriteErrorMetric(ctx, &metrics.MetricData{
-			Metric: &metrics.Metric{
-				Timestamp:            time.Now(),
-				ApplicationPublicKey: options.Session.Header.AppPublicKey,
-				Blockchain:           options.Blockchain,
-				NodePublicKey:        node.PublicKey,
-				ElapsedTime:          time.Since(start).Seconds(),
-				Bytes:                len(err.Error()),
-				Method:               "synccheck",
-				Message:              err.Error(),
-			},
+		sc.MetricsRecorder.WriteErrorMetric(ctx, &metrics.Metric{
+			Timestamp:            time.Now(),
+			ApplicationPublicKey: options.Session.Header.AppPublicKey,
+			Blockchain:           options.Blockchain,
+			NodePublicKey:        node.PublicKey,
+			ElapsedTime:          time.Since(start).Seconds(),
+			Bytes:                len(err.Error()),
+			Method:               "synccheck",
+			Message:              err.Error(),
+			RequestID:            sc.RequestID,
 		})
 
-		nodeLogs <- &NodeSyncLog{
+		nodeLogs <- &nodeSyncLog{
 			Node:        node,
 			BlockHeight: 0,
 		}
 		return
 	}
 
-	nodeLogs <- &NodeSyncLog{
+	nodeLogs <- &nodeSyncLog{
 		Node:        node,
 		BlockHeight: blockHeight,
 	}
 }
 
-func (sc *SyncChecker) GetAltruistDataAndHighestBlockHeight(nodeLogs []*NodeSyncLog, options *SyncCheckOptions) (altruistBlockHeight, highestBlockHeight int64, isAltruistTrustworthy bool) {
+func (sc *SyncChecker) getAltruistDataAndHighestBlockHeight(nodeLogs []*nodeSyncLog, options *SyncCheckOptions) (altruistBlockHeight, highestBlockHeight int64, isAltruistTrustworthy bool) {
 	validNodes, highestBlockHeight := sc.getValidNodesCountAndHighestNode(nodeLogs, options)
 
 	altruistBlockHeight, nodesAheadOfAltruist := sc.getValidatedAltruist(nodeLogs, options)
@@ -219,10 +221,10 @@ func (sc *SyncChecker) GetAltruistDataAndHighestBlockHeight(nodeLogs []*NodeSync
 		highestBlockHeight = altruistBlockHeight
 	}
 
-	return
+	return altruistBlockHeight, highestBlockHeight, isAltruistTrustworthy
 }
 
-func (sc *SyncChecker) getValidNodesCountAndHighestNode(nodeLogs []*NodeSyncLog, options *SyncCheckOptions) (validNodes int, highestBlockHeight int64) {
+func (sc *SyncChecker) getValidNodesCountAndHighestNode(nodeLogs []*nodeSyncLog, options *SyncCheckOptions) (validNodes int, highestBlockHeight int64) {
 	validNodes = func() int {
 		validNodesCount := 0
 		for _, node := range nodeLogs {
@@ -254,12 +256,12 @@ func (sc *SyncChecker) getValidNodesCountAndHighestNode(nodeLogs []*NodeSyncLog,
 		}).Error(errMsg)
 	}
 
-	return
+	return validNodes, highestBlockHeight
 }
 
 // getValidatedAltruist obtains and validates altruist block height and also returns,
 // how many nodes are ahead of it
-func (sc *SyncChecker) getValidatedAltruist(nodeLogs []*NodeSyncLog, options *SyncCheckOptions) (int64, int) {
+func (sc *SyncChecker) getValidatedAltruist(nodeLogs []*nodeSyncLog, options *SyncCheckOptions) (int64, int) {
 	altruistBlockHeight, err := getAltruistBlockHeight(options.SyncCheckOptions, options.AltruistURL, options.SyncCheckOptions.Path)
 	if altruistBlockHeight == 0 || err != nil {
 		logger.Log.WithFields(log.Fields{
@@ -297,6 +299,7 @@ func getAltruistBlockHeight(options models.SyncCheckOptions, altruistURL string,
 	req, err := http.NewRequest(http.MethodPost, altruistURL+path,
 		bytes.NewBuffer([]byte(strings.Replace(options.Body, `\`, "", -1))))
 	defer utils.CloseOrLog(req.Response)
+
 	if err != nil {
 		return 0, errors.New("error making altruist request: " + err.Error())
 	}

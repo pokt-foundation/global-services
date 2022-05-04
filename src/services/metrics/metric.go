@@ -2,7 +2,7 @@ package metrics
 
 import "time"
 
-// Order of struct fields reflects order of the fields in the db
+// Metric represents a single data metric. Order of struct fields reflects order of the fields in the db
 type Metric struct {
 	Timestamp            time.Time
 	ApplicationPublicKey string
@@ -13,4 +13,6 @@ type Metric struct {
 	Method               string
 	Message              string
 	Code                 string
+	RequestID            string
+	TypeID               string
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 )
 
+// Application is the schema of the Application data
 type Application struct {
 	ID              string `json:"_id"`
 	GatewaySettings struct {
@@ -38,6 +39,7 @@ type Application struct {
 	Dummy bool `json:"dummy"`
 }
 
+// ApplicationStore is the interface for all the operations to retrieve data of applications
 type ApplicationStore interface {
 	GetStakedApplications(ctx context.Context) ([]*Application, error)
 	GetGigastakedApplications(ctx context.Context) ([]*Application, error)

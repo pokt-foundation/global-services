@@ -22,8 +22,8 @@ import (
 )
 
 var (
-	ErrMaxDispatchErrorsExceeded = errors.New("exceeded maximun allowance of dispatcher errors")
-	ErrNoCacheClientProvided     = errors.New("no cache clients were provided")
+	errMaxDispatchErrorsExceeded = errors.New("exceeded maximun allowance of dispatcher errors")
+	errNoCacheClientProvided     = errors.New("no cache clients were provided")
 
 	rpcURL                      = environment.GetString("RPC_URL", "")
 	dispatchURLs                = strings.Split(environment.GetString("DISPATCH_URLS", ""), ",")
@@ -43,7 +43,7 @@ var (
 // to the cache clients provided while also  reporting any failure from the dispatchers.
 func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 	if len(redisConnectionStrings) <= 0 {
-		return 0, ErrNoCacheClientProvided
+		return 0, errNoCacheClientProvided
 	}
 
 	db, err := database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
@@ -139,7 +139,7 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 	cacheWg.Wait()
 
 	if failedDispatcherCalls > uint32(maxDispatchersErrorsAllowed) {
-		return failedDispatcherCalls, ErrMaxDispatchErrorsExceeded
+		return failedDispatcherCalls, errMaxDispatchErrorsExceeded
 	}
 
 	err = cache.CloseConnections(caches)

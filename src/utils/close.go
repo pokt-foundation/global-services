@@ -8,6 +8,7 @@ import (
 	pocketUtils "github.com/pokt-foundation/pocket-go/utils"
 )
 
+// CloseOrLog ensures that a http connection is safely closed and does not hold file descriptors
 func CloseOrLog(response *http.Response) {
 	if response != nil {
 		// To reuse network connection

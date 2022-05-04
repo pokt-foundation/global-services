@@ -8,6 +8,7 @@ import (
 	"github.com/pokt-foundation/pocket-go/relayer"
 )
 
+// GetIntFromRelay performs a relay which result is expected to be an int and parses the result
 func GetIntFromRelay(Relayer relayer.Relayer, input relayer.Input, key string) (int64, error) {
 	relay, err := Relayer.Relay(&input, nil)
 	if err != nil {

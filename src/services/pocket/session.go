@@ -11,12 +11,13 @@ import (
 type Session struct {
 	// BlockHeight is not actual part of the provider's session struct, is here
 	// for convenience to save the actual blockheight when the session was dispatched
-	BlockHeight int           `json:"blockHeight"`
-	Header      *SesionHeader `json:"header"`
-	Key         string        `json:"key"`
-	Nodes       []*Node       `json:"nodes"`
+	BlockHeight int            `json:"blockHeight"`
+	Header      *SessionHeader `json:"header"`
+	Key         string         `json:"key"`
+	Nodes       []*Node        `json:"nodes"`
 }
 
+// Node is the struct representing a single node's data on the network
 type Node struct {
 	Address       string    `json:"address"`
 	Chains        []string  `json:"chains"`
@@ -28,7 +29,8 @@ type Node struct {
 	UnstakingTime time.Time `json:"unstakingTime"`
 }
 
-type SesionHeader struct {
+// SessionHeader is the idenfiying data of a session within the blockchain
+type SessionHeader struct {
 	AppPublicKey  string `json:"applicationPubKey"`
 	Chain         string `json:"chain"`
 	SessionHeight int    `json:"sessionBlockHeight"`
@@ -53,7 +55,7 @@ func NewSessionCamelCase(session *provider.Session) *Session {
 
 	return &Session{
 		Key: session.Key,
-		Header: &SesionHeader{
+		Header: &SessionHeader{
 			AppPublicKey:  session.Header.AppPublicKey,
 			Chain:         session.Header.Chain,
 			SessionHeight: session.Header.SessionHeight,

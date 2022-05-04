@@ -17,12 +17,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// ChainChecker is the struct to perform chain checks on app sessions
 type ChainChecker struct {
 	Relayer         *relayer.Relayer
 	MetricsRecorder *metrics.Recorder
 	RequestID       string
 }
 
+// ChainCheckOptions is the struct of the data needed to perform a chain check
 type ChainCheckOptions struct {
 	Session    provider.Session
 	PocketAAT  provider.PocketAAT
@@ -32,11 +34,12 @@ type ChainCheckOptions struct {
 	Path       string
 }
 
-type NodeChainLog struct {
+type nodeChainLog struct {
 	Node  *provider.Node
 	Chain int64
 }
 
+// Check Performs a chain check of all the nodes of the given session
 func (cc *ChainChecker) Check(ctx context.Context, options ChainCheckOptions) []string {
 	checkedNodes := []string{}
 
@@ -51,7 +54,7 @@ func (cc *ChainChecker) Check(ctx context.Context, options ChainCheckOptions) []
 		return checkedNodes
 	}
 
-	nodeLogs := cc.GetNodeChainLogs(ctx, &options)
+	nodeLogs := cc.getNodeChainLogs(ctx, &options)
 	for _, node := range nodeLogs {
 		publicKey := node.Node.PublicKey
 		nodeChainID := node.Chain
@@ -91,16 +94,16 @@ func (cc *ChainChecker) Check(ctx context.Context, options ChainCheckOptions) []
 	return checkedNodes
 }
 
-func (cc *ChainChecker) GetNodeChainLogs(ctx context.Context, options *ChainCheckOptions) []*NodeChainLog {
-	nodeLogsChan := make(chan *NodeChainLog, len(options.Session.Nodes))
-	nodeLogs := []*NodeChainLog{}
+func (cc *ChainChecker) getNodeChainLogs(ctx context.Context, options *ChainCheckOptions) []*nodeChainLog {
+	nodeLogsChan := make(chan *nodeChainLog, len(options.Session.Nodes))
+	nodeLogs := []*nodeChainLog{}
 
 	var wg sync.WaitGroup
 	for _, node := range options.Session.Nodes {
 		wg.Add(1)
 		go func(n *provider.Node) {
 			defer wg.Done()
-			cc.GetNodeChainLog(ctx, n, nodeLogsChan, options)
+			cc.getNodeChainLog(ctx, n, nodeLogsChan, options)
 		}(node)
 	}
 	wg.Wait()
@@ -114,7 +117,7 @@ func (cc *ChainChecker) GetNodeChainLogs(ctx context.Context, options *ChainChec
 	return nodeLogs
 }
 
-func (cc *ChainChecker) GetNodeChainLog(ctx context.Context, node *provider.Node, nodeLogs chan<- *NodeChainLog, options *ChainCheckOptions) {
+func (cc *ChainChecker) getNodeChainLog(ctx context.Context, node *provider.Node, nodeLogs chan<- *nodeChainLog, options *ChainCheckOptions) {
 	start := time.Now()
 
 	chain, err := utils.GetIntFromRelay(*cc.Relayer, relayer.Input{
@@ -137,27 +140,26 @@ func (cc *ChainChecker) GetNodeChainLog(ctx context.Context, node *provider.Node
 			"error":         err.Error(),
 		}).Error("chain check: error obtaining chain ID: ", err)
 
-		cc.MetricsRecorder.WriteErrorMetric(ctx, &metrics.MetricData{
-			Metric: &metrics.Metric{
-				Timestamp:            time.Now(),
-				ApplicationPublicKey: options.Session.Header.AppPublicKey,
-				Blockchain:           options.Blockchain,
-				NodePublicKey:        node.PublicKey,
-				ElapsedTime:          time.Since(start).Seconds(),
-				Bytes:                len("WRONG CHAIN"),
-				Method:               "chaincheck",
-				Message:              err.Error(),
-			},
+		cc.MetricsRecorder.WriteErrorMetric(ctx, &metrics.Metric{
+			Timestamp:            time.Now(),
+			ApplicationPublicKey: options.Session.Header.AppPublicKey,
+			Blockchain:           options.Blockchain,
+			NodePublicKey:        node.PublicKey,
+			ElapsedTime:          time.Since(start).Seconds(),
+			Bytes:                len("WRONG CHAIN"),
+			Method:               "chaincheck",
+			Message:              err.Error(),
+			RequestID:            cc.RequestID,
 		})
 
-		nodeLogs <- &NodeChainLog{
+		nodeLogs <- &nodeChainLog{
 			Node:  node,
 			Chain: 0,
 		}
 		return
 	}
 
-	nodeLogs <- &NodeChainLog{
+	nodeLogs <- &nodeChainLog{
 		Node:  node,
 		Chain: chain,
 	}
