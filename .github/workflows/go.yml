@@ -8,29 +8,18 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.18
 
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.18
+      - name: Check out code
+        uses: actions/checkout@v2
         
-    - name: Set up cache   
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
-          
-    - name: Running golangci-lint linters
-      uses: golangci/golangci-lint-action@v2
-      with:
-        version: v1.29
-        skip-go-installation: true
-        args: --config .golangci.yml
-        working-directory: .
+      - name: Run Revive Action
+        uses: docker://morphy/revive-action:v2
+        with:
+          config: revive.toml
   # test:
   #   name: Test
   #   runs-on: ubuntu-latest
