@@ -45,6 +45,6 @@ warningCode = 1
 [rule.modifies-parameter]
 [rule.unnecessary-stmt]
 [rule.cyclomatic]
-  arguments = [9]
+  arguments = [30] # TODO: Lower number 
 [rule.cognitive-complexity]
-    Arguments = [10]
+    Arguments = [30] # TODO: Lower number 
