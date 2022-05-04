@@ -26,7 +26,6 @@ warningCode = 1
 [rule.empty-block]
 [rule.superfluous-else]
 [rule.unreachable-code]
-[rule.get-return]
 [rule.early-return]
 [rule.identical-branches]
 [rule.defer]
