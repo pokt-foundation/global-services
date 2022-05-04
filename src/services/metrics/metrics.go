@@ -10,16 +10,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Recorder represents the struct to write records to the metrics database
 type Recorder struct {
 	Conn *pgxpool.Pool
 }
 
-type MetricData struct {
-	Metric    *Metric
-	RequestID string
-	TypeID    string
-}
+// MetricsData Represents the
 
+// NewMetricsRecorder returns a connection to a metrics database
 func NewMetricsRecorder(ctx context.Context, connectionString string, minPoolSize, maxPoolSize int) (*Recorder, error) {
 	config, err := pgxpool.ParseConfig(fmt.Sprintf("%s?pool_min_conns=%d&pool_max_conns=%d", connectionString, minPoolSize, maxPoolSize))
 	if err != nil {
@@ -36,7 +34,8 @@ func NewMetricsRecorder(ctx context.Context, connectionString string, minPoolSiz
 	}, nil
 }
 
-func (mr *Recorder) WriteErrorMetric(ctx context.Context, metric *MetricData) {
+// WriteErrorMetric writes an error metric to the connected database
+func (mr *Recorder) WriteErrorMetric(ctx context.Context, metric *Metric) {
 	_, err := mr.Conn.Exec(ctx, `
 	INSERT INTO
 	 error
@@ -51,20 +50,20 @@ func (mr *Recorder) WriteErrorMetric(ctx context.Context, metric *MetricData) {
 		code
 		)
 	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-		metric.Metric.Timestamp,
-		metric.Metric.ApplicationPublicKey,
-		metric.Metric.Blockchain,
-		metric.Metric.NodePublicKey,
-		metric.Metric.ElapsedTime,
-		metric.Metric.Bytes,
-		metric.Metric.Method,
-		metric.Metric.Message,
-		metric.Metric.Code)
+		metric.Timestamp,
+		metric.ApplicationPublicKey,
+		metric.Blockchain,
+		metric.NodePublicKey,
+		metric.ElapsedTime,
+		metric.Bytes,
+		metric.Method,
+		metric.Message,
+		metric.Code)
 
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
 			"requestID":    metric.RequestID,
-			"serviceNode":  metric.Metric.NodePublicKey,
+			"serviceNode":  metric.NodePublicKey,
 			"appPublicKey": metric.TypeID,
 		}).Error("metrics: failure recording metric: " + err.Error())
 	}

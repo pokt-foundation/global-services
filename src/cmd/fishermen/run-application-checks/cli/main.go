@@ -18,7 +18,7 @@ import (
 
 var timeout = time.Duration(environment.GetInt64("TIMEOUT", 360)) * time.Second
 
-func PerformChecks(ctx context.Context, options *base.PerformChecksOptions) {
+func performChecks(ctx context.Context, options *base.PerformChecksOptions) {
 	go func() {
 		chainCheck(ctx, options.Ac, pocket.ChainCheckOptions{
 			Session:    *options.Session,
@@ -41,7 +41,7 @@ func PerformChecks(ctx context.Context, options *base.PerformChecksOptions) {
 	}()
 }
 
-func chainCheck(ctx context.Context, ac *base.ApplicationChecks, options pocket.ChainCheckOptions, blockchain models.Blockchain, cacheTTL int, cacheKey string) []string {
+func chainCheck(ctx context.Context, ac *base.ApplicationData, options pocket.ChainCheckOptions, blockchain models.Blockchain, cacheTTL int, cacheKey string) []string {
 	if blockchain.ChainIDCheck == "" {
 		return []string{}
 	}
@@ -72,7 +72,7 @@ func chainCheck(ctx context.Context, ac *base.ApplicationChecks, options pocket.
 	return nodes
 }
 
-func syncCheck(ctx context.Context, ac *base.ApplicationChecks, options pocket.SyncCheckOptions, blockchain models.Blockchain, cacheTTL int, cacheKey string) []string {
+func syncCheck(ctx context.Context, ac *base.ApplicationData, options pocket.SyncCheckOptions, blockchain models.Blockchain, cacheTTL int, cacheKey string) []string {
 	if blockchain.SyncCheckOptions.Body == "" && blockchain.SyncCheckOptions.Path == "" {
 		return []string{}
 	}
@@ -96,7 +96,7 @@ func main() {
 	defer cancel()
 
 	requestID, _ := utils.RandomHex(32)
-	err := base.RunApplicationChecks(ctx, requestID, PerformChecks)
+	err := base.RunApplicationChecks(ctx, requestID, performChecks)
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
 			"requestID": requestID,

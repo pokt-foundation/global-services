@@ -14,6 +14,7 @@ var (
 	httpClientBackoffMultiplier = int(environment.GetInt64("HTTP_CLIENT_BACKOFF_MULTIPLIER", 2))
 )
 
+// Client is the struct of the HTTP client
 type Client struct {
 	*httpclient.Client
 }

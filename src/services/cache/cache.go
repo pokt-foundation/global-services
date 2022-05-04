@@ -30,7 +30,7 @@ func NewRedisClient(ctx context.Context, options *RedisClientOptions) (*Redis, e
 	return connectToRedis(ctx, redis.NewClient(options.BaseOptions), options)
 }
 
-// NewRedisClient returns a client for a cluster instance
+// NewRedisClusterClient returns a client for a cluster instance
 func NewRedisClusterClient(ctx context.Context, options *RedisClientOptions) (*Redis, error) {
 	return connectToRedis(ctx, redis.NewClusterClient(&redis.ClusterOptions{
 		PoolSize: poolsize,

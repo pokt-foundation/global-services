@@ -1,5 +1,6 @@
 package models
 
+// LoadBalancer is the schema of the Load Balancer data
 type LoadBalancer struct {
 	ID                string   `json:"_id"`
 	Name              string   `json:"name"`

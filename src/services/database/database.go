@@ -12,6 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// Mongo Represents a mongo client and gateway related operations
 type Mongo struct {
 	client   *mongo.Client
 	Database string

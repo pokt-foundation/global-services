@@ -4,6 +4,7 @@ import (
 	"context"
 )
 
+// Blockchain is the schema of the Blockchain data
 type Blockchain struct {
 	ID                string           `bson:"_id"`
 	Ticker            string           `json:"ticker"`
@@ -29,6 +30,7 @@ type Blockchain struct {
 	Altruist string `json:"altruist"`
 }
 
+// SyncCheckOptions is the data needed to perform a sync check
 type SyncCheckOptions struct {
 	Body      string `json:"body"`
 	ResultKey string `json:"resultKey"`
@@ -36,6 +38,7 @@ type SyncCheckOptions struct {
 	Allowance int    `json:"allowance"`
 }
 
+// BlockchainStore is the interface for all the operations to retrieve data of blockchains
 type BlockchainStore interface {
 	GetBlockchains(ctx context.Context) ([]*Blockchain, error)
 }
