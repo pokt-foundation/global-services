@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Pocket/global-dispatcher/common/apigateway"
-	"github.com/Pocket/global-dispatcher/common/environment"
-	"github.com/Pocket/global-dispatcher/lib/cache"
+	"github.com/Pocket/global-services/common/apigateway"
+	"github.com/Pocket/global-services/common/environment"
+	"github.com/Pocket/global-services/lib/cache"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 )

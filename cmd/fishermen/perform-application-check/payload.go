@@ -1,7 +1,7 @@
 package base
 
 import (
-	"github.com/Pocket/global-dispatcher/common/gateway/models"
+	"github.com/Pocket/global-services/common/gateway/models"
 	"github.com/pokt-foundation/pocket-go/provider"
 )
 

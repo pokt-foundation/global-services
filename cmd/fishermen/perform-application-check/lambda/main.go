@@ -8,18 +8,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Pocket/global-dispatcher/common/apigateway"
-	"github.com/Pocket/global-dispatcher/common/environment"
-	"github.com/Pocket/global-dispatcher/lib/metrics"
-	"github.com/Pocket/global-dispatcher/lib/pocket"
+	"github.com/Pocket/global-services/common/apigateway"
+	"github.com/Pocket/global-services/common/environment"
+	"github.com/Pocket/global-services/lib/metrics"
+	"github.com/Pocket/global-services/lib/pocket"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/pokt-foundation/pocket-go/provider"
 	"github.com/pokt-foundation/pocket-go/relayer"
 	"github.com/pokt-foundation/pocket-go/signer"
 
-	base "github.com/Pocket/global-dispatcher/cmd/functions/perform-application-check"
-	logger "github.com/Pocket/global-dispatcher/lib/logger"
+	models "github.com/Pocket/global-services/cmd/fishermen/perform-application-check"
+	logger "github.com/Pocket/global-services/lib/logger"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -36,7 +36,7 @@ const (
 	MAX_METRICS_POOL_SIZE = 2
 )
 
-func lambdaHandler(ctx context.Context, payload []base.Payload) (events.APIGatewayProxyResponse, error) {
+func lambdaHandler(ctx context.Context, payload []models.Payload) (events.APIGatewayProxyResponse, error) {
 	syncChecks, chainChecks, err := performApplicationChecks(ctx, payload, payload[0].RequestID)
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
@@ -46,13 +46,13 @@ func lambdaHandler(ctx context.Context, payload []base.Payload) (events.APIGatew
 		return *apigateway.NewErrorResponse(http.StatusInternalServerError, err), err
 	}
 
-	return *apigateway.NewJSONResponse(http.StatusOK, base.Response{
+	return *apigateway.NewJSONResponse(http.StatusOK, models.Response{
 		SyncCheckedNodes:  syncChecks,
 		ChainCheckedNodes: chainChecks,
 	}), err
 }
 
-func performApplicationChecks(ctx context.Context, payload []base.Payload, requestID string) (map[string][]string, map[string][]string, error) {
+func performApplicationChecks(ctx context.Context, payload []models.Payload, requestID string) (map[string][]string, map[string][]string, error) {
 	metricsRecorder, err := metrics.NewMetricsRecorder(ctx, metricsConnection, MIN_METRICS_POOL_SIZE, MAX_METRICS_POOL_SIZE)
 	if err != nil {
 		return nil, nil, errors.New("error connecting to metrics db: " + err.Error())
@@ -72,7 +72,7 @@ func performApplicationChecks(ctx context.Context, payload []base.Payload, reque
 	var wg sync.WaitGroup
 	for index, application := range payload {
 		wg.Add(1)
-		go func(idx int, app base.Payload) {
+		go func(idx int, app models.Payload) {
 			defer wg.Done()
 			syncCheck, chainCheck, err := doPerformApplicationChecks(ctx, &app, metricsRecorder, relayer, requestID)
 			if err != nil {
@@ -93,7 +93,7 @@ func performApplicationChecks(ctx context.Context, payload []base.Payload, reque
 	return syncChecks, chainChecks, nil
 }
 
-func doPerformApplicationChecks(ctx context.Context, payload *base.Payload, metricsRecorder *metrics.Recorder, pocketRelayer *relayer.Relayer, requestID string) ([]string, []string, error) {
+func doPerformApplicationChecks(ctx context.Context, payload *models.Payload, metricsRecorder *metrics.Recorder, pocketRelayer *relayer.Relayer, requestID string) ([]string, []string, error) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	syncCheckNodes := []string{}

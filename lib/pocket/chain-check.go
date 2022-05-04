@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	logger "github.com/Pocket/global-dispatcher/lib/logger"
-	"github.com/Pocket/global-dispatcher/lib/metrics"
-	"github.com/Pocket/global-dispatcher/lib/utils"
+	logger "github.com/Pocket/global-services/lib/logger"
+	"github.com/Pocket/global-services/lib/metrics"
+	"github.com/Pocket/global-services/lib/utils"
 	"github.com/pokt-foundation/pocket-go/provider"
 	"github.com/pokt-foundation/pocket-go/relayer"
 	log "github.com/sirupsen/logrus"

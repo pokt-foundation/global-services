@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Pocket/global-dispatcher/lib/logger"
+	"github.com/Pocket/global-services/lib/logger"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"

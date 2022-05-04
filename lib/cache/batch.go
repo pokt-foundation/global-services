@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	logger "github.com/Pocket/global-dispatcher/lib/logger"
+	logger "github.com/Pocket/global-services/lib/logger"
 	log "github.com/sirupsen/logrus"
 )
 

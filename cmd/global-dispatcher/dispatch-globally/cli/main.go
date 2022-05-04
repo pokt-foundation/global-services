@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
-	base "github.com/Pocket/global-dispatcher/cmd/functions/dispatch-globally"
-	"github.com/Pocket/global-dispatcher/common/environment"
+	base "github.com/Pocket/global-services/cmd/global-dispatcher/dispatch-globally"
+	"github.com/Pocket/global-services/common/environment"
 
-	logger "github.com/Pocket/global-dispatcher/lib/logger"
-	"github.com/Pocket/global-dispatcher/lib/utils"
+	logger "github.com/Pocket/global-services/lib/logger"
+	"github.com/Pocket/global-services/lib/utils"
 	log "github.com/sirupsen/logrus"
 )
 

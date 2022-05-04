@@ -4,13 +4,13 @@ import (
 	"context"
 	"net/http"
 
-	base "github.com/Pocket/global-dispatcher/cmd/functions/dispatch-globally"
-	"github.com/Pocket/global-dispatcher/common/apigateway"
+	base "github.com/Pocket/global-services/cmd/global-dispatcher/dispatch-globally"
+	"github.com/Pocket/global-services/common/apigateway"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-lambda-go/lambdacontext"
 
-	logger "github.com/Pocket/global-dispatcher/lib/logger"
+	logger "github.com/Pocket/global-services/lib/logger"
 	log "github.com/sirupsen/logrus"
 )
 

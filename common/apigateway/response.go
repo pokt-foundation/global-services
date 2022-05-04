@@ -3,7 +3,7 @@ package apigateway
 import (
 	"encoding/json"
 
-	"github.com/Pocket/global-dispatcher/lib/logger"
+	"github.com/Pocket/global-services/lib/logger"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/sirupsen/logrus"
 )

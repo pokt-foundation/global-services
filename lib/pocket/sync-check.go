@@ -12,15 +12,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Pocket/global-dispatcher/common/gateway/models"
-	logger "github.com/Pocket/global-dispatcher/lib/logger"
-	"github.com/Pocket/global-dispatcher/lib/metrics"
-	"github.com/Pocket/global-dispatcher/lib/utils"
+	"github.com/Pocket/global-services/common/gateway/models"
+	logger "github.com/Pocket/global-services/lib/logger"
+	"github.com/Pocket/global-services/lib/metrics"
+	"github.com/Pocket/global-services/lib/utils"
 	"github.com/pokt-foundation/pocket-go/provider"
 	"github.com/pokt-foundation/pocket-go/relayer"
 	log "github.com/sirupsen/logrus"
 
-	_http "github.com/Pocket/global-dispatcher/lib/http"
+	_http "github.com/Pocket/global-services/lib/http"
 )
 
 var httpClient = _http.NewClient()

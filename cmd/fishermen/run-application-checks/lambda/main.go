@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"sync"
 
-	base "github.com/Pocket/global-dispatcher/cmd/functions/run-application-checks"
-	"github.com/Pocket/global-dispatcher/common/apigateway"
-	"github.com/Pocket/global-dispatcher/common/environment"
+	base "github.com/Pocket/global-services/cmd/fishermen/run-application-checks"
+	"github.com/Pocket/global-services/common/apigateway"
+	"github.com/Pocket/global-services/common/environment"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-lambda-go/lambdacontext"
@@ -16,10 +16,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 
-	performAppCheck "github.com/Pocket/global-dispatcher/cmd/functions/perform-application-check"
+	performAppCheck "github.com/Pocket/global-services/cmd/fishermen/perform-application-check"
 	awsLambda "github.com/aws/aws-sdk-go/service/lambda"
 
-	logger "github.com/Pocket/global-dispatcher/lib/logger"
+	logger "github.com/Pocket/global-services/lib/logger"
 	log "github.com/sirupsen/logrus"
 )
 

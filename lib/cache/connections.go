@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/Pocket/global-dispatcher/lib/logger"
+	"github.com/Pocket/global-services/lib/logger"
 	"github.com/go-redis/redis/v8"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"

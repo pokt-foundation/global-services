@@ -7,11 +7,11 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/Pocket/global-dispatcher/common/environment"
-	"github.com/Pocket/global-dispatcher/lib/cache"
-	httpClient "github.com/Pocket/global-dispatcher/lib/http"
-	"github.com/Pocket/global-dispatcher/lib/pocket"
-	"github.com/Pocket/global-dispatcher/lib/utils"
+	"github.com/Pocket/global-services/common/environment"
+	"github.com/Pocket/global-services/lib/cache"
+	httpClient "github.com/Pocket/global-services/lib/http"
+	"github.com/Pocket/global-services/lib/pocket"
+	"github.com/Pocket/global-services/lib/utils"
 	"github.com/pokt-foundation/pocket-go/provider"
 )
 

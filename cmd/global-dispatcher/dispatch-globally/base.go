@@ -9,15 +9,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Pocket/global-dispatcher/common/environment"
-	"github.com/Pocket/global-dispatcher/common/gateway"
-	"github.com/Pocket/global-dispatcher/lib/cache"
-	"github.com/Pocket/global-dispatcher/lib/database"
-	"github.com/Pocket/global-dispatcher/lib/pocket"
+	"github.com/Pocket/global-services/common/environment"
+	"github.com/Pocket/global-services/common/gateway"
+	"github.com/Pocket/global-services/lib/cache"
+	"github.com/Pocket/global-services/lib/database"
+	"github.com/Pocket/global-services/lib/pocket"
 	"github.com/pokt-foundation/pocket-go/provider"
 	"golang.org/x/sync/semaphore"
 
-	logger "github.com/Pocket/global-dispatcher/lib/logger"
+	logger "github.com/Pocket/global-services/lib/logger"
 	log "github.com/sirupsen/logrus"
 )
 

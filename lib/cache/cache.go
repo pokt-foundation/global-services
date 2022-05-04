@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/Pocket/global-dispatcher/common/environment"
+	"github.com/Pocket/global-services/common/environment"
 	"github.com/go-redis/redis/v8"
 )
 

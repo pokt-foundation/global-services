@@ -3,8 +3,8 @@ package database
 import (
 	"context"
 
-	"github.com/Pocket/global-dispatcher/common/gateway/models"
-	"github.com/Pocket/global-dispatcher/lib/logger"
+	"github.com/Pocket/global-services/common/gateway/models"
+	"github.com/Pocket/global-services/lib/logger"
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"

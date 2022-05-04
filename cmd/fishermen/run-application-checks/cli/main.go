@@ -5,14 +5,14 @@ import (
 	"encoding/json"
 	"time"
 
-	base "github.com/Pocket/global-dispatcher/cmd/functions/run-application-checks"
-	"github.com/Pocket/global-dispatcher/common/environment"
-	"github.com/Pocket/global-dispatcher/common/gateway/models"
-	"github.com/Pocket/global-dispatcher/lib/cache"
-	"github.com/Pocket/global-dispatcher/lib/pocket"
+	base "github.com/Pocket/global-services/cmd/fishermen/run-application-checks"
+	"github.com/Pocket/global-services/common/environment"
+	"github.com/Pocket/global-services/common/gateway/models"
+	"github.com/Pocket/global-services/lib/cache"
+	"github.com/Pocket/global-services/lib/pocket"
 
-	logger "github.com/Pocket/global-dispatcher/lib/logger"
-	"github.com/Pocket/global-dispatcher/lib/utils"
+	logger "github.com/Pocket/global-services/lib/logger"
+	"github.com/Pocket/global-services/lib/utils"
 	log "github.com/sirupsen/logrus"
 )
 

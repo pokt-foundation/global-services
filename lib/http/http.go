@@ -3,7 +3,7 @@ package clienthttp
 import (
 	"time"
 
-	"github.com/Pocket/global-dispatcher/common/environment"
+	"github.com/Pocket/global-services/common/environment"
 	"github.com/gojektech/heimdall"
 	"github.com/gojektech/heimdall/httpclient"
 )

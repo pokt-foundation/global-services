@@ -1,4 +1,4 @@
-module github.com/Pocket/global-dispatcher
+module github.com/Pocket/global-services
 
 go 1.18
 
