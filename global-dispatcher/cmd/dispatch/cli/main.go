@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	base "github.com/Pocket/global-services/global-dispatcher/cmd/dispatch-globally"
+	base "github.com/Pocket/global-services/global-dispatcher/cmd/dispatch"
 	"github.com/Pocket/global-services/shared/environment"
 	"github.com/Pocket/global-services/shared/utils"
 

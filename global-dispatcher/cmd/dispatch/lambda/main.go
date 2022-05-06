@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	base "github.com/Pocket/global-services/global-dispatcher/cmd/dispatch-globally"
+	base "github.com/Pocket/global-services/global-dispatcher/cmd/dispatch"
 	"github.com/Pocket/global-services/shared/apigateway"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
