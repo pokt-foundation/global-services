@@ -22,7 +22,7 @@ package:
 
 functions:
   dispatch-globally:
-    handler: bin/dispatch-globally
+    handler: bin/dispatch
     environment: ${file(.env.dispatch-globally.yml)}
     memorySize: 256
     timeout: 360
@@ -33,7 +33,7 @@ functions:
           enabled: true
 
   dispatch-globally-canary:
-    handler: bin/dispatch-globally
+    handler: bin/dispatch
     environment: ${file(.env.dispatch-globally.canary.yml)}
     memorySize: 256
     timeout: 360
@@ -76,9 +76,16 @@ functions:
     environment: ${file(.env.perform-application-check.yml)}
     memorySize: 256
     timeout: 60
+  
+  snap-cherry-picker-data:
+    handler: bin/snap-data
+    environment: ${file(.env.snap-cherry-picker-data.yml)}
+    memorySize: 128
+    timeout: 60
+
     
   flush-cache:
-    handler: bin/flush-cache
+    handler: bin/flush
     environment: ${file(.env.flush-cache.yml)}
     memorySize: 128
     timeout: 20
