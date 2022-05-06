@@ -100,7 +100,11 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 		return errors.New("error connecting to mongo: " + err.Error())
 	}
 
-	metricsRecorder, err = metrics.NewMetricsRecorder(ctx, metricsConnection, int(minMetricsPoolSize), int(maxMetricsPoolSize))
+	metricsRecorder, err = metrics.NewMetricsRecorder(ctx, &database.PostgresOptions{
+		Connection:         metricsConnection,
+		MinMetricsPoolSize: int(minMetricsPoolSize),
+		MaxMetricsPoolSize: int(maxMetricsPoolSize),
+	})
 	if err != nil {
 		return errors.New("error connecting to metrics db: " + err.Error())
 	}
@@ -249,7 +253,7 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 	close(cacheBatch)
 	cacheWg.Wait()
 
-	metricsRecorder.Conn.Close()
+	metricsRecorder.Close()
 	return cache.CloseConnections(caches)
 }
 
