@@ -64,6 +64,7 @@ func (r *Recorder) WriteErrorMetric(ctx context.Context, metric *Metric) {
 	}
 }
 
+// Close closes the postgres connection of the metrics db
 func (r *Recorder) Close() {
 	r.conn.Close()
 }

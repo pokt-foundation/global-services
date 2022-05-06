@@ -9,20 +9,25 @@ import (
 )
 
 var (
-	ErrValueUnderZero     = errors.New("value must be lower or equal to zero")
+	// ErrValueUnderZero when a value given is under zero
+	ErrValueUnderZero = errors.New("value must be lower or equal to zero")
+	// ErrMaxPoolSizeOverMin when the value given for max pool size is over the min pool size
 	ErrMaxPoolSizeOverMin = errors.New("max pool size should be more than min pool size")
 )
 
+// PostgresOptions represents the options related to set up a pg connection
 type PostgresOptions struct {
 	Connection         string
 	MinMetricsPoolSize int
 	MaxMetricsPoolSize int
 }
 
+// Postgres is the struct for performing operations on a postgres database
 type Postgres struct {
 	Conn *pgxpool.Pool
 }
 
+// NewPostgresDatabase attempts and returns a postgres connection on success
 func NewPostgresDatabase(ctx context.Context, options *PostgresOptions) (*Postgres, error) {
 	if options.MinMetricsPoolSize < 0 || options.MaxMetricsPoolSize < 0 {
 		return nil, ErrValueUnderZero
