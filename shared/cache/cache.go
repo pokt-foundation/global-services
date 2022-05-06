@@ -70,3 +70,14 @@ func (r *Redis) Close() error {
 	}
 	return errors.New("invalid redis client type")
 }
+
+// Addrs returns the address used for the connection of the client
+func (r *Redis) Addrs() []string {
+	switch client := r.Client.(type) {
+	case *redis.Client:
+		return []string{client.Options().Addr}
+	case *redis.ClusterClient:
+		return client.Options().Addrs
+	}
+	return []string{}
+}
