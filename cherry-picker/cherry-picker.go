@@ -1,7 +1,7 @@
 package cpicker
 
-// CherryPickerSession model of the aggregated data of cherry picker of all regions
-type CherryPickerSession struct {
+// Session model of the aggregated data of cherry picker of all regions
+type Session struct {
 	PublicKey          string  `json:"publicKey"`
 	Chain              string  `json:"chain"`
 	SessionKey         string  `json:"sessionKey"`
@@ -12,8 +12,8 @@ type CherryPickerSession struct {
 	Failure            bool    `json:"failure"`
 }
 
-// CherryPickerSessionRegion model of data of cherry picker for a single region
-type CherryPickerSessionRegion struct {
+// SessionRegion model of data of cherry picker for a single region
+type SessionRegion struct {
 	PublicKey            string    `json:"publicKey"`
 	Chain                string    `json:"chain"`
 	SessionKey           string    `json:"sessionKey"`
