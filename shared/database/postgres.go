@@ -17,9 +17,9 @@ var (
 
 // PostgresOptions represents the options related to set up a pg connection
 type PostgresOptions struct {
-	Connection         string
-	MinMetricsPoolSize int
-	MaxMetricsPoolSize int
+	Connection  string
+	MinPoolSize int
+	MaxPoolSize int
 }
 
 // Postgres is the struct for performing operations on a postgres database
@@ -29,15 +29,15 @@ type Postgres struct {
 
 // NewPostgresDatabase attempts and returns a postgres connection on success
 func NewPostgresDatabase(ctx context.Context, options *PostgresOptions) (*Postgres, error) {
-	if options.MinMetricsPoolSize < 0 || options.MaxMetricsPoolSize < 0 {
+	if options.MinPoolSize < 0 || options.MaxPoolSize < 0 {
 		return nil, ErrValueUnderZero
 	}
 
-	if options.MinMetricsPoolSize > options.MaxMetricsPoolSize {
+	if options.MinPoolSize > options.MaxPoolSize {
 		return nil, ErrMaxPoolSizeOverMin
 	}
 
-	config, err := pgxpool.ParseConfig(fmt.Sprintf("%s?pool_min_conns=%d&pool_max_conns=%d", options.Connection, options.MinMetricsPoolSize, options.MaxMetricsPoolSize))
+	config, err := pgxpool.ParseConfig(fmt.Sprintf("%s?pool_min_conns=%d&pool_max_conns=%d", options.Connection, options.MinPoolSize, options.MaxPoolSize))
 	if err != nil {
 		return nil, err
 	}
