@@ -12,6 +12,7 @@ import (
 	"github.com/Pocket/global-services/shared/cache"
 	"github.com/Pocket/global-services/shared/database"
 	"github.com/Pocket/global-services/shared/environment"
+	shared "github.com/Pocket/global-services/shared/error"
 	"github.com/Pocket/global-services/shared/gateway"
 	"github.com/Pocket/global-services/shared/pocket"
 	"github.com/pokt-foundation/pocket-go/provider"
@@ -43,7 +44,7 @@ var (
 // to the cache clients provided while also  reporting any failure from the dispatchers.
 func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 	if len(redisConnectionStrings) <= 0 {
-		return 0, errNoCacheClientProvided
+		return 0, shared.ErrNoCacheClientProvided
 	}
 
 	db, err := database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)

@@ -12,6 +12,7 @@ import (
 	"github.com/Pocket/global-services/shared/cache"
 	"github.com/Pocket/global-services/shared/database"
 	"github.com/Pocket/global-services/shared/environment"
+	shared "github.com/Pocket/global-services/shared/error"
 	"github.com/Pocket/global-services/shared/gateway"
 	"github.com/Pocket/global-services/shared/gateway/models"
 	"github.com/Pocket/global-services/shared/metrics"
@@ -27,8 +28,6 @@ import (
 )
 
 var (
-	errNoCacheClientProvided = errors.New("no cache clients were provided")
-
 	rpcURL                 = environment.GetString("RPC_URL", "")
 	dispatchURLs           = strings.Split(environment.GetString("DISPATCH_URLS", ""), ",")
 	redisConnectionStrings = strings.Split(environment.GetString("REDIS_CONNECTION_STRINGS", ""), ",")
@@ -91,19 +90,17 @@ type PerformChecksOptions struct {
 // sends successful results to be written into a cache
 func RunApplicationChecks(ctx context.Context, requestID string, performChecks func(ctx context.Context, options *PerformChecksOptions)) error {
 	if len(redisConnectionStrings) <= 0 {
-		return errNoCacheClientProvided
+		return shared.ErrNoCacheClientProvided
 	}
-	var err error
-
-	db, err = database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
+	db, err := database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
 	if err != nil {
 		return errors.New("error connecting to mongo: " + err.Error())
 	}
 
 	metricsRecorder, err = metrics.NewMetricsRecorder(ctx, &database.PostgresOptions{
-		Connection:         metricsConnection,
-		MinMetricsPoolSize: int(minMetricsPoolSize),
-		MaxMetricsPoolSize: int(maxMetricsPoolSize),
+		Connection:  metricsConnection,
+		MinPoolSize: int(minMetricsPoolSize),
+		MaxPoolSize: int(maxMetricsPoolSize),
 	})
 	if err != nil {
 		return errors.New("error connecting to metrics db: " + err.Error())

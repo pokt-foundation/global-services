@@ -55,9 +55,9 @@ func lambdaHandler(ctx context.Context, payload []models.Payload) (events.APIGat
 
 func performApplicationChecks(ctx context.Context, payload []models.Payload, requestID string) (map[string][]string, map[string][]string, error) {
 	metricsRecorder, err := metrics.NewMetricsRecorder(ctx, &database.PostgresOptions{
-		Connection:         metricsConnection,
-		MinMetricsPoolSize: minMetricsPoolSize,
-		MaxMetricsPoolSize: maxMetricsPoolSize,
+		Connection:  metricsConnection,
+		MinPoolSize: minMetricsPoolSize,
+		MaxPoolSize: maxMetricsPoolSize,
 	})
 	if err != nil {
 		return nil, nil, errors.New("error connecting to metrics db: " + err.Error())
