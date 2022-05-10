@@ -8,6 +8,7 @@ import (
 
 	"github.com/Pocket/global-services/shared/environment"
 	"github.com/go-redis/redis/v8"
+	"golang.org/x/sync/errgroup"
 )
 
 var poolsize = int(environment.GetInt64("CACHE_CONNECTION_POOL_SIZE", 10))
@@ -17,12 +18,14 @@ var poolsize = int(environment.GetInt64("CACHE_CONNECTION_POOL_SIZE", 10))
 type RedisClientOptions struct {
 	BaseOptions *redis.Options
 	KeyPrefix   string
+	Name        string
 }
 
 // Redis represents a redis client with key prefix for all the implemented operations
 type Redis struct {
 	Client    redis.Cmdable
 	KeyPrefix string
+	Name      string
 }
 
 // NewRedisClient returns a client for a non-cluster instance
@@ -48,6 +51,7 @@ func connectToRedis(ctx context.Context, client redis.Cmdable, options *RedisCli
 	return &Redis{
 		Client:    client,
 		KeyPrefix: options.KeyPrefix,
+		Name:      options.Name,
 	}, nil
 }
 
@@ -80,4 +84,56 @@ func (r *Redis) Addrs() []string {
 		return client.Options().Addrs
 	}
 	return []string{}
+}
+
+// RunFunctionOnAllClients allows to run a single function on all the redis
+// connected clients, returns err on the first failure of any of them
+func RunFunctionOnAllClients(caches []*Redis, fn func(*Redis) error) error {
+	var g errgroup.Group
+	for _, cacheClient := range caches {
+		func(ch *Redis) {
+			g.Go(func() error {
+				return fn(ch)
+			})
+		}(cacheClient)
+	}
+	return g.Wait()
+}
+
+// WriteJSONToCaches writes the given key/values to multiple cache clients at the same time
+func WriteJSONToCaches(ctx context.Context, cacheClients []*Redis, key string, value interface{}, TTLSeconds uint) error {
+	return RunFunctionOnAllClients(cacheClients, func(ins *Redis) error {
+		return ins.SetJSON(ctx, key, value, TTLSeconds)
+	})
+}
+
+func UnMarshallJSONResult(data any, err error, v any) error {
+	err = assertCacheResponse(data, err)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal([]byte(data.(string)), v)
+}
+
+func GetStringResult(data any, err error) (string, error) {
+	err = assertCacheResponse(data, err)
+	if err != nil && err != ErrEmptyValue {
+		return "", err
+	}
+	return data.(string), err
+}
+
+// assertCacheResponse checks whether the result returns a valid response, guaranteed
+// that any valid response will come as a string
+func assertCacheResponse(val any, err error) error {
+	switch {
+	case err == redis.Nil || val == nil:
+		return ErrKeyDoesNotExist
+	case err != nil:
+		return err
+	case val == "":
+		return ErrEmptyValue
+	}
+
+	return nil
 }

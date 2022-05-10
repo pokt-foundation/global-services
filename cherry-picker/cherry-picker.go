@@ -31,5 +31,6 @@ type ServiceLog struct {
 	Results                map[string]int `json:"results"`
 	MedianSuccessLatency   string         `json:"medianSuccessLatency"`
 	WeightedSuccessLatency string         `json:"weightedSuccessLatency"`
-	SessionKey             string         `json:"string"`
+	SessionKey             string         `json:"sessionKey"`
+	SessionHeight          int            `json:"sessionHeight"`
 }

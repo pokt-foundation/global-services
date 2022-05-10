@@ -9,7 +9,6 @@ import (
 	"github.com/Pocket/global-services/shared/logger"
 	"github.com/go-redis/redis/v8"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 )
 
 // ConnectoCacheClients instantiates n number of cache connections and returns error
@@ -47,13 +46,6 @@ func ConnectoCacheClients(ctx context.Context, connectionStrings []string, commi
 	}
 
 	return instances, nil
-}
-
-// WriteJSONToCaches writes the given key/values to multiple cache clients at the same time
-func WriteJSONToCaches(ctx context.Context, cacheClients []*Redis, key string, value interface{}, TTLSeconds uint) error {
-	return RunFunctionOnAllClients(cacheClients, func(ins *Redis) error {
-		return ins.SetJSON(ctx, key, value, TTLSeconds)
-	})
 }
 
 // CloseConnections closes all cache connections, returning error if any of them fail
@@ -96,18 +88,4 @@ func connectToInstance(ctx context.Context, clients chan *Redis, address string,
 	clients <- redisClient
 
 	return nil
-}
-
-// RunFunctionOnAllClients allows to run a single function on all the redis
-// connected clients, returns err on the first failure of any of them
-func RunFunctionOnAllClients(caches []*Redis, fn func(*Redis) error) error {
-	var g errgroup.Group
-	for _, cacheClient := range caches {
-		func(ch *Redis) {
-			g.Go(func() error {
-				return fn(ch)
-			})
-		}(cacheClient)
-	}
-	return g.Wait()
 }
