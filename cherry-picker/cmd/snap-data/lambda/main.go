@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,7 +12,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	cpicker "github.com/Pocket/global-services/cherry-picker"
-	db "github.com/Pocket/global-services/cherry-picker/database"
+	db "github.com/Pocket/global-services/cherry-picker/postgres-driver"
 	"github.com/Pocket/global-services/shared/apigateway"
 	"github.com/Pocket/global-services/shared/cache"
 	"github.com/Pocket/global-services/shared/database"
@@ -21,22 +20,26 @@ import (
 	shared "github.com/Pocket/global-services/shared/error"
 	"github.com/Pocket/global-services/shared/gateway"
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/pokt-foundation/pocket-go/provider"
 )
 
 var (
 	rpcURL                  = environment.GetString("RPC_URL", "")
 	dispatchURLs            = strings.Split(environment.GetString("DISPATCH_URLS", ""), ",")
-	cherryPickerConnections = strings.Split(environment.GetString("CHERRY_PICKER_CONNECTIONS	", "postgres://pguser:pgpassword@localhost:5432/gateway"), ",")
+	cherryPickerConnections = strings.Split(environment.GetString("CHERRY_PICKER_CONNECTIONS	", "postgres://postgres:postgres@localhost:5432/postgres"), ",")
 	defaultTimeOut          = environment.GetInt64("DEFAULT_TIMEOUT", 8)
 	redisConnectionStrings  = environment.GetString("REDIS_REGION_CONNECTION_STRINGS", "{\"localhost\": \"localhost:6379\"}")
 	isRedisCluster          = environment.GetBool("IS_REDIS_CLUSTER", false)
 	mongoConnectionString   = environment.GetString("MONGODB_CONNECTION_STRING", "")
 	mongoDatabase           = environment.GetString("MONGODB_DATABASE", "gateway")
-	concurrency             = environment.GetInt64("CONCURRENCY", 1)
-	successKey              = environment.GetString("SUCCESS_KEY", "success-hits")
-	failuresKey             = environment.GetString("SUCCESS_KEY", "failure-hits")
-	failureKey              = environment.GetString("SUCCESS_KEY", "failure")
+	// concurrency             = environment.GetInt64("CONCURRENCY", 1)
+	successKey             = environment.GetString("SUCCESS_KEY", "success-hits")
+	failuresKey            = environment.GetString("SUCCESS_KEY", "failure-hits")
+	failureKey             = environment.GetString("SUCCESS_KEY", "failure")
+	sessionTableName       = environment.GetString("SESSION_TABLE_NAME", "cherry_picker_session")
+	sessionRegionTableName = environment.GetString("SESSION_REGION_TABLE_NAME", "cherry_picker_session_region")
 )
 
 type applicationData struct {
@@ -44,6 +47,8 @@ type applicationData struct {
 	Successes  int
 	Failures   int
 	Failure    bool
+	PublicKey  string
+	Chain      string
 }
 
 type regionData struct {
@@ -52,12 +57,13 @@ type regionData struct {
 }
 
 type snapCherryPicker struct {
-	regionsData  map[string]*regionData
-	caches       []*cache.Redis
-	appDB        *database.Mongo
-	cherryPickDB []*db.CherryPickerPostgres
-	rpcProvider  *provider.Provider
-	apps         []provider.GetAppOutput
+	regionsData      map[string]*regionData
+	caches           []*cache.Redis
+	appDB            *database.Mongo
+	cherryPickStores []cpicker.CherryPickerStore
+	rpcProvider      *provider.Provider
+	apps             []provider.GetAppOutput
+	RequestID        string
 }
 
 func (sn *snapCherryPicker) init(ctx context.Context) error {
@@ -82,15 +88,15 @@ func (sn *snapCherryPicker) init(ctx context.Context) error {
 	sn.apps = apps
 
 	for _, connString := range cherryPickerConnections {
-		connection, err := database.NewPostgresDatabase(ctx, &database.PostgresOptions{
+		connection, err := db.NewCherryPickerPostgresFromConnectionString(ctx, &database.PostgresOptions{
 			Connection:  connString,
 			MinPoolSize: 10,
 			MaxPoolSize: 10,
-		})
+		}, sessionTableName, sessionRegionTableName)
 		if err != nil {
 			return err
 		}
-		sn.cherryPickDB = append(sn.cherryPickDB, &db.CherryPickerPostgres{Db: connection})
+		sn.cherryPickStores = append(sn.cherryPickStores, connection)
 	}
 
 	return nil
@@ -140,6 +146,9 @@ func (sn *snapCherryPicker) snapCherryPickerData(ctx context.Context) error {
 	return nil
 }
 
+func (sn *snapCherryPicker) saveToStore(ctx context.Context) {
+}
+
 func (sn *snapCherryPicker) getAppsRegionsData(ctx context.Context) {
 	cache.RunFunctionOnAllClients(sn.caches, func(cl *cache.Redis) error {
 		sn.getServiceLogData(ctx, cl)
@@ -159,12 +168,15 @@ func (sn *snapCherryPicker) getServiceLogData(ctx context.Context, cl *cache.Red
 		return err
 	}
 	for idx, rawServiceLog := range results {
-		appDataKey := geAppKeyFromLog(serviceLogKeys[idx])
+		publicKey, chain := getPublicKeyAndChainFromLog(serviceLogKeys[idx])
+		appDataKey := publicKey + "-" + chain
 		sn.regionsData[cl.Name].AppData[appDataKey] = &applicationData{}
+		appData := sn.regionsData[cl.Name].AppData[appDataKey]
+		appData.PublicKey = publicKey
+		appData.Chain = chain
 
-		if err := cache.UnMarshallJSONResult(rawServiceLog, nil,
-			&sn.regionsData[cl.Name].AppData[appDataKey].ServiceLog); err != nil {
-			// TODO: Log
+		if err := cache.UnMarshallJSONResult(rawServiceLog, nil, &appData.ServiceLog); err != nil {
+			continue
 		}
 	}
 
@@ -194,7 +206,8 @@ func (sn *snapCherryPicker) getSuccessAndFailureData(ctx context.Context, cl *ca
 
 	for idx, rawResult := range results {
 		key := allKeys[idx]
-		appDataKey := geAppKeyFromLog(key)
+		publicKey, chain := getPublicKeyAndChainFromLog(key)
+		appDataKey := publicKey + "-" + chain
 		region := sn.regionsData[cl.Name].AppData[appDataKey]
 		result, _ := cache.GetStringResult(rawResult, nil)
 		if region == nil {
@@ -224,17 +237,23 @@ func (sn *snapCherryPicker) getSuccessAndFailureData(ctx context.Context, cl *ca
 	return nil
 }
 
-func geAppKeyFromLog(key string) string {
+func getPublicKeyAndChainFromLog(key string) (string, string) {
 	split := strings.Split(key, "-")
 
+	publicKey := split[1]
 	chain := split[0]
+	// Chain key could have braces between to use the same slot on a redis cluster
 	chain = strings.ReplaceAll(chain, "{", "")
 	chain = strings.ReplaceAll(chain, "}", "")
-	return split[1] + "-" + chain
+	return publicKey, chain
 }
 
 func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
-	snapCherryPickerData := &snapCherryPicker{}
+	lc, _ := lambdacontext.FromContext(ctx)
+
+	snapCherryPickerData := &snapCherryPicker{
+		RequestID: lc.AwsRequestID,
+	}
 	snapCherryPickerData.regionsData = make(map[string]*regionData)
 
 	err := snapCherryPickerData.init(ctx)
@@ -253,21 +272,5 @@ func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 }
 
 func main() {
-	snapCherryPickerData := &snapCherryPicker{}
-	snapCherryPickerData.regionsData = make(map[string]*regionData)
-	ctx := context.TODO()
-
-	err := snapCherryPickerData.init(ctx)
-	if err != nil {
-		fmt.Println(err)
-		// return *apigateway.NewErrorResponse(http.StatusInternalServerError, err), err
-	}
-
-	err = snapCherryPickerData.snapCherryPickerData(ctx)
-	if err != nil {
-		fmt.Println(err)
-		// return *apigateway.NewErrorResponse(http.StatusInternalServerError, err), err
-	}
-
-	// lambda.Start(LambdaHandler)
+	lambda.Start(LambdaHandler)
 }
