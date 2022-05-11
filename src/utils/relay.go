@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 
@@ -15,8 +14,7 @@ func GetIntFromRelay(Relayer relayer.Relayer, input relayer.Input, key string) (
 		return 0, errors.New("error relaying: " + err.Error())
 	}
 
-	result, err := ParseIntegerFromPayload(
-		bytes.NewReader([]byte(relay.RelayOutput.Response)), key)
+	result, err := ParseIntegerJSONString(relay.RelayOutput.Response, key)
 	if err != nil {
 		return 0, fmt.Errorf("error parsing key %s: %s", key, err.Error())
 	}
