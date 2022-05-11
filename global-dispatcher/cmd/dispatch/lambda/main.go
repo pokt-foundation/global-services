@@ -17,7 +17,6 @@ import (
 // LambdaHandler manages the DispatchSession call to return as an APIGatewayProxyResponse
 func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
 	lc, _ := lambdacontext.FromContext(ctx)
-	var statusCode int
 
 	failedDispatcherCalls, err := base.DispatchSessions(ctx, lc.AwsRequestID)
 	if err != nil {
@@ -36,7 +35,7 @@ func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 	// Internal logging
 	logger.Log.WithFields(result).Info("GLOBAL DISPATCHER RESULT")
 
-	return *apigateway.NewJSONResponse(statusCode, result), err
+	return *apigateway.NewJSONResponse(http.StatusOK, result), err
 }
 
 func main() {
