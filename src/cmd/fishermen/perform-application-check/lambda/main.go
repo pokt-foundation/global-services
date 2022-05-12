@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"strings"
 	"sync"
@@ -53,26 +52,24 @@ func lambdaHandler(ctx context.Context, payload []models.Payload) (events.APIGat
 	}), err
 }
 
-func performApplicationChecks(ctx context.Context, payload []models.Payload, requestID string) (map[string][]string, map[string][]string, error) {
+func performApplicationChecks(ctx context.Context, payload []models.Payload, requestID string) (syncChecks map[string][]string, chainChecks map[string][]string, err error) {
+
 	metricsRecorder, err := metrics.NewMetricsRecorder(ctx, &database.PostgresOptions{
 		Connection:         metricsConnection,
 		MinMetricsPoolSize: minMetricsPoolSize,
 		MaxMetricsPoolSize: maxMetricsPoolSize,
 	})
 	if err != nil {
-		return nil, nil, errors.New("error connecting to metrics db: " + err.Error())
+		return
 	}
 
 	rpcProvider := provider.NewProvider(rpcURL, dispatchURLs)
 	rpcProvider.UpdateRequestConfig(0, defaultTimeOut)
 	signer, err := signer.NewSignerFromPrivateKey(appPrivateKey)
 	if err != nil {
-		return nil, nil, errors.New("error creating signer: " + err.Error())
+		return
 	}
 	relayer := relayer.NewRelayer(signer, rpcProvider)
-
-	syncChecks := map[string][]string{}
-	chainChecks := map[string][]string{}
 
 	var wg sync.WaitGroup
 	for index, application := range payload {
@@ -94,7 +91,7 @@ func performApplicationChecks(ctx context.Context, payload []models.Payload, req
 	}
 	wg.Wait()
 
-	return syncChecks, chainChecks, nil
+	return
 }
 
 func doPerformApplicationChecks(ctx context.Context, payload *models.Payload, metricsRecorder *metrics.Recorder, pocketRelayer *relayer.Relayer, requestID string) ([]string, []string, error) {
