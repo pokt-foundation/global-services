@@ -73,7 +73,7 @@ functions:
 
   perform-application-check-canary:
     handler: bin/perform-application-check
-    environment: ${file(.env.perform-application-check.yml)}
+    environment: ${file(.env.perform-application-check.canary.yml)}
     memorySize: 256
     timeout: 60
     
