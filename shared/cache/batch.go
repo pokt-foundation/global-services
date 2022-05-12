@@ -6,6 +6,7 @@ import (
 	"time"
 
 	logger "github.com/Pocket/global-services/shared/logger"
+	"github.com/Pocket/global-services/shared/utils"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -55,7 +56,7 @@ func monitorBatch(ctx context.Context, batch chan *Item, options BatchWriterOpti
 }
 
 func writeBatch(ctx context.Context, items []*Item, caches []*Redis, requestID string) {
-	if err := RunFunctionOnAllClients(caches, func(cache *Redis) error {
+	if err := utils.RunFnOnSlice(caches, func(cache *Redis) error {
 		pipe := cache.Client.Pipeline()
 		for _, item := range items {
 			pipe.Set(ctx, item.Key, item.Value, item.TTL)

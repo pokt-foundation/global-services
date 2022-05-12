@@ -9,6 +9,7 @@ import (
 	"github.com/Pocket/global-services/shared/apigateway"
 	"github.com/Pocket/global-services/shared/cache"
 	"github.com/Pocket/global-services/shared/environment"
+	"github.com/Pocket/global-services/shared/utils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 )
@@ -39,7 +40,7 @@ func FlushAll(ctx context.Context) error {
 		return errors.New("error connecting to redis: " + err.Error())
 	}
 
-	return cache.RunFunctionOnAllClients(cacheClients, func(ins *cache.Redis) error {
+	return utils.RunFnOnSlice(cacheClients, func(ins *cache.Redis) error {
 		return ins.Client.FlushAll(ctx).Err()
 	})
 }

@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/Pocket/global-services/shared/logger"
+	"github.com/Pocket/global-services/shared/utils"
 	"github.com/go-redis/redis/v8"
 	"github.com/sirupsen/logrus"
 )
@@ -50,7 +51,7 @@ func ConnectoCacheClients(ctx context.Context, connectionStrings []string, commi
 
 // CloseConnections closes all cache connections, returning error if any of them fail
 func CloseConnections(cacheClients []*Redis) error {
-	return RunFunctionOnAllClients(cacheClients, func(ins *Redis) error {
+	return utils.RunFnOnSlice(cacheClients, func(ins *Redis) error {
 		return ins.Close()
 	})
 }
