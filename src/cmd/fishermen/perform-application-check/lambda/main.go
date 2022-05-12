@@ -52,7 +52,10 @@ func lambdaHandler(ctx context.Context, payload []models.Payload) (events.APIGat
 	}), err
 }
 
-func performApplicationChecks(ctx context.Context, payload []models.Payload, requestID string) (syncChecks map[string][]string, chainChecks map[string][]string, err error) {
+func performApplicationChecks(ctx context.Context, payload []models.Payload, requestID string) (
+	syncChecks map[string][]string, chainChecks map[string][]string, err error) {
+	syncChecks = make(map[string][]string)
+	chainChecks = make(map[string][]string)
 
 	metricsRecorder, err := metrics.NewMetricsRecorder(ctx, &database.PostgresOptions{
 		Connection:         metricsConnection,
