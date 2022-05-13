@@ -384,6 +384,7 @@ func getPublicKeyAndChainFromLog(key string) (string, string) {
 	publicKey := split[1]
 	chain := split[0]
 	// Chain key could have braces between to use the same slot on a redis cluster
+	// https://redis.com/blog/redis-clustering-best-practices-with-keys/
 	chain = strings.ReplaceAll(chain, "{", "")
 	chain = strings.ReplaceAll(chain, "}", "")
 	return publicKey, chain
