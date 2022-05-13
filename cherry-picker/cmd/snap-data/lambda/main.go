@@ -3,13 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"golang.org/x/exp/slices"
 	"golang.org/x/sync/semaphore"
@@ -21,23 +19,16 @@ import (
 	"github.com/Pocket/global-services/shared/database"
 	"github.com/Pocket/global-services/shared/environment"
 	shared "github.com/Pocket/global-services/shared/error"
-	"github.com/Pocket/global-services/shared/gateway"
 	"github.com/Pocket/global-services/shared/utils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambdacontext"
-	"github.com/pokt-foundation/pocket-go/provider"
 	poktutils "github.com/pokt-foundation/pocket-go/utils"
 )
 
 var (
-	rpcURL                  = environment.GetString("RPC_URL", "")
-	dispatchURLs            = strings.Split(environment.GetString("DISPATCH_URLS", ""), ",")
 	cherryPickerConnections = strings.Split(environment.GetString("CHERRY_PICKER_CONNECTIONS	", "postgres://postgres:postgres@localhost:5432/postgres"), ",")
-	defaultTimeOut          = environment.GetInt64("DEFAULT_TIMEOUT", 8)
 	redisConnectionStrings  = environment.GetString("REDIS_REGION_CONNECTION_STRINGS", "{\"localhost\": \"localhost:6379\"}")
 	isRedisCluster          = environment.GetBool("IS_REDIS_CLUSTER", false)
-	mongoConnectionString   = environment.GetString("MONGODB_CONNECTION_STRING", "")
-	mongoDatabase           = environment.GetString("MONGODB_DATABASE", "gateway")
 	concurrency             = environment.GetInt64("CONCURRENCY", 1)
 	successKey              = environment.GetString("SUCCESS_KEY", "success-hits")
 	failuresKey             = environment.GetString("SUCCESS_KEY", "failure-hits")
@@ -71,35 +62,16 @@ type SessionKey struct {
 }
 
 type SnapCherryPicker struct {
-	Regions     map[string]*Region
-	Caches      []*cache.Redis
-	AppsDB      *database.Mongo
-	Stores      []cpicker.CherryPickerStore
-	RPCProvider *provider.Provider
-	Apps        []provider.GetAppOutput
-	RequestID   string
+	Regions   map[string]*Region
+	Caches    []*cache.Redis
+	Stores    []cpicker.CherryPickerStore
+	RequestID string
 }
 
 func (sn *SnapCherryPicker) init(ctx context.Context) error {
 	if err := sn.initRegionCaches(ctx); err != nil {
 		return err
 	}
-
-	mongodb, err := database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
-	if err != nil {
-		return errors.New("error connecting to mongo: " + err.Error())
-	}
-	sn.AppsDB = mongodb
-
-	rpcProvider := provider.NewProvider(rpcURL, dispatchURLs)
-	rpcProvider.UpdateRequestConfig(0, time.Duration(defaultTimeOut)*time.Second)
-	sn.RPCProvider = rpcProvider
-
-	apps, _, err := gateway.GetGigastakedApplicationsOnDB(ctx, mongodb, rpcProvider)
-	if err != nil {
-		return errors.New("error obtaining staked apps on db: " + err.Error())
-	}
-	sn.Apps = apps
 
 	for _, connString := range cherryPickerConnections {
 		connection, err := db.NewCherryPickerPostgresFromConnectionString(ctx, &database.PostgresOptions{
