@@ -103,8 +103,10 @@ func (ch *CherryPickerPostgres) CreateSession(ctx context.Context, session *cpic
 	return getCustomError(err)
 }
 
-func (ch *CherryPickerPostgres) UpdateSession(ctx context.Context, session *cpicker.Session) error {
-	_, err := ch.Db.Conn.Exec(ctx, fmt.Sprintf(`
+func (ch *CherryPickerPostgres) UpdateSession(ctx context.Context, session *cpicker.UpdateSession) (*cpicker.Session, error) {
+	var updatedSession cpicker.Session
+
+	err := ch.Db.Conn.QueryRow(ctx, fmt.Sprintf(`
 	UPDATE %s
 	SET total_success = $1,
 		total_failure = $2,
@@ -113,56 +115,103 @@ func (ch *CherryPickerPostgres) UpdateSession(ctx context.Context, session *cpic
 	WHERE public_key = $5
 		AND chain = $6
 		AND session_key = $7
-		`, ch.SessionTableName),
+	RETURNING *`,
+		ch.SessionTableName),
 		session.TotalSuccess,
 		session.TotalFailure,
 		session.AverageSuccessTime,
 		session.Failure,
 		session.PublicKey,
 		session.Chain,
-		session.SessionKey)
+		session.SessionKey).Scan(
+		&updatedSession.PublicKey,
+		&updatedSession.Chain,
+		&updatedSession.SessionKey,
+		&updatedSession.SessionHeight,
+		&updatedSession.Address,
+		&updatedSession.TotalSuccess,
+		&updatedSession.TotalFailure,
+		&updatedSession.AverageSuccessTime,
+		&updatedSession.Failure)
 
-	return getCustomError(err)
+	return &updatedSession, getCustomError(err)
 }
 
-func (ch *CherryPickerPostgres) GetSessionRegion(ctx context.Context, publicKey, chain, sessionKey, region string) (*cpicker.SessionRegion, error) {
-	var sessionRegion cpicker.SessionRegion
+func (ch *CherryPickerPostgres) GetSessionRegions(ctx context.Context, publicKey, chain, sessionKey string) ([]*cpicker.Region, error) {
+	regions := []*cpicker.Region{}
+
+	rows, err := ch.Db.Conn.Query(ctx, fmt.Sprintf(`
+	SELECT *
+	FROM % s
+	WHERE public_key = $1
+		AND chain = $2
+		AND session_key = $3`, ch.SessionRegionTableName), publicKey, chain, sessionKey)
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var region cpicker.Region
+		if err := rows.Scan(
+			&region.PublicKey,
+			&region.Chain,
+			&region.SessionKey,
+			&region.SessionHeight,
+			&region.Region,
+			&region.Address,
+			&region.TotalSuccess,
+			&region.TotalFailure,
+			&region.MedianSuccessLatency,
+			&region.WeightedSuccessLatency,
+			&region.AvgSuccessLatency,
+			&region.AvgWeightedSuccessLatency,
+			&region.Failure); err != nil {
+			return nil, err
+		}
+		regions = append(regions, &region)
+	}
+
+	return regions, nil
+}
+
+func (ch *CherryPickerPostgres) GetRegion(ctx context.Context, publicKey, chain, sessionKey, region string) (*cpicker.Region, error) {
+	var sessionRegion cpicker.Region
 
 	err := ch.Db.Conn.QueryRow(context.Background(), fmt.Sprintf(`
 	SELECT * FROM %s WHERE 
 		public_key = $1 AND
 		chain = $2 AND
 		session_key = $3 AND
-		region = 4
+		region = $4
 	`, ch.SessionRegionTableName), publicKey, chain, sessionKey, region).Scan(
-		sessionRegion.PublicKey,
-		sessionRegion.Chain,
-		sessionRegion.SessionKey,
-		sessionRegion.SessionHeight,
-		sessionRegion.Region,
-		sessionRegion.Address,
-		sessionRegion.TotalSuccess,
-		sessionRegion.TotalFailure,
-		sessionRegion.MedianSuccessLatency,
-		sessionRegion.WeightedSuccessLatency,
-		sessionRegion.AvgSuccessLatency,
-		sessionRegion.AvgWeightedSuccessLatency,
-		sessionRegion.Failure)
+		&sessionRegion.PublicKey,
+		&sessionRegion.Chain,
+		&sessionRegion.SessionKey,
+		&sessionRegion.SessionHeight,
+		&sessionRegion.Region,
+		&sessionRegion.Address,
+		&sessionRegion.TotalSuccess,
+		&sessionRegion.TotalFailure,
+		&sessionRegion.MedianSuccessLatency,
+		&sessionRegion.WeightedSuccessLatency,
+		&sessionRegion.AvgSuccessLatency,
+		&sessionRegion.AvgWeightedSuccessLatency,
+		&sessionRegion.Failure)
 	if err != nil {
 		return nil, getCustomError(err)
 	}
 	return &sessionRegion, nil
 }
 
-func (ch *CherryPickerPostgres) CreateSessionRegion(ctx context.Context, sessionRegion *cpicker.SessionRegion) error {
+func (ch *CherryPickerPostgres) CreateRegion(ctx context.Context, region *cpicker.Region) error {
 	_, err := ch.Db.Conn.Exec(ctx, fmt.Sprintf(`
 	INSERT INTO
 	 %s
 	 (public_key,
 		chain,
 		session_key,
-		session_height,
 		region,
+		session_height,
 		address,
 		total_success,
 		total_failure,
@@ -173,25 +222,27 @@ func (ch *CherryPickerPostgres) CreateSessionRegion(ctx context.Context, session
 		failure
 		)
 	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, $10, $11, $12, $13)`, ch.SessionRegionTableName),
-		sessionRegion.PublicKey,
-		sessionRegion.Chain,
-		sessionRegion.SessionKey,
-		sessionRegion.SessionHeight,
-		sessionRegion.Region,
-		sessionRegion.Address,
-		sessionRegion.TotalSuccess,
-		sessionRegion.TotalFailure,
-		sessionRegion.MedianSuccessLatency,
-		sessionRegion.WeightedSuccessLatency,
-		sessionRegion.AvgSuccessLatency,
-		sessionRegion.AvgWeightedSuccessLatency,
-		sessionRegion.Failure)
+		region.PublicKey,
+		region.Chain,
+		region.SessionKey,
+		region.Region,
+		region.SessionHeight,
+		region.Address,
+		region.TotalSuccess,
+		region.TotalFailure,
+		region.MedianSuccessLatency,
+		region.WeightedSuccessLatency,
+		region.AvgSuccessLatency,
+		region.AvgWeightedSuccessLatency,
+		region.Failure)
 
 	return getCustomError(err)
 }
 
-func (ch *CherryPickerPostgres) UpdateSessionRegion(ctx context.Context, sessionRegion *cpicker.SessionRegion) error {
-	_, err := ch.Db.Conn.Exec(ctx, fmt.Sprintf(`
+func (ch *CherryPickerPostgres) UpdateRegion(ctx context.Context, region *cpicker.UpdateRegion) (*cpicker.Region, error) {
+	var updatedSessionRegion cpicker.Region
+
+	err := ch.Db.Conn.QueryRow(ctx, fmt.Sprintf(`
 	UPDATE %s
 	SET total_success = $1,
 		total_failure = $2,
@@ -204,20 +255,34 @@ func (ch *CherryPickerPostgres) UpdateSessionRegion(ctx context.Context, session
 		AND chain = $9
 		AND session_key = $10
 		AND region = $11
-		`, ch.SessionRegionTableName),
-		sessionRegion.TotalSuccess,
-		sessionRegion.TotalFailure,
-		sessionRegion.MedianSuccessLatency[0],
-		sessionRegion.WeightedSuccessLatency[0],
-		sessionRegion.AvgSuccessLatency,
-		sessionRegion.AvgWeightedSuccessLatency,
-		sessionRegion.Failure,
-		sessionRegion.PublicKey,
-		sessionRegion.Chain,
-		sessionRegion.SessionKey,
-		sessionRegion.Region)
+	RETURNING *`,
+		ch.SessionRegionTableName),
+		region.TotalSuccess,
+		region.TotalFailure,
+		region.MedianSuccessLatency,
+		region.WeightedSuccessLatency,
+		region.AvgSuccessLatency,
+		region.AvgWeightedSuccessLatency,
+		region.Failure,
+		region.PublicKey,
+		region.Chain,
+		region.SessionKey,
+		region.Region).Scan(
+		&updatedSessionRegion.PublicKey,
+		&updatedSessionRegion.Chain,
+		&updatedSessionRegion.SessionKey,
+		&updatedSessionRegion.SessionHeight,
+		&updatedSessionRegion.Region,
+		&updatedSessionRegion.Address,
+		&updatedSessionRegion.TotalSuccess,
+		&updatedSessionRegion.TotalFailure,
+		&updatedSessionRegion.MedianSuccessLatency,
+		&updatedSessionRegion.WeightedSuccessLatency,
+		&updatedSessionRegion.AvgSuccessLatency,
+		&updatedSessionRegion.AvgWeightedSuccessLatency,
+		&updatedSessionRegion.Failure)
 
-	return getCustomError(err)
+	return &updatedSessionRegion, getCustomError(err)
 }
 
 func getCustomError(err error) error {
