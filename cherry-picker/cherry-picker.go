@@ -15,13 +15,13 @@ type Session struct {
 	Failure            bool    `json:"failure"`
 }
 
-// SessionRegion model of data of cherry picker for a single region
-type SessionRegion struct {
+// Region model of data of cherry picker for a single region
+type Region struct {
 	PublicKey                 string    `json:"publicKey"`
 	Chain                     string    `json:"chain"`
 	SessionKey                string    `json:"sessionKey"`
-	Address                   string    `json:"address"`
 	Region                    string    `json:"region"`
+	Address                   string    `json:"address"`
 	SessionHeight             int       `json:"sessionHeight"`
 	TotalSuccess              int       `json:"aggregateSuccesses"`
 	TotalFailure              int       `json:"aggregateFailures"`
@@ -30,6 +30,30 @@ type SessionRegion struct {
 	AvgSuccessLatency         float32   `json:"avgSuccessLatency"`
 	AvgWeightedSuccessLatency float32   `json:"avgWeightedSuccessLatency"`
 	Failure                   bool      `json:"failure"`
+}
+
+type UpdateSession struct {
+	PublicKey          string  `json:"publicKey"`
+	Chain              string  `json:"chain"`
+	SessionKey         string  `json:"sessionKey"`
+	TotalSuccess       int     `json:"totalSuccess"`
+	TotalFailure       int     `json:"totalFailure"`
+	AverageSuccessTime float64 `json:"averageSuccessTime"`
+	Failure            bool    `json:"failure"`
+}
+
+type UpdateRegion struct {
+	PublicKey                 string  `json:"publicKey"`
+	Chain                     string  `json:"chain"`
+	SessionKey                string  `json:"sessionKey"`
+	Region                    string  `json:"region"`
+	TotalSuccess              int     `json:"aggregateSuccesses"`
+	TotalFailure              int     `json:"aggregateFailures"`
+	MedianSuccessLatency      float32 `json:"medianSuccessLatency"`
+	WeightedSuccessLatency    float32 `json:"weightedSuccessLatency"`
+	AvgSuccessLatency         float32 `json:"avgSuccessLatency"`
+	AvgWeightedSuccessLatency float32 `json:"avgWeightedSuccessLatency"`
+	Failure                   bool    `json:"failure"`
 }
 
 // ServiceLog represents a snapshot of a node's performance in the portal-api
@@ -45,8 +69,9 @@ type ServiceLog struct {
 type CherryPickerStore interface {
 	GetSession(ctx context.Context, publicKey, chain, sessionKey string) (*Session, error)
 	CreateSession(ctx context.Context, session *Session) error
-	UpdateSession(ctx context.Context, session *Session) error
-	GetSessionRegion(ctx context.Context, publicKey, chain, sessionKey, region string) (*SessionRegion, error)
-	CreateSessionRegion(ctx context.Context, sessionRegion *SessionRegion) error
-	UpdateSessionRegion(ctx context.Context, sessionRegion *SessionRegion) error
+	UpdateSession(ctx context.Context, session *UpdateSession) (*Session, error)
+	GetSessionRegions(ctx context.Context, publicKey, chain, sessionKey string) ([]*Region, error)
+	GetRegion(ctx context.Context, publicKey, chain, sessionKey, region string) (*Region, error)
+	CreateRegion(ctx context.Context, region *Region) error
+	UpdateRegion(ctx context.Context, region *UpdateRegion) (*Region, error)
 }
