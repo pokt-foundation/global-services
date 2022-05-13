@@ -178,7 +178,7 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 	}
 
 	var wg sync.WaitGroup
-	var sem = semaphore.NewWeighted(dispatchConcurrency)
+	sem := semaphore.NewWeighted(dispatchConcurrency)
 
 	for index, app := range ntApps {
 		for _, chain := range app.Chains {
