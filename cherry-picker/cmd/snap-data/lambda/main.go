@@ -4,25 +4,29 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/exp/slices"
+	"golang.org/x/sync/semaphore"
 
 	cpicker "github.com/Pocket/global-services/cherry-picker"
-	db "github.com/Pocket/global-services/cherry-picker/postgres-driver"
+	db "github.com/Pocket/global-services/cherry-picker/database"
 	"github.com/Pocket/global-services/shared/apigateway"
 	"github.com/Pocket/global-services/shared/cache"
 	"github.com/Pocket/global-services/shared/database"
 	"github.com/Pocket/global-services/shared/environment"
 	shared "github.com/Pocket/global-services/shared/error"
 	"github.com/Pocket/global-services/shared/gateway"
+	"github.com/Pocket/global-services/shared/utils"
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/pokt-foundation/pocket-go/provider"
+	poktutils "github.com/pokt-foundation/pocket-go/utils"
 )
 
 var (
@@ -34,39 +38,49 @@ var (
 	isRedisCluster          = environment.GetBool("IS_REDIS_CLUSTER", false)
 	mongoConnectionString   = environment.GetString("MONGODB_CONNECTION_STRING", "")
 	mongoDatabase           = environment.GetString("MONGODB_DATABASE", "gateway")
-	// concurrency             = environment.GetInt64("CONCURRENCY", 1)
-	successKey             = environment.GetString("SUCCESS_KEY", "success-hits")
-	failuresKey            = environment.GetString("SUCCESS_KEY", "failure-hits")
-	failureKey             = environment.GetString("SUCCESS_KEY", "failure")
-	sessionTableName       = environment.GetString("SESSION_TABLE_NAME", "cherry_picker_session")
-	sessionRegionTableName = environment.GetString("SESSION_REGION_TABLE_NAME", "cherry_picker_session_region")
+	concurrency             = environment.GetInt64("CONCURRENCY", 1)
+	successKey              = environment.GetString("SUCCESS_KEY", "success-hits")
+	failuresKey             = environment.GetString("SUCCESS_KEY", "failure-hits")
+	failureKey              = environment.GetString("SUCCESS_KEY", "failure")
+	sessionTableName        = environment.GetString("SESSION_TABLE_NAME", "cherry_picker_session")
+	sessionRegionTableName  = environment.GetString("SESSION_REGION_TABLE_NAME", "cherry_picker_session_region")
 )
 
-type applicationData struct {
-	ServiceLog cpicker.ServiceLog
-	Successes  int
-	Failures   int
-	Failure    bool
+type ApplicationData struct {
+	ServiceLog             cpicker.ServiceLog
+	Address                string
+	Successes              int
+	Failures               int
+	Failure                bool
+	PublicKey              string
+	Chain                  string
+	MedianSuccessLatency   float32
+	WeightedSuccessLatency float32
+}
+
+type Region struct {
+	Cache   *cache.Redis
+	Name    string
+	AppData map[string]*ApplicationData
+}
+
+type SessionKey struct {
 	PublicKey  string
 	Chain      string
+	SessionKey string
 }
 
-type regionData struct {
-	Cache   *cache.Redis
-	AppData map[string]*applicationData
+type SnapCherryPicker struct {
+	Regions     map[string]*Region
+	Caches      []*cache.Redis
+	AppsDB      *database.Mongo
+	Stores      []cpicker.CherryPickerStore
+	RPCProvider *provider.Provider
+	Apps        []provider.GetAppOutput
+	RequestID   string
 }
 
-type snapCherryPicker struct {
-	regionsData      map[string]*regionData
-	caches           []*cache.Redis
-	appDB            *database.Mongo
-	cherryPickStores []cpicker.CherryPickerStore
-	rpcProvider      *provider.Provider
-	apps             []provider.GetAppOutput
-	RequestID        string
-}
-
-func (sn *snapCherryPicker) init(ctx context.Context) error {
+func (sn *SnapCherryPicker) init(ctx context.Context) error {
 	if err := sn.initRegionCaches(ctx); err != nil {
 		return err
 	}
@@ -75,17 +89,17 @@ func (sn *snapCherryPicker) init(ctx context.Context) error {
 	if err != nil {
 		return errors.New("error connecting to mongo: " + err.Error())
 	}
-	sn.appDB = mongodb
+	sn.AppsDB = mongodb
 
 	rpcProvider := provider.NewProvider(rpcURL, dispatchURLs)
 	rpcProvider.UpdateRequestConfig(0, time.Duration(defaultTimeOut)*time.Second)
-	sn.rpcProvider = rpcProvider
+	sn.RPCProvider = rpcProvider
 
 	apps, _, err := gateway.GetGigastakedApplicationsOnDB(ctx, mongodb, rpcProvider)
 	if err != nil {
 		return errors.New("error obtaining staked apps on db: " + err.Error())
 	}
-	sn.apps = apps
+	sn.Apps = apps
 
 	for _, connString := range cherryPickerConnections {
 		connection, err := db.NewCherryPickerPostgresFromConnectionString(ctx, &database.PostgresOptions{
@@ -96,13 +110,13 @@ func (sn *snapCherryPicker) init(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		sn.cherryPickStores = append(sn.cherryPickStores, connection)
+		sn.Stores = append(sn.Stores, connection)
 	}
 
 	return nil
 }
 
-func (sn *snapCherryPicker) initRegionCaches(ctx context.Context) error {
+func (sn *SnapCherryPicker) initRegionCaches(ctx context.Context) error {
 	var cacheRegionConns map[string]string
 
 	if err := json.Unmarshal([]byte(redisConnectionStrings), &cacheRegionConns); err != nil {
@@ -130,34 +144,183 @@ func (sn *snapCherryPicker) initRegionCaches(ctx context.Context) error {
 
 		ch := caches[idx]
 		ch.Name = region
-		sn.regionsData[region] = &regionData{
+		sn.Regions[region] = &Region{
 			Cache:   ch,
-			AppData: make(map[string]*applicationData),
+			Name:    region,
+			AppData: make(map[string]*ApplicationData),
 		}
-		sn.caches = append(sn.caches, ch)
+		sn.Caches = append(sn.Caches, ch)
 	}
 
 	return nil
 }
 
-func (sn *snapCherryPicker) snapCherryPickerData(ctx context.Context) error {
-	sn.getAppsRegionsData(ctx)
-
+func (sn *SnapCherryPicker) snapCherryPickerData(ctx context.Context) error {
+	if err := sn.getAppsRegionsData(ctx); err != nil {
+		return err
+	}
+	sn.saveToStore(ctx)
 	return nil
 }
 
-func (sn *snapCherryPicker) saveToStore(ctx context.Context) {
+func (sn *SnapCherryPicker) saveToStore(ctx context.Context) {
+	var wg sync.WaitGroup
+	sem := semaphore.NewWeighted(concurrency)
+
+	sessionsInStore := map[string]*SessionKey{}
+	for _, region := range sn.Regions {
+		for _, application := range region.AppData {
+			wg.Add(1)
+			sem.Acquire(ctx, 1)
+
+			go func(rg *Region, app *ApplicationData) {
+				defer wg.Done()
+				defer sem.Release(1)
+
+				sessionInStoreKey := fmt.Sprintf("%s-%s-%s", app.PublicKey, app.Chain, app.ServiceLog.SessionKey)
+				// v, ok := sessionsInStore[sessionInStoreKey]
+				if _, ok := sessionsInStore[sessionInStoreKey]; !ok {
+					if err := sn.createSessionIfDoesntExist(ctx, app); err != nil {
+						// TODO: LOG
+						return
+					}
+					sessionsInStore[sessionInStoreKey] = &SessionKey{
+						PublicKey:  app.PublicKey,
+						Chain:      app.Chain,
+						SessionKey: app.ServiceLog.SessionKey,
+					}
+				}
+
+				if _, err := sn.createOrUpdateRegion(ctx, rg.Name, app); err != nil {
+					// TODO: LOG
+				}
+			}(region, application)
+		}
+	}
+	wg.Wait()
+
+	sn.aggregateRegionData(ctx, sessionsInStore)
 }
 
-func (sn *snapCherryPicker) getAppsRegionsData(ctx context.Context) {
-	cache.RunFunctionOnAllClients(sn.caches, func(cl *cache.Redis) error {
-		sn.getServiceLogData(ctx, cl)
-		sn.getSuccessAndFailureData(ctx, cl)
-		return nil
+func (sn *SnapCherryPicker) aggregateRegionData(ctx context.Context, sessionsInStore map[string]*SessionKey) {
+	var wg sync.WaitGroup
+	sem := semaphore.NewWeighted(concurrency)
+
+	for _, session := range sessionsInStore {
+		wg.Add(1)
+		sem.Acquire(ctx, 1)
+
+		go func(sess *SessionKey) {
+			defer wg.Done()
+			defer sem.Release(1)
+
+			err := utils.RunFnOnSlice(sn.Stores, func(st cpicker.CherryPickerStore) error {
+				regions, err := st.GetSessionRegions(ctx, sess.PublicKey, sess.Chain, sess.SessionKey)
+				if err != nil {
+					return err
+				}
+				session := &cpicker.UpdateSession{
+					PublicKey:  sess.PublicKey,
+					Chain:      sess.Chain,
+					SessionKey: sess.SessionKey,
+				}
+				avgSuccessTimes := []float32{}
+
+				for _, region := range regions {
+					session.TotalSuccess += region.TotalSuccess
+					session.TotalFailure += region.TotalFailure
+					session.Failure = session.Failure || region.Failure
+					avgSuccessTimes = append(avgSuccessTimes, region.MedianSuccessLatency...)
+				}
+				session.AverageSuccessTime = utils.AvgOfSlice(avgSuccessTimes)
+
+				_, err = st.UpdateSession(ctx, session)
+				return err
+			})
+
+			if err != nil {
+				// TODO: LOG
+			}
+		}(session)
+	}
+}
+
+func (sn *SnapCherryPicker) createOrUpdateRegion(ctx context.Context, regionName string,
+	app *ApplicationData) (*cpicker.Region, error) {
+	region := &cpicker.Region{
+		PublicKey:                 app.PublicKey,
+		Chain:                     app.Chain,
+		SessionKey:                app.ServiceLog.SessionKey,
+		Address:                   app.Address,
+		Region:                    regionName,
+		SessionHeight:             app.ServiceLog.SessionHeight,
+		TotalSuccess:              app.Successes,
+		TotalFailure:              app.Failures,
+		MedianSuccessLatency:      []float32{app.MedianSuccessLatency},
+		WeightedSuccessLatency:    []float32{app.WeightedSuccessLatency},
+		AvgSuccessLatency:         app.MedianSuccessLatency,
+		AvgWeightedSuccessLatency: app.WeightedSuccessLatency,
+		Failure:                   app.Failure,
+	}
+
+	err := utils.RunFnOnSlice(sn.Stores, func(st cpicker.CherryPickerStore) error {
+		storeRegion, err := st.GetRegion(ctx, app.PublicKey, app.Chain, app.ServiceLog.SessionKey, regionName)
+		if err != nil {
+			if err != db.ErrNotFound {
+				return err
+			}
+			return st.CreateRegion(ctx, region)
+		}
+
+		updateRegion := &cpicker.UpdateRegion{
+			PublicKey:              app.PublicKey,
+			Chain:                  app.Chain,
+			SessionKey:             app.ServiceLog.SessionKey,
+			Region:                 regionName,
+			TotalSuccess:           app.Successes,
+			TotalFailure:           app.Failures,
+			MedianSuccessLatency:   app.MedianSuccessLatency,
+			WeightedSuccessLatency: app.WeightedSuccessLatency,
+			AvgSuccessLatency: float32(utils.AvgOfSlice(
+				append(storeRegion.MedianSuccessLatency, app.MedianSuccessLatency))),
+			AvgWeightedSuccessLatency: float32(utils.AvgOfSlice(
+				append(storeRegion.WeightedSuccessLatency, app.WeightedSuccessLatency))),
+			Failure: app.Failure || storeRegion.Failure,
+		}
+
+		region, err = st.UpdateRegion(ctx, updateRegion)
+		return err
+	})
+
+	return region, err
+}
+
+func (sn *SnapCherryPicker) createSessionIfDoesntExist(ctx context.Context, app *ApplicationData) error {
+	return utils.RunFnOnSlice(sn.Stores, func(st cpicker.CherryPickerStore) error {
+		_, err := st.GetSession(ctx, app.PublicKey, app.Chain, app.ServiceLog.SessionKey)
+		if err == db.ErrNotFound {
+			return st.CreateSession(ctx, &cpicker.Session{
+				PublicKey:     app.PublicKey,
+				Chain:         app.Chain,
+				SessionKey:    app.ServiceLog.SessionKey,
+				SessionHeight: app.ServiceLog.SessionHeight,
+				Address:       app.Address,
+			})
+		}
+		return err
 	})
 }
 
-func (sn *snapCherryPicker) getServiceLogData(ctx context.Context, cl *cache.Redis) error {
+func (sn *SnapCherryPicker) getAppsRegionsData(ctx context.Context) error {
+	return utils.RunFnOnSlice(sn.Caches, func(cl *cache.Redis) error {
+		if err := sn.getServiceLogData(ctx, cl); err != nil {
+			return err
+		}
+		return sn.getSuccessAndFailureData(ctx, cl)
+	})
+}
+
+func (sn *SnapCherryPicker) getServiceLogData(ctx context.Context, cl *cache.Redis) error {
 	serviceLogKeys, err := cl.Client.Keys(ctx, "*service*").Result()
 	if err != nil {
 		return err
@@ -170,20 +333,30 @@ func (sn *snapCherryPicker) getServiceLogData(ctx context.Context, cl *cache.Red
 	for idx, rawServiceLog := range results {
 		publicKey, chain := getPublicKeyAndChainFromLog(serviceLogKeys[idx])
 		appDataKey := publicKey + "-" + chain
-		sn.regionsData[cl.Name].AppData[appDataKey] = &applicationData{}
-		appData := sn.regionsData[cl.Name].AppData[appDataKey]
+		sn.Regions[cl.Name].AppData[appDataKey] = &ApplicationData{}
+		appData := sn.Regions[cl.Name].AppData[appDataKey]
 		appData.PublicKey = publicKey
 		appData.Chain = chain
+		address, _ := poktutils.GetAddressFromPublickey(publicKey)
+		appData.Address = address
 
 		if err := cache.UnMarshallJSONResult(rawServiceLog, nil, &appData.ServiceLog); err != nil {
+			// TODO: Log errors
 			continue
 		}
+		// TODO: Log errors
+
+		medianSuccessLatency, _ := strconv.ParseFloat(appData.ServiceLog.MedianSuccessLatency, 32)
+		appData.MedianSuccessLatency = float32(medianSuccessLatency)
+
+		weightedSuccessLatency, _ := strconv.ParseFloat(appData.ServiceLog.WeightedSuccessLatency, 32)
+		appData.WeightedSuccessLatency = float32(weightedSuccessLatency)
 	}
 
 	return nil
 }
 
-func (sn *snapCherryPicker) getSuccessAndFailureData(ctx context.Context, cl *cache.Redis) error {
+func (sn *SnapCherryPicker) getSuccessAndFailureData(ctx context.Context, cl *cache.Redis) error {
 	successKeys, err := cl.Client.Keys(ctx, "*"+successKey).Result()
 	if err != nil {
 		return err
@@ -208,7 +381,7 @@ func (sn *snapCherryPicker) getSuccessAndFailureData(ctx context.Context, cl *ca
 		key := allKeys[idx]
 		publicKey, chain := getPublicKeyAndChainFromLog(key)
 		appDataKey := publicKey + "-" + chain
-		region := sn.regionsData[cl.Name].AppData[appDataKey]
+		region := sn.Regions[cl.Name].AppData[appDataKey]
 		result, _ := cache.GetStringResult(rawResult, nil)
 		if region == nil {
 			continue
@@ -251,10 +424,10 @@ func getPublicKeyAndChainFromLog(key string) (string, string) {
 func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
 	lc, _ := lambdacontext.FromContext(ctx)
 
-	snapCherryPickerData := &snapCherryPicker{
+	snapCherryPickerData := &SnapCherryPicker{
 		RequestID: lc.AwsRequestID,
 	}
-	snapCherryPickerData.regionsData = make(map[string]*regionData)
+	snapCherryPickerData.Regions = make(map[string]*Region)
 
 	err := snapCherryPickerData.init(ctx)
 	if err != nil {
@@ -272,5 +445,23 @@ func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 }
 
 func main() {
-	lambda.Start(LambdaHandler)
+	snapCherryPickerData := &SnapCherryPicker{
+		RequestID: "1234",
+	}
+	snapCherryPickerData.Regions = make(map[string]*Region)
+	ctx := context.TODO()
+
+	err := snapCherryPickerData.init(ctx)
+	if err != nil {
+		fmt.Println(err)
+		// return *apigateway.NewErrorResponse(http.StatusInternalServerError, err), err
+	}
+
+	err = snapCherryPickerData.snapCherryPickerData(ctx)
+	if err != nil {
+		fmt.Println(err)
+		// return *apigateway.NewErrorResponse(http.StatusInternalServerError, err), err
+	}
+
+	// lambda.Start(LambdaHandler)
 }
