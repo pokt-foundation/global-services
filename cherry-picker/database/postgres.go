@@ -57,7 +57,7 @@ func (ch *CherryPickerPostgres) GetConnection() string {
 func (ch *CherryPickerPostgres) GetSession(ctx context.Context, publicKey, chain, sessionKey string) (*cpicker.Session, error) {
 	var session cpicker.Session
 
-	err := ch.Db.Conn.QueryRow(context.Background(), fmt.Sprintf(`
+	err := ch.Db.Conn.QueryRow(ctx, fmt.Sprintf(`
 	SELECT *
 	FROM %s
 	WHERE public_key = $1
@@ -181,7 +181,7 @@ func (ch *CherryPickerPostgres) GetSessionRegions(ctx context.Context, publicKey
 func (ch *CherryPickerPostgres) GetRegion(ctx context.Context, publicKey, chain, sessionKey, region string) (*cpicker.Region, error) {
 	var sessionRegion cpicker.Region
 
-	err := ch.Db.Conn.QueryRow(context.Background(), fmt.Sprintf(`
+	err := ch.Db.Conn.QueryRow(ctx, fmt.Sprintf(`
 	SELECT * FROM %s WHERE 
 		public_key = $1 AND
 		chain = $2 AND
