@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/Pocket/global-services/shared/environment"
@@ -107,6 +108,42 @@ func GetStringResult(data any, err error) (string, error) {
 		return "", err
 	}
 	return data.(string), err
+}
+
+func (r *Redis) PipeOperation(ctx context.Context, items []*Item, cmd func(redis.Pipeliner, *Item) error) ([]redis.Cmder, error) {
+	pipe := r.Client.Pipeline()
+	for _, item := range items {
+		cmd(pipe, item)
+	}
+	return pipe.Exec(ctx)
+}
+
+// mGetPipe performs a mget operation using pipeline, this is to avoid the
+// CROSSLOT error on redis
+func (r *Redis) MGetPipe(ctx context.Context, keys []string) ([]string, error) {
+	items := []*Item{}
+	for _, key := range keys {
+		items = append(items, &Item{
+			Key: key,
+		})
+	}
+	pipe, err := r.PipeOperation(ctx, items, func(pipe redis.Pipeliner, it *Item) error {
+		return pipe.Get(ctx, it.Key).Err()
+	})
+
+	if err != nil && err != redis.Nil {
+		return nil, err
+	}
+	results := []string{}
+	for _, result := range pipe {
+		value := strings.Split(result.String(), " ")
+		if len(value) >= 3 {
+			results = append(results, value[2])
+			continue
+		}
+		results = append(results, "")
+	}
+	return results, nil
 }
 
 // assertCacheResponse checks whether the result returns a valid response, guaranteed

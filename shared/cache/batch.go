@@ -7,6 +7,7 @@ import (
 
 	logger "github.com/Pocket/global-services/shared/logger"
 	"github.com/Pocket/global-services/shared/utils"
+	"github.com/go-redis/redis/v8"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -57,11 +58,9 @@ func monitorBatch(ctx context.Context, batch chan *Item, options BatchWriterOpti
 
 func writeBatch(ctx context.Context, items []*Item, caches []*Redis, requestID string) {
 	if err := utils.RunFnOnSlice(caches, func(cache *Redis) error {
-		pipe := cache.Client.Pipeline()
-		for _, item := range items {
-			pipe.Set(ctx, item.Key, item.Value, item.TTL)
-		}
-		_, err := pipe.Exec(ctx)
+		_, err := cache.PipeOperation(ctx, items, func(pipe redis.Pipeliner, it *Item) error {
+			return pipe.Set(ctx, it.Key, it.Value, it.TTL).Err()
+		})
 		return err
 	}); err != nil {
 		logger.Log.WithFields(log.Fields{
