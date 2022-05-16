@@ -80,10 +80,15 @@ functions:
   snap-cherry-picker-data:
     handler: bin/snap-data
     environment: ${file(.env.snap-cherry-picker-data.yml)}
-    memorySize: 128
-    timeout: 60
+    memorySize: 512
+    timeout: 360
 
-    
+  snap-cherry-picker-data-canary:
+    handler: bin/snap-data
+    environment: ${file(.env.snap-cherry-picker-data.canary.yml)}
+    memorySize: 256
+    timeout: 120
+
   flush-cache:
     handler: bin/flush
     environment: ${file(.env.flush-cache.yml)}
