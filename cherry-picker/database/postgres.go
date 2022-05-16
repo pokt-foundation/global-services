@@ -40,7 +40,7 @@ func NewCherryPickerPostgresFromConnectionString(ctx context.Context, options *d
 
 	db, err := database.NewPostgresDatabase(ctx, options)
 	if err != nil {
-		return nil, errors.New("unable to connect to metrics db: " + err.Error())
+		return nil, errors.New("unable to connect to postgres db: " + err.Error())
 	}
 
 	return &CherryPickerPostgres{
