@@ -9,6 +9,9 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-lambda-go/lambdacontext"
+
+	logger "github.com/Pocket/global-services/shared/logger"
+	log "github.com/sirupsen/logrus"
 )
 
 func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
@@ -21,11 +24,19 @@ func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 
 	err := snapCherryPickerData.Init(ctx)
 	if err != nil {
+		logger.Log.WithFields(log.Fields{
+			"requestID": snapCherryPickerData.RequestID,
+			"error":     err.Error(),
+		}).Error("error initializing:", err.Error())
 		return *apigateway.NewErrorResponse(http.StatusInternalServerError, err), err
 	}
 
 	err = snapCherryPickerData.SnapCherryPickerData(ctx)
 	if err != nil {
+		logger.Log.WithFields(log.Fields{
+			"requestID": snapCherryPickerData.RequestID,
+			"error":     err.Error(),
+		}).Error("error getting cherry picker data:", err.Error())
 		return *apigateway.NewErrorResponse(http.StatusInternalServerError, err), err
 	}
 

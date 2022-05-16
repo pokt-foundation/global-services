@@ -74,4 +74,5 @@ type CherryPickerStore interface {
 	GetRegion(ctx context.Context, publicKey, chain, sessionKey, region string) (*Region, error)
 	CreateRegion(ctx context.Context, region *Region) error
 	UpdateRegion(ctx context.Context, region *UpdateRegion) (*Region, error)
+	GetConnection() string
 }

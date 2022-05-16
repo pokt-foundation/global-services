@@ -13,6 +13,8 @@ import (
 	"github.com/Pocket/global-services/shared/database"
 	"github.com/Pocket/global-services/shared/environment"
 	shared "github.com/Pocket/global-services/shared/error"
+	logger "github.com/Pocket/global-services/shared/logger"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -45,7 +47,7 @@ type Region struct {
 	AppData map[string]*ApplicationData
 }
 
-type SessionKey struct {
+type SessionKeys struct {
 	PublicKey  string
 	Chain      string
 	SessionKey string
@@ -117,8 +119,14 @@ func (sn *SnapCherryPicker) initRegionCaches(ctx context.Context) error {
 	return nil
 }
 
+// SnapCherryPickerData obtains service node data from all cache instances
+// and saves to the stores available
 func (sn *SnapCherryPicker) SnapCherryPickerData(ctx context.Context) error {
 	if err := sn.getAppsRegionsData(ctx); err != nil {
+		logger.Log.WithFields(log.Fields{
+			"requestID": sn.RequestID,
+			"error":     err.Error(),
+		}).Error("error getting apps and region data:", err.Error())
 		return err
 	}
 	sn.saveToStore(ctx)

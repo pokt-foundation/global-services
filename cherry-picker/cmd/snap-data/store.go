@@ -7,7 +7,9 @@ import (
 
 	cpicker "github.com/Pocket/global-services/cherry-picker"
 	"github.com/Pocket/global-services/cherry-picker/database"
+	logger "github.com/Pocket/global-services/shared/logger"
 	"github.com/Pocket/global-services/shared/utils"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -15,7 +17,7 @@ func (sn *SnapCherryPicker) saveToStore(ctx context.Context) {
 	var wg sync.WaitGroup
 	sem := semaphore.NewWeighted(concurrency)
 
-	sessionsInStore := map[string]*SessionKey{}
+	sessionsInStore := map[string]*SessionKeys{}
 	for _, region := range sn.Regions {
 		for _, application := range region.AppData {
 			wg.Add(1)
@@ -26,13 +28,18 @@ func (sn *SnapCherryPicker) saveToStore(ctx context.Context) {
 				defer sem.Release(1)
 
 				sessionInStoreKey := fmt.Sprintf("%s-%s-%s", app.PublicKey, app.Chain, app.ServiceLog.SessionKey)
-				// v, ok := sessionsInStore[sessionInStoreKey]
 				if _, ok := sessionsInStore[sessionInStoreKey]; !ok {
 					if err := sn.createSessionIfDoesntExist(ctx, app); err != nil {
-						// TODO: LOG
+						logger.Log.WithFields(log.Fields{
+							"requestID":  sn.RequestID,
+							"error":      err.Error(),
+							"publicKey":  app.PublicKey,
+							"chain":      app.Chain,
+							"sessionKey": app.ServiceLog.SessionKey,
+						}).Error("error creating session:", err.Error())
 						return
 					}
-					sessionsInStore[sessionInStoreKey] = &SessionKey{
+					sessionsInStore[sessionInStoreKey] = &SessionKeys{
 						PublicKey:  app.PublicKey,
 						Chain:      app.Chain,
 						SessionKey: app.ServiceLog.SessionKey,
@@ -40,7 +47,13 @@ func (sn *SnapCherryPicker) saveToStore(ctx context.Context) {
 				}
 
 				if _, err := sn.createOrUpdateRegion(ctx, rg.Name, app); err != nil {
-					// TODO: LOG
+					logger.Log.WithFields(log.Fields{
+						"requestID":  sn.RequestID,
+						"error":      err.Error(),
+						"publicKey":  app.PublicKey,
+						"chain":      app.Chain,
+						"sessionKey": app.ServiceLog.SessionKey,
+					}).Error("error creating/updating region:", err.Error())
 				}
 			}(region, application)
 		}
@@ -50,7 +63,7 @@ func (sn *SnapCherryPicker) saveToStore(ctx context.Context) {
 	sn.aggregateRegionData(ctx, sessionsInStore)
 }
 
-func (sn *SnapCherryPicker) aggregateRegionData(ctx context.Context, sessionsInStore map[string]*SessionKey) {
+func (sn *SnapCherryPicker) aggregateRegionData(ctx context.Context, sessionsInStore map[string]*SessionKeys) {
 	var wg sync.WaitGroup
 	sem := semaphore.NewWeighted(concurrency)
 
@@ -58,13 +71,21 @@ func (sn *SnapCherryPicker) aggregateRegionData(ctx context.Context, sessionsInS
 		wg.Add(1)
 		sem.Acquire(ctx, 1)
 
-		go func(sess *SessionKey) {
+		go func(sess *SessionKeys) {
 			defer wg.Done()
 			defer sem.Release(1)
 
-			err := utils.RunFnOnSlice(sn.Stores, func(st cpicker.CherryPickerStore) error {
+			utils.RunFnOnSlice(sn.Stores, func(st cpicker.CherryPickerStore) error {
 				regions, err := st.GetSessionRegions(ctx, sess.PublicKey, sess.Chain, sess.SessionKey)
 				if err != nil {
+					logger.Log.WithFields(log.Fields{
+						"requestID":  sn.RequestID,
+						"error":      err.Error(),
+						"publicKey":  sess.PublicKey,
+						"chain":      sess.Chain,
+						"sessionKey": sess.SessionKey,
+						"database":   st.GetConnection(),
+					}).Error("error getting session regions:", err.Error())
 					return err
 				}
 				session := &cpicker.UpdateSession{
@@ -83,12 +104,18 @@ func (sn *SnapCherryPicker) aggregateRegionData(ctx context.Context, sessionsInS
 				session.AverageSuccessTime = utils.AvgOfSlice(avgSuccessTimes)
 
 				_, err = st.UpdateSession(ctx, session)
+				if err != nil {
+					logger.Log.WithFields(log.Fields{
+						"requestID":  sn.RequestID,
+						"error":      err.Error(),
+						"publicKey":  sess.PublicKey,
+						"chain":      sess.Chain,
+						"sessionKey": sess.SessionKey,
+						"database":   st.GetConnection(),
+					}).Error("error updating session:", err.Error())
+				}
 				return err
 			})
-
-			if err != nil {
-				// TODO: LOG
-			}
 		}(session)
 	}
 }

@@ -6,8 +6,10 @@ import (
 	"strings"
 
 	"github.com/Pocket/global-services/shared/cache"
+	logger "github.com/Pocket/global-services/shared/logger"
 	"github.com/Pocket/global-services/shared/utils"
 	poktutils "github.com/pokt-foundation/pocket-go/utils"
+	log "github.com/sirupsen/logrus"
 )
 
 func (sn *SnapCherryPicker) getAppsRegionsData(ctx context.Context) error {
@@ -40,15 +42,41 @@ func (sn *SnapCherryPicker) getServiceLogData(ctx context.Context, cl *cache.Red
 		appData.Address = address
 
 		if err := cache.UnMarshallJSONResult(rawServiceLog, nil, &appData.ServiceLog); err != nil {
-			// TODO: Log errors
+			logger.Log.WithFields(log.Fields{
+				"requestID": sn.RequestID,
+				"error":     err.Error(),
+				"publicKey": publicKey,
+				"chain":     chain,
+				"region":    cl.Name,
+			}).Error("error unmarshalling service log:", err.Error())
 			continue
 		}
-		// TODO: Log errors
 
-		medianSuccessLatency, _ := strconv.ParseFloat(appData.ServiceLog.MedianSuccessLatency, 32)
+		medianSuccessLatency, err := strconv.ParseFloat(appData.ServiceLog.MedianSuccessLatency, 32)
+		if err != nil {
+			logger.Log.WithFields(log.Fields{
+				"requestID": sn.RequestID,
+				"error":     err.Error(),
+				"publicKey": publicKey,
+				"chain":     chain,
+				"region":    cl.Name,
+			}).Error("error casting median success latency:", err.Error())
+			continue
+		}
+
 		appData.MedianSuccessLatency = float32(medianSuccessLatency)
 
-		weightedSuccessLatency, _ := strconv.ParseFloat(appData.ServiceLog.WeightedSuccessLatency, 32)
+		weightedSuccessLatency, err := strconv.ParseFloat(appData.ServiceLog.WeightedSuccessLatency, 32)
+		if err != nil {
+			logger.Log.WithFields(log.Fields{
+				"requestID": sn.RequestID,
+				"error":     err.Error(),
+				"publicKey": publicKey,
+				"chain":     chain,
+				"region":    cl.Name,
+			}).Error("error casting weigthed success latency:", err.Error())
+		}
+
 		appData.WeightedSuccessLatency = float32(weightedSuccessLatency)
 	}
 

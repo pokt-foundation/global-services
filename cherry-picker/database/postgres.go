@@ -50,6 +50,10 @@ func NewCherryPickerPostgresFromConnectionString(ctx context.Context, options *d
 	}, nil
 }
 
+func (ch *CherryPickerPostgres) GetConnection() string {
+	return ch.Db.Conn.Config().ConnConfig.ConnString()
+}
+
 func (ch *CherryPickerPostgres) GetSession(ctx context.Context, publicKey, chain, sessionKey string) (*cpicker.Session, error) {
 	var session cpicker.Session
 
