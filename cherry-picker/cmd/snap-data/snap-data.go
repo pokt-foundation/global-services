@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"strings"
 
-	"golang.org/x/exp/slices"
-
 	cpicker "github.com/Pocket/global-services/cherry-picker"
 	db "github.com/Pocket/global-services/cherry-picker/database"
 	"github.com/Pocket/global-services/shared/cache"
@@ -15,11 +13,12 @@ import (
 	shared "github.com/Pocket/global-services/shared/error"
 	logger "github.com/Pocket/global-services/shared/logger"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/exp/slices"
 )
 
 var (
-	cherryPickerConnections = strings.Split(environment.GetString("CHERRY_PICKER_CONNECTIONS	", "postgres://postgres:postgres@localhost:5432/postgres"), ",")
-	redisConnectionStrings  = environment.GetString("REDIS_REGION_CONNECTION_STRINGS", "{\"localhost\": \"localhost:6379\"}")
+	cherryPickerConnections = strings.Split(environment.GetString("CHERRY_PICKER_CONNECTIONS	", ""), ",")
+	redisConnectionStrings  = environment.GetString("REDIS_REGION_CONNECTION_STRINGS", "")
 	isRedisCluster          = environment.GetBool("IS_REDIS_CLUSTER", false)
 	concurrency             = environment.GetInt64("CONCURRENCY", 1)
 	successKey              = environment.GetString("SUCCESS_KEY", "success-hits")
@@ -91,7 +90,7 @@ func (sn *SnapCherryPicker) initRegionCaches(ctx context.Context) error {
 		return shared.ErrNoCacheClientProvided
 	}
 
-	conns := make([]string, len(cacheRegionConns))
+	conns := []string{}
 	for _, connStr := range cacheRegionConns {
 		conns = append(conns, connStr)
 	}
