@@ -11,13 +11,11 @@ import (
 	"github.com/Pocket/global-services/shared/database"
 	"github.com/Pocket/global-services/shared/environment"
 	shared "github.com/Pocket/global-services/shared/error"
-	logger "github.com/Pocket/global-services/shared/logger"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 )
 
 var (
-	cherryPickerConnections = strings.Split(environment.GetString("CHERRY_PICKER_CONNECTIONS	", ""), ",")
+	cherryPickerConnections = strings.Split(environment.GetString("CHERRY_PICKER_CONNECTIONS", ""), ",")
 	redisConnectionStrings  = environment.GetString("REDIS_REGION_CONNECTION_STRINGS", "")
 	isRedisCluster          = environment.GetBool("IS_REDIS_CLUSTER", false)
 	concurrency             = environment.GetInt64("CONCURRENCY", 1)
@@ -26,6 +24,8 @@ var (
 	failureKey              = environment.GetString("SUCCESS_KEY", "failure")
 	sessionTableName        = environment.GetString("SESSION_TABLE_NAME", "cherry_picker_session")
 	sessionRegionTableName  = environment.GetString("SESSION_REGION_TABLE_NAME", "cherry_picker_session_region")
+	minPoolSize             = environment.GetInt64("MIN_POOL_SIZE", 100)
+	maxPoolSize             = environment.GetInt64("MAX_POOL_SIZE", 200)
 )
 
 type ApplicationData struct {
@@ -67,8 +67,8 @@ func (sn *SnapCherryPicker) Init(ctx context.Context) error {
 	for _, connString := range cherryPickerConnections {
 		connection, err := db.NewCherryPickerPostgresFromConnectionString(ctx, &database.PostgresOptions{
 			Connection:  connString,
-			MinPoolSize: 10,
-			MaxPoolSize: 10,
+			MinPoolSize: int(minPoolSize),
+			MaxPoolSize: int(maxPoolSize),
 		}, sessionTableName, sessionRegionTableName)
 		if err != nil {
 			return err
@@ -122,10 +122,6 @@ func (sn *SnapCherryPicker) initRegionCaches(ctx context.Context) error {
 // and saves to the stores available
 func (sn *SnapCherryPicker) SnapCherryPickerData(ctx context.Context) error {
 	if err := sn.getAppsRegionsData(ctx); err != nil {
-		logger.Log.WithFields(log.Fields{
-			"requestID": sn.RequestID,
-			"error":     err.Error(),
-		}).Error("error getting apps and region data:", err.Error())
 		return err
 	}
 	sn.saveToStore(ctx)
