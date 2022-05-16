@@ -27,10 +27,19 @@ func (sn *SnapCherryPicker) getServiceLogData(ctx context.Context, cl *cache.Red
 		return err
 	}
 
-	results, err := cl.Client.MGet(ctx, serviceLogKeys...).Result()
+	if len(serviceLogKeys) == 0 {
+		logger.Log.WithFields(log.Fields{
+			"requestID": sn.RequestID,
+			"region":    cl.Name,
+		}).Warnf("no service log keys found for:", cl.Name)
+		return nil
+	}
+
+	results, err := cl.MGetPipe(ctx, serviceLogKeys)
 	if err != nil {
 		return err
 	}
+
 	for idx, rawServiceLog := range results {
 		publicKey, chain := getPublicKeyAndChainFromLog(serviceLogKeys[idx])
 		appDataKey := publicKey + "-" + chain
@@ -99,7 +108,7 @@ func (sn *SnapCherryPicker) getSuccessAndFailureData(ctx context.Context, cl *ca
 
 	allKeys := append(successKeys, failuresKeys...)
 	allKeys = append(allKeys, failureKeys...)
-	results, err := cl.Client.MGet(ctx, allKeys...).Result()
+	results, err := cl.MGetPipe(ctx, allKeys)
 	if err != nil {
 		return err
 	}
