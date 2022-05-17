@@ -50,7 +50,6 @@ var (
 
 	caches          []*cache.Redis
 	metricsRecorder *metrics.Recorder
-	db              *database.Mongo
 	rpcProvider     *provider.Provider
 )
 

@@ -61,32 +61,35 @@ func (cc *ChainChecker) Check(ctx context.Context, options ChainCheckOptions) []
 
 		if nodeChainID != int64(chainID) {
 			logger.Log.WithFields(log.Fields{
-				"sessionKey":    options.Session.Key,
-				"blockhainID":   options.Blockchain,
-				"requestID":     cc.RequestID,
-				"serviceURL":    node.Node.ServiceURL,
-				"serviceDomain": utils.GetDomainFromURL(node.Node.ServiceURL),
-				"serviceNode":   node.Node.PublicKey,
+				"sessionKey":            options.Session.Key,
+				"blockhainID":           options.Blockchain,
+				"requestID":             cc.RequestID,
+				"serviceURL":            node.Node.ServiceURL,
+				"serviceDomain":         utils.GetDomainFromURL(node.Node.ServiceURL),
+				"serviceNode":           node.Node.PublicKey,
+				"appplicationPublicKey": options.Session.Header.AppPublicKey,
 			}).Warn(fmt.Sprintf("CHAIN CHECK FAILURE: %s chainiD: %d", publicKey, nodeChainID))
 			continue
 		}
 
 		logger.Log.WithFields(log.Fields{
-			"sessionKey":    options.Session.Key,
-			"blockhainID":   options.Blockchain,
-			"requestID":     cc.RequestID,
-			"serviceURL":    node.Node.ServiceURL,
-			"serviceDomain": utils.GetDomainFromURL(node.Node.ServiceURL),
-			"serviceNode":   node.Node.PublicKey,
+			"sessionKey":            options.Session.Key,
+			"blockhainID":           options.Blockchain,
+			"requestID":             cc.RequestID,
+			"serviceURL":            node.Node.ServiceURL,
+			"serviceDomain":         utils.GetDomainFromURL(node.Node.ServiceURL),
+			"serviceNode":           node.Node.PublicKey,
+			"appplicationPublicKey": options.Session.Header.AppPublicKey,
 		}).Info(fmt.Sprintf("CHAIN CHECK SUCCESS: %s chainiD: %d", publicKey, nodeChainID))
 
 		checkedNodes = append(checkedNodes, publicKey)
 	}
 
 	logger.Log.WithFields(log.Fields{
-		"sessionKey":  options.Session.Key,
-		"blockhainID": options.Blockchain,
-		"requestID":   cc.RequestID,
+		"sessionKey":            options.Session.Key,
+		"blockhainID":           options.Blockchain,
+		"requestID":             cc.RequestID,
+		"appplicationPublicKey": options.Session.Header.AppPublicKey,
 	}).Info(fmt.Sprintf("CHAIN CHECK COMPLETE: %d nodes on chain", len(checkedNodes)))
 
 	// TODO: Implement challenge

@@ -85,33 +85,36 @@ func (sc *SyncChecker) Check(ctx context.Context, options SyncCheckOptions) []st
 
 		if !isValidNode {
 			logger.Log.WithFields(log.Fields{
-				"sessionKey":    options.Session.Key,
-				"blockhainID":   options.Blockchain,
-				"requestID":     sc.RequestID,
-				"serviceURL":    node.Node.ServiceURL,
-				"serviceDomain": utils.GetDomainFromURL(node.Node.ServiceURL),
-				"serviceNode":   node.Node.PublicKey,
+				"sessionKey":            options.Session.Key,
+				"blockhainID":           options.Blockchain,
+				"requestID":             sc.RequestID,
+				"serviceURL":            node.Node.ServiceURL,
+				"serviceDomain":         utils.GetDomainFromURL(node.Node.ServiceURL),
+				"serviceNode":           node.Node.PublicKey,
+				"appplicationPublicKey": options.Session.Header.AppPublicKey,
 			}).Warn(fmt.Sprintf("SYNC CHECK BEHIND: %s height: %d", publicKey, blockHeight))
 			continue
 		}
 
 		logger.Log.WithFields(log.Fields{
-			"sessionKey":    options.Session.Key,
-			"blockhainID":   options.Blockchain,
-			"requestID":     sc.RequestID,
-			"serviceURL":    node.Node.ServiceURL,
-			"serviceDomain": utils.GetDomainFromURL(node.Node.ServiceURL),
-			"serviceNode":   node.Node.PublicKey,
-			"allowance":     options.SyncCheckOptions.Allowance,
+			"sessionKey":            options.Session.Key,
+			"blockhainID":           options.Blockchain,
+			"requestID":             sc.RequestID,
+			"serviceURL":            node.Node.ServiceURL,
+			"serviceDomain":         utils.GetDomainFromURL(node.Node.ServiceURL),
+			"serviceNode":           node.Node.PublicKey,
+			"allowance":             options.SyncCheckOptions.Allowance,
+			"appplicationPublicKey": options.Session.Header.AppPublicKey,
 		}).Info(fmt.Sprintf("SYNC CHECK IN-SYNC: %s height: %d", publicKey, blockHeight))
 
 		checkedNodes = append(checkedNodes, publicKey)
 	}
 
 	logger.Log.WithFields(log.Fields{
-		"sessionKey":  options.Session.Key,
-		"blockhainID": options.Blockchain,
-		"requestID":   sc.RequestID,
+		"sessionKey":            options.Session.Key,
+		"blockhainID":           options.Blockchain,
+		"requestID":             sc.RequestID,
+		"appplicationPublicKey": options.Session.Header.AppPublicKey,
 	}).Info(fmt.Sprintf("SYNC CHECK COMPLETE: %d nodes in sync", len(checkedNodes)))
 
 	// TODO: Implement challenge
