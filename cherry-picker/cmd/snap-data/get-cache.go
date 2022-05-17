@@ -50,7 +50,7 @@ func (sn *SnapCherryPicker) getServiceLogData(ctx context.Context, cl *cache.Red
 		address, _ := poktutils.GetAddressFromPublickey(publicKey)
 		appData.Address = address
 
-		if err := cache.UnMarshallJSONResult(rawServiceLog, nil, &appData.ServiceLog); err != nil {
+		if err := cache.UnmarshallJSONResult(rawServiceLog, nil, &appData.ServiceLog); err != nil {
 			logger.Log.WithFields(log.Fields{
 				"requestID":     sn.RequestID,
 				"error":         err.Error(),

@@ -32,7 +32,7 @@ type Region struct {
 	Failure                   bool      `json:"failure"`
 }
 
-type UpdateSession struct {
+type SessionUpdatePayload struct {
 	PublicKey          string  `json:"publicKey"`
 	Chain              string  `json:"chain"`
 	SessionKey         string  `json:"sessionKey"`
@@ -42,7 +42,7 @@ type UpdateSession struct {
 	Failure            bool    `json:"failure"`
 }
 
-type UpdateRegion struct {
+type RegionUpdatePayload struct {
 	PublicKey                 string  `json:"publicKey"`
 	Chain                     string  `json:"chain"`
 	SessionKey                string  `json:"sessionKey"`
@@ -69,10 +69,10 @@ type ServiceLog struct {
 type CherryPickerStore interface {
 	GetSession(ctx context.Context, publicKey, chain, sessionKey string) (*Session, error)
 	CreateSession(ctx context.Context, session *Session) error
-	UpdateSession(ctx context.Context, session *UpdateSession) (*Session, error)
+	UpdateSession(ctx context.Context, session *SessionUpdatePayload) (*Session, error)
 	GetSessionRegions(ctx context.Context, publicKey, chain, sessionKey string) ([]*Region, error)
 	GetRegion(ctx context.Context, publicKey, chain, sessionKey, region string) (*Region, error)
 	CreateRegion(ctx context.Context, region *Region) error
-	UpdateRegion(ctx context.Context, region *UpdateRegion) (*Region, error)
+	UpdateRegion(ctx context.Context, region *RegionUpdatePayload) (*Region, error)
 	GetConnection() string
 }

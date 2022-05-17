@@ -112,7 +112,7 @@ func (ch *CherryPickerPostgres) CreateSession(ctx context.Context, session *cpic
 }
 
 // UpdateSession updates a session
-func (ch *CherryPickerPostgres) UpdateSession(ctx context.Context, session *cpicker.UpdateSession) (*cpicker.Session, error) {
+func (ch *CherryPickerPostgres) UpdateSession(ctx context.Context, session *cpicker.SessionUpdatePayload) (*cpicker.Session, error) {
 	var updatedSession cpicker.Session
 
 	err := ch.Db.Conn.QueryRow(ctx, fmt.Sprintf(`
@@ -253,7 +253,7 @@ func (ch *CherryPickerPostgres) CreateRegion(ctx context.Context, region *cpicke
 }
 
 // UpdateRegion updates a region
-func (ch *CherryPickerPostgres) UpdateRegion(ctx context.Context, region *cpicker.UpdateRegion) (*cpicker.Region, error) {
+func (ch *CherryPickerPostgres) UpdateRegion(ctx context.Context, region *cpicker.RegionUpdatePayload) (*cpicker.Region, error) {
 	var updatedSessionRegion cpicker.Region
 
 	err := ch.Db.Conn.QueryRow(ctx, fmt.Sprintf(`

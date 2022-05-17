@@ -11,8 +11,8 @@ import (
 var (
 	// ErrValueUnderZero when a value given is under zero
 	ErrValueUnderZero = errors.New("value must be lower or equal to zero")
-	// ErrMaxPoolSizeOverMin when the value given for max pool size is over the min pool size
-	ErrMaxPoolSizeOverMin = errors.New("max pool size should be more than min pool size")
+	// ErrValueOverMax when the value given for max pool size is over the min pool size
+	ErrValueOverMax = errors.New("max pool size should be more than min pool size")
 )
 
 // PostgresOptions represents the options related to set up a pg connection
@@ -34,7 +34,7 @@ func NewPostgresDatabase(ctx context.Context, options *PostgresOptions) (*Postgr
 	}
 
 	if options.MinPoolSize > options.MaxPoolSize {
-		return nil, ErrMaxPoolSizeOverMin
+		return nil, ErrValueOverMax
 	}
 
 	config, err := pgxpool.ParseConfig(fmt.Sprintf("%s?pool_min_conns=%d&pool_max_conns=%d", options.Connection, options.MinPoolSize, options.MaxPoolSize))

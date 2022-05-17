@@ -15,7 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
+func lambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
 	lc, _ := lambdacontext.FromContext(ctx)
 
 	snapCherryPickerData := &snapdata.SnapCherryPicker{
@@ -48,7 +48,7 @@ func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 }
 
 func main() {
-	lambda.Start(LambdaHandler)
+	lambda.Start(lambdaHandler)
 }
 
 func clean(sn *snapdata.SnapCherryPicker) {

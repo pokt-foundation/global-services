@@ -93,7 +93,7 @@ func (sn *SnapCherryPicker) aggregateRegionData(ctx context.Context, sessionsInS
 					}).Error("error getting session regions:", err.Error())
 					return err
 				}
-				session := &cpicker.UpdateSession{
+				session := &cpicker.SessionUpdatePayload{
 					PublicKey:  sess.PublicKey,
 					Chain:      sess.Chain,
 					SessionKey: sess.SessionKey,
@@ -106,7 +106,7 @@ func (sn *SnapCherryPicker) aggregateRegionData(ctx context.Context, sessionsInS
 					session.Failure = session.Failure || region.Failure
 					avgSuccessTimes = append(avgSuccessTimes, region.MedianSuccessLatency...)
 				}
-				session.AverageSuccessTime = utils.AvgOfSlice(avgSuccessTimes)
+				session.AverageSuccessTime = utils.GetSliceAvg(avgSuccessTimes)
 
 				_, err = st.UpdateSession(ctx, session)
 				if err != nil {
@@ -154,7 +154,7 @@ func (sn *SnapCherryPicker) createOrUpdateRegion(ctx context.Context, regionName
 			return st.CreateRegion(ctx, region)
 		}
 
-		updateRegion := &cpicker.UpdateRegion{
+		updateRegion := &cpicker.RegionUpdatePayload{
 			PublicKey:              app.PublicKey,
 			Chain:                  app.Chain,
 			SessionKey:             app.ServiceLog.SessionKey,
@@ -163,9 +163,9 @@ func (sn *SnapCherryPicker) createOrUpdateRegion(ctx context.Context, regionName
 			TotalFailure:           app.Failures,
 			MedianSuccessLatency:   app.MedianSuccessLatency,
 			WeightedSuccessLatency: app.WeightedSuccessLatency,
-			AvgSuccessLatency: float32(utils.AvgOfSlice(
+			AvgSuccessLatency: float32(utils.GetSliceAvg(
 				append(storeRegion.MedianSuccessLatency, app.MedianSuccessLatency))),
-			AvgWeightedSuccessLatency: float32(utils.AvgOfSlice(
+			AvgWeightedSuccessLatency: float32(utils.GetSliceAvg(
 				append(storeRegion.WeightedSuccessLatency, app.WeightedSuccessLatency))),
 			Failure: app.Failure || storeRegion.Failure,
 		}

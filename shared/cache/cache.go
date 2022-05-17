@@ -12,7 +12,7 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-var poolsize = int(environment.GetInt64("CACHE_CONNECTION_POOL_SIZE", 10))
+var poolSize = int(environment.GetInt64("CACHE_CONNECTION_POOL_SIZE", 10))
 
 // RedisClientOptions is the struct for the baseOptions of the library client and
 // any additional one for the Redis struct
@@ -37,7 +37,7 @@ func NewRedisClient(ctx context.Context, options *RedisClientOptions) (*Redis, e
 // NewRedisClusterClient returns a client for a cluster instance
 func NewRedisClusterClient(ctx context.Context, options *RedisClientOptions) (*Redis, error) {
 	return connectToRedis(ctx, redis.NewClusterClient(&redis.ClusterOptions{
-		PoolSize: poolsize,
+		PoolSize: poolSize,
 		Addrs:    []string{options.BaseOptions.Addr},
 	}), options)
 }
@@ -94,7 +94,7 @@ func WriteJSONToCaches(ctx context.Context, cacheClients []*Redis, key string, v
 	})
 }
 
-func UnMarshallJSONResult(data any, err error, v any) error {
+func UnmarshallJSONResult(data any, err error, v any) error {
 	err = assertCacheResponse(data, err)
 	if err != nil {
 		return err
