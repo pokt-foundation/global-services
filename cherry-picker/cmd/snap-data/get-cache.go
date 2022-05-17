@@ -52,11 +52,12 @@ func (sn *SnapCherryPicker) getServiceLogData(ctx context.Context, cl *cache.Red
 
 		if err := cache.UnMarshallJSONResult(rawServiceLog, nil, &appData.ServiceLog); err != nil {
 			logger.Log.WithFields(log.Fields{
-				"requestID": sn.RequestID,
-				"error":     err.Error(),
-				"publicKey": publicKey,
-				"chain":     chain,
-				"region":    cl.Name,
+				"requestID":     sn.RequestID,
+				"error":         err.Error(),
+				"publicKey":     publicKey,
+				"chain":         chain,
+				"region":        cl.Name,
+				"rawServiceLog": rawServiceLog,
 			}).Error("error unmarshalling service log:", err.Error())
 			continue
 		}
