@@ -146,13 +146,14 @@ func (ch *CherryPickerPostgres) GetSessionRegions(ctx context.Context, publicKey
 
 	rows, err := ch.Db.Conn.Query(ctx, fmt.Sprintf(`
 	SELECT *
-	FROM % s
+	FROM %s
 	WHERE public_key = $1
 		AND chain = $2
 		AND session_key = $3`, ch.SessionRegionTableName), publicKey, chain, sessionKey)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		var region cpicker.Region
