@@ -76,13 +76,18 @@ functions:
     environment: ${file(.env.perform-application-check.canary.yml)}
     memorySize: 256
     timeout: 60
-  
+
   snap-cherry-picker-data:
     handler: bin/snap-data
     environment: ${file(.env.snap-cherry-picker-data.yml)}
     memorySize: 512
-    timeout: 360
-
+    timeout: 600
+    maximumRetryAttempts: 2
+    events:
+      - schedule:
+          rate: rate(5 minutes)
+          enabled: true
+  
   snap-cherry-picker-data-canary:
     handler: bin/snap-data
     environment: ${file(.env.snap-cherry-picker-data.canary.yml)}
