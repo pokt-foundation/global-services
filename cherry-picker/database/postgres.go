@@ -22,7 +22,7 @@ var (
 	ErrDuplicate = errors.New("duplicate key value violates unique constraint")
 )
 
-// CherryPickerDB is an interface to operations in the cherry picker database
+// CherryPickerPostgres is an interface to operations in the cherry picker database
 type CherryPickerPostgres struct {
 	Db                     *database.Postgres
 	SessionTableName       string

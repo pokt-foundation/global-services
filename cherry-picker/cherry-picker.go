@@ -32,6 +32,7 @@ type Region struct {
 	Failure                   bool      `json:"failure"`
 }
 
+// SessionUpdatePayload payload to update a session
 type SessionUpdatePayload struct {
 	PublicKey          string  `json:"publicKey"`
 	Chain              string  `json:"chain"`
@@ -42,6 +43,7 @@ type SessionUpdatePayload struct {
 	Failure            bool    `json:"failure"`
 }
 
+// RegionUpdatePayload payload to update a region
 type RegionUpdatePayload struct {
 	PublicKey                 string  `json:"publicKey"`
 	Chain                     string  `json:"chain"`

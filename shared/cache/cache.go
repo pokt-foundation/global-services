@@ -94,6 +94,7 @@ func WriteJSONToCaches(ctx context.Context, cacheClients []*Redis, key string, v
 	})
 }
 
+// UnmarshallJSONResult asserts the result and umarshalls a value expected to be JSON
 func UnmarshallJSONResult(data any, err error, v any) error {
 	err = assertCacheResponse(data, err)
 	if err != nil {
@@ -102,6 +103,7 @@ func UnmarshallJSONResult(data any, err error, v any) error {
 	return json.Unmarshal([]byte(data.(string)), v)
 }
 
+// GetStringResult asserts the result and returns a value expected to be a string
 func GetStringResult(data any, err error) (string, error) {
 	err = assertCacheResponse(data, err)
 	if err != nil && err != ErrEmptyValue {
@@ -110,6 +112,7 @@ func GetStringResult(data any, err error) (string, error) {
 	return data.(string), err
 }
 
+// PipeOperation represents and operation made over a list of items using a Redis pipeline
 func (r *Redis) PipeOperation(ctx context.Context, items []*Item, cmd func(redis.Pipeliner, *Item) error) ([]redis.Cmder, error) {
 	pipe := r.Client.Pipeline()
 	for _, item := range items {
@@ -118,7 +121,7 @@ func (r *Redis) PipeOperation(ctx context.Context, items []*Item, cmd func(redis
 	return pipe.Exec(ctx)
 }
 
-// mGetPipe performs a mget operation using pipeline, this is to avoid the
+// MGetPipe performs a mget operation using pipeline, this is to avoid the
 // CROSSLOT error on redis
 func (r *Redis) MGetPipe(ctx context.Context, keys []string) ([]string, error) {
 	items := []*Item{}
