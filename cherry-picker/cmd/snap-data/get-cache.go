@@ -31,7 +31,7 @@ func (sn *SnapCherryPicker) getServiceLogData(ctx context.Context, cl *cache.Red
 		logger.Log.WithFields(log.Fields{
 			"requestID": sn.RequestID,
 			"region":    cl.Name,
-		}).Warnf("no service log keys found for:", cl.Name)
+		}).Warn("no service log keys found for:", cl.Name)
 		return nil
 	}
 
