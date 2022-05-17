@@ -17,7 +17,7 @@ func (sn *SnapCherryPicker) saveToStore(ctx context.Context) {
 	var wg sync.WaitGroup
 	sem := semaphore.NewWeighted(concurrency)
 
-	sessionsInStore := map[string]*SessionKeys{}
+	sessionsInStore := sync.Map{}
 	for _, region := range sn.Regions {
 		for _, application := range region.AppData {
 			wg.Add(1)
@@ -28,7 +28,7 @@ func (sn *SnapCherryPicker) saveToStore(ctx context.Context) {
 				defer sem.Release(1)
 
 				sessionInStoreKey := fmt.Sprintf("%s-%s-%s", app.PublicKey, app.Chain, app.ServiceLog.SessionKey)
-				if _, ok := sessionsInStore[sessionInStoreKey]; !ok {
+				if _, ok := sessionsInStore.Load(sessionInStoreKey); !ok {
 					if err := sn.createSessionIfDoesntExist(ctx, app); err != nil {
 						logger.Log.WithFields(log.Fields{
 							"requestID":  sn.RequestID,
@@ -39,11 +39,11 @@ func (sn *SnapCherryPicker) saveToStore(ctx context.Context) {
 						}).Error("error creating session:", err.Error())
 						return
 					}
-					sessionsInStore[sessionInStoreKey] = &SessionKeys{
+					sessionsInStore.Store(sessionInStoreKey, &SessionKeys{
 						PublicKey:  app.PublicKey,
 						Chain:      app.Chain,
 						SessionKey: app.ServiceLog.SessionKey,
-					}
+					})
 				}
 
 				if _, err := sn.createOrUpdateRegion(ctx, rg.Name, app); err != nil {
@@ -60,7 +60,12 @@ func (sn *SnapCherryPicker) saveToStore(ctx context.Context) {
 	}
 	wg.Wait()
 
-	sn.aggregateRegionData(ctx, sessionsInStore)
+	sessInStore := map[string]*SessionKeys{}
+	sessionsInStore.Range(func(key, value any) bool {
+		sessInStore[key.(string)] = value.(*SessionKeys)
+		return true
+	})
+	sn.aggregateRegionData(ctx, sessInStore)
 }
 
 func (sn *SnapCherryPicker) aggregateRegionData(ctx context.Context, sessionsInStore map[string]*SessionKeys) {
@@ -118,6 +123,8 @@ func (sn *SnapCherryPicker) aggregateRegionData(ctx context.Context, sessionsInS
 			})
 		}(session)
 	}
+
+	wg.Wait()
 }
 
 func (sn *SnapCherryPicker) createOrUpdateRegion(ctx context.Context, regionName string,
