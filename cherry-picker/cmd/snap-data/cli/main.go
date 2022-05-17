@@ -26,10 +26,10 @@ func main() {
 		RequestID: requestID,
 	}
 	snapCherryPickerData.Regions = make(map[string]*snapdata.Region)
+	defer clean(snapCherryPickerData)
 
 	err := snapCherryPickerData.Init(ctx)
 	if err != nil {
-		clean(snapCherryPickerData)
 		logger.Log.WithFields(log.Fields{
 			"requestID": snapCherryPickerData.RequestID,
 			"error":     err.Error(),
@@ -39,8 +39,6 @@ func main() {
 	}
 
 	err = snapCherryPickerData.SnapCherryPickerData(ctx)
-
-	clean(snapCherryPickerData)
 
 	if err != nil {
 		logger.Log.WithFields(log.Fields{

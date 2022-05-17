@@ -22,10 +22,10 @@ func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 		RequestID: lc.AwsRequestID,
 	}
 	snapCherryPickerData.Regions = make(map[string]*snapdata.Region)
+	defer clean(snapCherryPickerData)
 
 	err := snapCherryPickerData.Init(ctx)
 	if err != nil {
-		clean(snapCherryPickerData)
 		logger.Log.WithFields(log.Fields{
 			"requestID": snapCherryPickerData.RequestID,
 			"error":     err.Error(),
@@ -34,9 +34,6 @@ func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 	}
 
 	err = snapCherryPickerData.SnapCherryPickerData(ctx)
-
-	clean(snapCherryPickerData)
-
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
 			"requestID": snapCherryPickerData.RequestID,
