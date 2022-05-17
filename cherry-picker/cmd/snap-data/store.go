@@ -23,7 +23,7 @@ func (sn *SnapCherryPicker) saveToStore(ctx context.Context) {
 			wg.Add(1)
 			sem.Acquire(ctx, 1)
 
-			go func(rg *Region, app *ApplicationData) {
+			go func(rg *Region, app *CherryPickerData) {
 				defer wg.Done()
 				defer sem.Release(1)
 
@@ -128,7 +128,7 @@ func (sn *SnapCherryPicker) aggregateRegionData(ctx context.Context, sessionsInS
 }
 
 func (sn *SnapCherryPicker) createOrUpdateRegion(ctx context.Context, regionName string,
-	app *ApplicationData) (*cpicker.Region, error) {
+	app *CherryPickerData) (*cpicker.Region, error) {
 	region := &cpicker.Region{
 		PublicKey:                 app.PublicKey,
 		Chain:                     app.Chain,
@@ -177,7 +177,7 @@ func (sn *SnapCherryPicker) createOrUpdateRegion(ctx context.Context, regionName
 	return region, err
 }
 
-func (sn *SnapCherryPicker) createSessionIfDoesntExist(ctx context.Context, app *ApplicationData) error {
+func (sn *SnapCherryPicker) createSessionIfDoesntExist(ctx context.Context, app *CherryPickerData) error {
 	return utils.RunFnOnSlice(sn.Stores, func(st cpicker.CherryPickerStore) error {
 		_, err := st.GetSession(ctx, app.PublicKey, app.Chain, app.ServiceLog.SessionKey)
 		if err == database.ErrNotFound {

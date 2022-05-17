@@ -43,7 +43,7 @@ func (sn *SnapCherryPicker) getServiceLogData(ctx context.Context, cl *cache.Red
 	for idx, rawServiceLog := range results {
 		publicKey, chain := getPublicKeyAndChainFromLog(serviceLogKeys[idx])
 		appDataKey := publicKey + "-" + chain
-		sn.Regions[cl.Name].AppData[appDataKey] = &ApplicationData{}
+		sn.Regions[cl.Name].AppData[appDataKey] = &CherryPickerData{}
 		appData := sn.Regions[cl.Name].AppData[appDataKey]
 		appData.PublicKey = publicKey
 		appData.Chain = chain

@@ -28,7 +28,8 @@ var (
 	maxPoolSize             = environment.GetInt64("MAX_POOL_SIZE", 200)
 )
 
-type ApplicationData struct {
+// CherryPickerData represents the info that can be obtained from the cherry picker for an application
+type CherryPickerData struct {
 	ServiceLog             cpicker.ServiceLog
 	Address                string
 	Successes              int
@@ -40,18 +41,21 @@ type ApplicationData struct {
 	WeightedSuccessLatency float32
 }
 
+// Region is all info and apps from a single region
 type Region struct {
 	Cache   *cache.Redis
 	Name    string
-	AppData map[string]*ApplicationData
+	AppData map[string]*CherryPickerData
 }
 
+// SessionKeys are the keys needed to make a cherry picker session
 type SessionKeys struct {
 	PublicKey  string
 	Chain      string
 	SessionKey string
 }
 
+// SnapCherryPicker is the struct to setup and obtain cherry picker data
 type SnapCherryPicker struct {
 	Regions   map[string]*Region
 	Caches    []*cache.Redis
@@ -59,6 +63,7 @@ type SnapCherryPicker struct {
 	RequestID string
 }
 
+// Init initalizes all the needed dependencies for the service
 func (sn *SnapCherryPicker) Init(ctx context.Context) error {
 	if err := sn.initRegionCaches(ctx); err != nil {
 		return err
@@ -110,7 +115,7 @@ func (sn *SnapCherryPicker) initRegionCaches(ctx context.Context) error {
 		sn.Regions[region] = &Region{
 			Cache:   ch,
 			Name:    region,
-			AppData: make(map[string]*ApplicationData),
+			AppData: make(map[string]*CherryPickerData),
 		}
 		sn.Caches = append(sn.Caches, ch)
 	}

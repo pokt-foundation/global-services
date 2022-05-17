@@ -29,6 +29,7 @@ type CherryPickerPostgres struct {
 	SessionRegionTableName string
 }
 
+// NewCherryPickerPostgresFromConnectionString returns a cherry picker postgres store from a connection string
 func NewCherryPickerPostgresFromConnectionString(ctx context.Context, options *database.PostgresOptions, sessionTableName, sessionRegionTableName string) (*CherryPickerPostgres, error) {
 	if sessionTableName == "" {
 		return nil, ErrEmptySessionTableName
@@ -50,10 +51,12 @@ func NewCherryPickerPostgresFromConnectionString(ctx context.Context, options *d
 	}, nil
 }
 
+// GetConnection returns the connection string used
 func (ch *CherryPickerPostgres) GetConnection() string {
 	return ch.Db.Conn.Config().ConnConfig.ConnString()
 }
 
+// GetSession returns an existing session
 func (ch *CherryPickerPostgres) GetSession(ctx context.Context, publicKey, chain, sessionKey string) (*cpicker.Session, error) {
 	var session cpicker.Session
 
@@ -79,6 +82,7 @@ func (ch *CherryPickerPostgres) GetSession(ctx context.Context, publicKey, chain
 	return &session, nil
 }
 
+// CreateSession creates a new session
 func (ch *CherryPickerPostgres) CreateSession(ctx context.Context, session *cpicker.Session) error {
 	_, err := ch.Db.Conn.Exec(ctx, fmt.Sprintf(`
 	INSERT INTO
@@ -107,6 +111,7 @@ func (ch *CherryPickerPostgres) CreateSession(ctx context.Context, session *cpic
 	return getCustomError(err)
 }
 
+// UpdateSession updates a session
 func (ch *CherryPickerPostgres) UpdateSession(ctx context.Context, session *cpicker.UpdateSession) (*cpicker.Session, error) {
 	var updatedSession cpicker.Session
 
@@ -141,6 +146,7 @@ func (ch *CherryPickerPostgres) UpdateSession(ctx context.Context, session *cpic
 	return &updatedSession, getCustomError(err)
 }
 
+// GetSessionRegions return all the regions related to a session
 func (ch *CherryPickerPostgres) GetSessionRegions(ctx context.Context, publicKey, chain, sessionKey string) ([]*cpicker.Region, error) {
 	regions := []*cpicker.Region{}
 
@@ -179,6 +185,7 @@ func (ch *CherryPickerPostgres) GetSessionRegions(ctx context.Context, publicKey
 	return regions, nil
 }
 
+// GetRegion returns an existing region
 func (ch *CherryPickerPostgres) GetRegion(ctx context.Context, publicKey, chain, sessionKey, region string) (*cpicker.Region, error) {
 	var sessionRegion cpicker.Region
 
@@ -208,6 +215,7 @@ func (ch *CherryPickerPostgres) GetRegion(ctx context.Context, publicKey, chain,
 	return &sessionRegion, nil
 }
 
+// CreateRegion creates a new region
 func (ch *CherryPickerPostgres) CreateRegion(ctx context.Context, region *cpicker.Region) error {
 	_, err := ch.Db.Conn.Exec(ctx, fmt.Sprintf(`
 	INSERT INTO
@@ -244,6 +252,7 @@ func (ch *CherryPickerPostgres) CreateRegion(ctx context.Context, region *cpicke
 	return getCustomError(err)
 }
 
+// UpdateRegion updates a region
 func (ch *CherryPickerPostgres) UpdateRegion(ctx context.Context, region *cpicker.UpdateRegion) (*cpicker.Region, error) {
 	var updatedSessionRegion cpicker.Region
 
