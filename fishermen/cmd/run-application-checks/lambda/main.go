@@ -182,6 +182,7 @@ func invokeChecks(apps []*performAppCheck.Payload, requestID string) (*performAp
 		logger.Log.WithFields(log.Fields{
 			"requestID": requestID,
 			"error":     err.Error(),
+			"payload":   result.Payload,
 		}).Error("perform checks: error unmarshalling invoke response")
 		return nil, err
 	}
@@ -191,6 +192,7 @@ func invokeChecks(apps []*performAppCheck.Payload, requestID string) (*performAp
 		logger.Log.WithFields(log.Fields{
 			"requestID": requestID,
 			"error":     err.Error(),
+			"payload":   response.Body,
 		}).Error("perform checks: error unmarshalling valid nodes: " + err.Error())
 		return nil, err
 	}
