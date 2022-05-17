@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	snapdata "github.com/Pocket/global-services/cherry-picker/cmd/snap-data"
+	postgresdb "github.com/Pocket/global-services/cherry-picker/database"
 	"github.com/Pocket/global-services/shared/environment"
 	logger "github.com/Pocket/global-services/shared/logger"
 	"github.com/Pocket/global-services/shared/utils"
@@ -27,21 +29,41 @@ func main() {
 
 	err := snapCherryPickerData.Init(ctx)
 	if err != nil {
+		clean(snapCherryPickerData)
 		logger.Log.WithFields(log.Fields{
 			"requestID": snapCherryPickerData.RequestID,
 			"error":     err.Error(),
 		}).Error("error initializing:", err.Error())
 		fmt.Println(err)
+		os.Exit(1)
 	}
 
 	err = snapCherryPickerData.SnapCherryPickerData(ctx)
+
+	clean(snapCherryPickerData)
+
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
 			"requestID": snapCherryPickerData.RequestID,
 			"error":     err.Error(),
 		}).Error("error getting cherry picker data:", err.Error())
 		fmt.Println(err)
+		os.Exit(1)
 	}
 
 	fmt.Println("Done")
+}
+
+func clean(sn *snapdata.SnapCherryPicker) {
+	for _, store := range sn.Stores {
+		postgres, ok := store.(*postgresdb.CherryPickerPostgres)
+		if !ok {
+			continue
+		}
+		postgres.Db.Conn.Close()
+	}
+
+	for _, cache := range sn.Caches {
+		cache.Close()
+	}
 }

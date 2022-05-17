@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-lambda-go/lambdacontext"
 
+	postgresdb "github.com/Pocket/global-services/cherry-picker/database"
 	logger "github.com/Pocket/global-services/shared/logger"
 	log "github.com/sirupsen/logrus"
 )
@@ -24,6 +25,7 @@ func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 
 	err := snapCherryPickerData.Init(ctx)
 	if err != nil {
+		clean(snapCherryPickerData)
 		logger.Log.WithFields(log.Fields{
 			"requestID": snapCherryPickerData.RequestID,
 			"error":     err.Error(),
@@ -32,6 +34,9 @@ func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 	}
 
 	err = snapCherryPickerData.SnapCherryPickerData(ctx)
+
+	clean(snapCherryPickerData)
+
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
 			"requestID": snapCherryPickerData.RequestID,
@@ -47,4 +52,18 @@ func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 
 func main() {
 	lambda.Start(LambdaHandler)
+}
+
+func clean(sn *snapdata.SnapCherryPicker) {
+	for _, store := range sn.Stores {
+		postgres, ok := store.(*postgresdb.CherryPickerPostgres)
+		if !ok {
+			continue
+		}
+		postgres.Db.Conn.Close()
+	}
+
+	for _, cache := range sn.Caches {
+		cache.Close()
+	}
 }
