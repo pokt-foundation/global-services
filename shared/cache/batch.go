@@ -57,7 +57,7 @@ func monitorBatch(ctx context.Context, batch chan *Item, options BatchWriterOpti
 }
 
 func writeBatch(ctx context.Context, items []*Item, caches []*Redis, requestID string) {
-	if err := utils.RunFnOnSlice(caches, func(cache *Redis) error {
+	if err := utils.RunFnOnSliceSingleFailure(caches, func(cache *Redis) error {
 		_, err := cache.PipeOperation(ctx, items, func(pipe redis.Pipeliner, it *Item) error {
 			return pipe.Set(ctx, it.Key, it.Value, it.TTL).Err()
 		})

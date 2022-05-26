@@ -13,7 +13,7 @@ import (
 )
 
 func (sn *SnapCherryPicker) getAppsRegionsData(ctx context.Context) error {
-	return utils.RunFnOnSlice(sn.Caches, func(cl *cache.Redis) error {
+	return utils.RunFnOnSliceSingleFailure(sn.Caches, func(cl *cache.Redis) error {
 		if err := sn.getServiceLogData(ctx, cl); err != nil {
 			return err
 		}
