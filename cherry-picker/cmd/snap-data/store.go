@@ -20,7 +20,7 @@ func (sn *SnapCherryPicker) saveToStore(ctx context.Context) {
 	sessionsInStore := sync.Map{}
 	for _, region := range sn.Regions {
 		for _, application := range region.AppData {
-			if application.PublicKey == "" || application.ServiceLog.SessionKey == "" {
+			if !validateAppData(application) {
 				continue
 			}
 
@@ -204,4 +204,14 @@ func (sn *SnapCherryPicker) createSessionIfDoesntExist(ctx context.Context, app 
 		}
 		return err
 	})
+}
+
+func validateAppData(app *CherryPickerData) bool {
+	if app.PublicKey == "" || app.ServiceLog.SessionKey == "" {
+		return false
+	}
+	if len(app.PublicKey) != 64 {
+		return false
+	}
+	return true
 }
