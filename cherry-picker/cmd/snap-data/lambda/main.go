@@ -48,9 +48,8 @@ func main() {
 
 func clean(sn *snapdata.SnapCherryPicker) {
 	utils.RunFnOnSliceSingleFailure(sn.Stores, func(store cpicker.CherryPickerStore) error {
-		switch str := store.(type) {
-		case *postgresdriver.CherryPickerPostgres:
-			str.Db.Conn.Close()
+		if st, ok := store.(*postgresdriver.CherryPickerPostgres); ok {
+			st.Db.Conn.Close()
 		}
 		return nil
 	})

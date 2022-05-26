@@ -138,8 +138,7 @@ func (r *Redis) MGetPipe(ctx context.Context, keys []string) ([]string, error) {
 	}
 	results := []string{}
 	for _, result := range pipe {
-		switch res := result.(type) {
-		case *redis.StringCmd:
+		if res, ok := result.(*redis.StringCmd); ok {
 			value, _ := res.Result()
 			results = append(results, value)
 		}
