@@ -29,15 +29,19 @@ func (sn *SnapCherryPicker) saveToStore(ctx context.Context) {
 
 				sessionInStoreKey := fmt.Sprintf("%s-%s-%s", app.PublicKey, app.Chain, app.ServiceLog.SessionKey)
 				if _, ok := sessionsInStore.Load(sessionInStoreKey); !ok {
-					if err := sn.createSessionIfDoesntExist(ctx, app); err != nil {
-						logger.Log.WithFields(log.Fields{
-							"requestID":  sn.RequestID,
-							"error":      err.Error(),
-							"publicKey":  app.PublicKey,
-							"chain":      app.Chain,
-							"sessionKey": app.ServiceLog.SessionKey,
-						}).Error("error creating session:", err.Error())
-						return
+					errs := sn.createSessionIfDoesntExist(ctx, app)
+					for idx, err := range errs {
+						if err != nil {
+							logger.Log.WithFields(log.Fields{
+								"requestID":  sn.RequestID,
+								"error":      err.Error(),
+								"publicKey":  app.PublicKey,
+								"chain":      app.Chain,
+								"sessionKey": app.ServiceLog.SessionKey,
+								"database":   sn.Stores[idx].GetConnection(),
+							}).Error("error creating session:", err.Error())
+							return
+						}
 					}
 					sessionsInStore.Store(sessionInStoreKey, &SessionKeys{
 						PublicKey:  app.PublicKey,
@@ -46,15 +50,20 @@ func (sn *SnapCherryPicker) saveToStore(ctx context.Context) {
 					})
 				}
 
-				if _, err := sn.createOrUpdateRegion(ctx, rg.Name, app); err != nil {
-					logger.Log.WithFields(log.Fields{
-						"requestID":  sn.RequestID,
-						"error":      err.Error(),
-						"publicKey":  app.PublicKey,
-						"chain":      app.Chain,
-						"sessionKey": app.ServiceLog.SessionKey,
-					}).Error("error creating/updating region:", err.Error())
+				_, errs := sn.createOrUpdateRegion(ctx, rg.Name, app)
+				for idx, err := range errs {
+					if err != nil {
+						logger.Log.WithFields(log.Fields{
+							"requestID":  sn.RequestID,
+							"error":      err.Error(),
+							"publicKey":  app.PublicKey,
+							"chain":      app.Chain,
+							"sessionKey": app.ServiceLog.SessionKey,
+							"database":   sn.Stores[idx].GetConnection(),
+						}).Error("error creating/updating region:", err.Error())
+					}
 				}
+
 			}(region, application)
 		}
 	}
@@ -80,7 +89,7 @@ func (sn *SnapCherryPicker) aggregateRegionData(ctx context.Context, sessionsInS
 			defer wg.Done()
 			defer sem.Release(1)
 
-			utils.RunFnOnSlice(sn.Stores, func(st cpicker.CherryPickerStore) error {
+			utils.RunFnOnSliceMultipleFailures(sn.Stores, func(st cpicker.CherryPickerStore) error {
 				regions, err := st.GetSessionRegions(ctx, sess.PublicKey, sess.Chain, sess.SessionKey)
 				if err != nil {
 					logger.Log.WithFields(log.Fields{
@@ -128,7 +137,7 @@ func (sn *SnapCherryPicker) aggregateRegionData(ctx context.Context, sessionsInS
 }
 
 func (sn *SnapCherryPicker) createOrUpdateRegion(ctx context.Context, regionName string,
-	app *CherryPickerData) (*cpicker.Region, error) {
+	app *CherryPickerData) (*cpicker.Region, []error) {
 	region := &cpicker.Region{
 		PublicKey:                 app.PublicKey,
 		Chain:                     app.Chain,
@@ -145,7 +154,7 @@ func (sn *SnapCherryPicker) createOrUpdateRegion(ctx context.Context, regionName
 		Failure:                   app.Failure,
 	}
 
-	err := utils.RunFnOnSlice(sn.Stores, func(st cpicker.CherryPickerStore) error {
+	err := utils.RunFnOnSliceMultipleFailures(sn.Stores, func(st cpicker.CherryPickerStore) error {
 		storeRegion, err := st.GetRegion(ctx, app.PublicKey, app.Chain, app.ServiceLog.SessionKey, regionName)
 		if err != nil {
 			if err != database.ErrNotFound {
@@ -177,8 +186,8 @@ func (sn *SnapCherryPicker) createOrUpdateRegion(ctx context.Context, regionName
 	return region, err
 }
 
-func (sn *SnapCherryPicker) createSessionIfDoesntExist(ctx context.Context, app *CherryPickerData) error {
-	return utils.RunFnOnSlice(sn.Stores, func(st cpicker.CherryPickerStore) error {
+func (sn *SnapCherryPicker) createSessionIfDoesntExist(ctx context.Context, app *CherryPickerData) []error {
+	return utils.RunFnOnSliceMultipleFailures(sn.Stores, func(st cpicker.CherryPickerStore) error {
 		_, err := st.GetSession(ctx, app.PublicKey, app.Chain, app.ServiceLog.SessionKey)
 		if err == database.ErrNotFound {
 			return st.CreateSession(ctx, &cpicker.Session{

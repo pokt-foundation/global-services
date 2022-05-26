@@ -51,7 +51,7 @@ func ConnectoCacheClients(ctx context.Context, connectionStrings []string, commi
 
 // CloseConnections closes all cache connections, returning error if any of them fail
 func CloseConnections(cacheClients []*Redis) error {
-	return utils.RunFnOnSlice(cacheClients, func(ins *Redis) error {
+	return utils.RunFnOnSliceSingleFailure(cacheClients, func(ins *Redis) error {
 		return ins.Close()
 	})
 }

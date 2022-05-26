@@ -40,7 +40,7 @@ func FlushAll(ctx context.Context) error {
 		return errors.New("error connecting to redis: " + err.Error())
 	}
 
-	return utils.RunFnOnSlice(cacheClients, func(ins *cache.Redis) error {
+	return utils.RunFnOnSliceSingleFailure(cacheClients, func(ins *cache.Redis) error {
 		return ins.Client.FlushAll(ctx).Err()
 	})
 }
