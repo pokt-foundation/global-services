@@ -38,16 +38,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = snapCherryPickerData.SnapCherryPickerData(ctx)
-
-	if err != nil {
-		logger.Log.WithFields(log.Fields{
-			"requestID": snapCherryPickerData.RequestID,
-			"error":     err.Error(),
-		}).Error("error getting cherry picker data:", err.Error())
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	snapCherryPickerData.SnapCherryPickerData(ctx)
 
 	fmt.Println("Done")
 }

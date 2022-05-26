@@ -33,14 +33,7 @@ func lambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 		return *apigateway.NewErrorResponse(http.StatusInternalServerError, err), err
 	}
 
-	err = snapCherryPickerData.SnapCherryPickerData(ctx)
-	if err != nil {
-		logger.Log.WithFields(log.Fields{
-			"requestID": snapCherryPickerData.RequestID,
-			"error":     err.Error(),
-		}).Error("error getting cherry picker data:", err.Error())
-		return *apigateway.NewErrorResponse(http.StatusInternalServerError, err), err
-	}
+	snapCherryPickerData.SnapCherryPickerData(ctx)
 
 	return *apigateway.NewJSONResponse(http.StatusOK, map[string]interface{}{
 		"ok": true,

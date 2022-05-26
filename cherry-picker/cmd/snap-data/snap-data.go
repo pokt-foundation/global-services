@@ -128,10 +128,7 @@ func (sn *SnapCherryPicker) initRegionCaches(ctx context.Context) error {
 
 // SnapCherryPickerData obtains service node data from all cache instances
 // and saves to the stores available
-func (sn *SnapCherryPicker) SnapCherryPickerData(ctx context.Context) error {
-	if err := sn.getAppsRegionsData(ctx); err != nil {
-		return err
-	}
+func (sn *SnapCherryPicker) SnapCherryPickerData(ctx context.Context) {
+	sn.getAppsRegionsData(ctx)
 	sn.saveToStore(ctx)
-	return nil
 }
