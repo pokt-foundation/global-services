@@ -20,6 +20,10 @@ func (sn *SnapCherryPicker) saveToStore(ctx context.Context) {
 	sessionsInStore := sync.Map{}
 	for _, region := range sn.Regions {
 		for _, application := range region.AppData {
+			if application.PublicKey == "" || application.ServiceLog.SessionKey == "" {
+				continue
+			}
+
 			wg.Add(1)
 			sem.Acquire(ctx, 1)
 
