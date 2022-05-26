@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/Pocket/global-services/shared/environment"
@@ -139,12 +138,11 @@ func (r *Redis) MGetPipe(ctx context.Context, keys []string) ([]string, error) {
 	}
 	results := []string{}
 	for _, result := range pipe {
-		value := strings.Split(result.String(), " ")
-		if len(value) >= 3 {
-			results = append(results, value[2])
-			continue
+		switch res := result.(type) {
+		case *redis.StringCmd:
+			value, _ := res.Result()
+			results = append(results, value)
 		}
-		results = append(results, "")
 	}
 	return results, nil
 }
