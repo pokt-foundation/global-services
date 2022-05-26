@@ -100,7 +100,7 @@ func (sn *SnapCherryPicker) initRegionCaches(ctx context.Context) error {
 		cacheConns = append(cacheConns, connStr)
 	}
 
-	caches, err := cache.ConnectoCacheClients(ctx, cacheConns, "", isRedisCluster)
+	caches, err := cache.ConnectToCacheClients(ctx, cacheConns, "", isRedisCluster)
 	if err != nil {
 		return err
 	}

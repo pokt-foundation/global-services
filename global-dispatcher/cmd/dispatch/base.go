@@ -52,7 +52,7 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 		return 0, errors.New("error connecting to mongo: " + err.Error())
 	}
 
-	caches, err := cache.ConnectoCacheClients(ctx, redisConnectionStrings, "", isRedisCluster)
+	caches, err := cache.ConnectToCacheClients(ctx, redisConnectionStrings, "", isRedisCluster)
 	if err != nil {
 		return 0, errors.New("error connecting to redis: " + err.Error())
 	}

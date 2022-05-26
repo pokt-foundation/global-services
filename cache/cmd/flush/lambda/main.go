@@ -35,7 +35,7 @@ func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 
 // FlushAll deletes all the keys of the redis instance
 func FlushAll(ctx context.Context) error {
-	cacheClients, err := cache.ConnectoCacheClients(ctx, redisConnectionStrings, "", isRedisCluster)
+	cacheClients, err := cache.ConnectToCacheClients(ctx, redisConnectionStrings, "", isRedisCluster)
 	if err != nil {
 		return errors.New("error connecting to redis: " + err.Error())
 	}
