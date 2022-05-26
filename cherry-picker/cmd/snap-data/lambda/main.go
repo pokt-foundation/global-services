@@ -4,13 +4,15 @@ import (
 	"context"
 	"net/http"
 
+	cpicker "github.com/Pocket/global-services/cherry-picker"
 	snapdata "github.com/Pocket/global-services/cherry-picker/cmd/snap-data"
 	"github.com/Pocket/global-services/shared/apigateway"
+	"github.com/Pocket/global-services/shared/utils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-lambda-go/lambdacontext"
 
-	postgresdb "github.com/Pocket/global-services/cherry-picker/database"
+	postgresdriver "github.com/Pocket/global-services/cherry-picker/database"
 	logger "github.com/Pocket/global-services/shared/logger"
 	log "github.com/sirupsen/logrus"
 )
@@ -45,13 +47,13 @@ func main() {
 }
 
 func clean(sn *snapdata.SnapCherryPicker) {
-	for _, store := range sn.Stores {
-		postgres, ok := store.(*postgresdb.CherryPickerPostgres)
-		if !ok {
-			continue
+	utils.RunFnOnSliceSingleFailure(sn.Stores, func(store cpicker.CherryPickerStore) error {
+		switch str := store.(type) {
+		case *postgresdriver.CherryPickerPostgres:
+			str.Db.Conn.Close()
 		}
-		postgres.Db.Conn.Close()
-	}
+		return nil
+	})
 
 	for _, cache := range sn.Caches {
 		cache.Close()
