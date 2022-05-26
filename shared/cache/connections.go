@@ -12,9 +12,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// ConnectoCacheClients instantiates n number of cache connections and returns error
+// ConnectToCacheClients instantiates n number of cache connections and returns error
 // if any of those connection attempts fails
-func ConnectoCacheClients(ctx context.Context, connectionStrings []string, commitHash string, isCluster bool) ([]*Redis, error) {
+func ConnectToCacheClients(ctx context.Context, connectionStrings []string, commitHash string, isCluster bool) ([]*Redis, error) {
 	clients := make(chan *Redis, len(connectionStrings))
 
 	var wg sync.WaitGroup
@@ -51,7 +51,7 @@ func ConnectoCacheClients(ctx context.Context, connectionStrings []string, commi
 
 // CloseConnections closes all cache connections, returning error if any of them fail
 func CloseConnections(cacheClients []*Redis) error {
-	return utils.RunFnOnSlice(cacheClients, func(ins *Redis) error {
+	return utils.RunFnOnSliceSingleFailure(cacheClients, func(ins *Redis) error {
 		return ins.Close()
 	})
 }

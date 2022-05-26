@@ -80,7 +80,6 @@ func (sn *SnapCherryPicker) Init(ctx context.Context) error {
 		}
 		sn.Stores = append(sn.Stores, connection)
 	}
-
 	return nil
 }
 
@@ -95,12 +94,13 @@ func (sn *SnapCherryPicker) initRegionCaches(ctx context.Context) error {
 		return shared.ErrNoCacheClientProvided
 	}
 
-	conns := []string{}
+	cacheConns := []string{}
+
 	for _, connStr := range cacheRegionConns {
-		conns = append(conns, connStr)
+		cacheConns = append(cacheConns, connStr)
 	}
 
-	caches, err := cache.ConnectoCacheClients(ctx, conns, "", isRedisCluster)
+	caches, err := cache.ConnectToCacheClients(ctx, cacheConns, "", isRedisCluster)
 	if err != nil {
 		return err
 	}
@@ -125,10 +125,7 @@ func (sn *SnapCherryPicker) initRegionCaches(ctx context.Context) error {
 
 // SnapCherryPickerData obtains service node data from all cache instances
 // and saves to the stores available
-func (sn *SnapCherryPicker) SnapCherryPickerData(ctx context.Context) error {
-	if err := sn.getAppsRegionsData(ctx); err != nil {
-		return err
-	}
+func (sn *SnapCherryPicker) SnapCherryPickerData(ctx context.Context) {
+	sn.getAppsRegionsData(ctx)
 	sn.saveToStore(ctx)
-	return nil
 }

@@ -80,8 +80,8 @@ functions:
   snap-cherry-picker-data:
     handler: bin/snap-data
     environment: ${file(.env.snap-cherry-picker-data.yml)}
-    memorySize: 512
-    timeout: 600
+    memorySize: 1024
+    timeout: 120
     maximumRetryAttempts: 2
     events:
       - schedule:

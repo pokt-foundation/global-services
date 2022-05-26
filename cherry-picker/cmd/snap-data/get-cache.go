@@ -12,18 +12,32 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (sn *SnapCherryPicker) getAppsRegionsData(ctx context.Context) error {
-	return utils.RunFnOnSlice(sn.Caches, func(cl *cache.Redis) error {
+func (sn *SnapCherryPicker) getAppsRegionsData(ctx context.Context) {
+	errs := utils.RunFnOnSliceMultipleFailures(sn.Caches, func(cl *cache.Redis) error {
 		if err := sn.getServiceLogData(ctx, cl); err != nil {
 			return err
 		}
 		return sn.getSuccessAndFailureData(ctx, cl)
 	})
+	for idx, err := range errs {
+		if err != nil {
+			logger.Log.WithFields(log.Fields{
+				"requestID": sn.RequestID,
+				"error":     err.Error(),
+				"region":    sn.Caches[idx].Name,
+			}).Error("error getting cherry picker data")
+		}
+	}
 }
 
 func (sn *SnapCherryPicker) getServiceLogData(ctx context.Context, cl *cache.Redis) error {
 	serviceLogKeys, err := cl.Client.Keys(ctx, "*service*").Result()
 	if err != nil {
+		logger.Log.WithFields(log.Fields{
+			"requestID": sn.RequestID,
+			"error":     err.Error(),
+			"region":    cl.Name,
+		}).Error("error getting service log keys")
 		return err
 	}
 
@@ -37,6 +51,11 @@ func (sn *SnapCherryPicker) getServiceLogData(ctx context.Context, cl *cache.Red
 
 	results, err := cl.MGetPipe(ctx, serviceLogKeys)
 	if err != nil {
+		logger.Log.WithFields(log.Fields{
+			"requestID": sn.RequestID,
+			"error":     err.Error(),
+			"region":    cl.Name,
+		}).Error("error getting service log values")
 		return err
 	}
 

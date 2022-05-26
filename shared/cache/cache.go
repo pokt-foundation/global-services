@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/Pocket/global-services/shared/environment"
@@ -89,7 +88,7 @@ func (r *Redis) Addrs() []string {
 
 // WriteJSONToCaches writes the given key/values to multiple cache clients at the same time
 func WriteJSONToCaches(ctx context.Context, cacheClients []*Redis, key string, value interface{}, TTLSeconds uint) error {
-	return utils.RunFnOnSlice(cacheClients, func(ins *Redis) error {
+	return utils.RunFnOnSliceSingleFailure(cacheClients, func(ins *Redis) error {
 		return ins.SetJSON(ctx, key, value, TTLSeconds)
 	})
 }
@@ -139,12 +138,10 @@ func (r *Redis) MGetPipe(ctx context.Context, keys []string) ([]string, error) {
 	}
 	results := []string{}
 	for _, result := range pipe {
-		value := strings.Split(result.String(), " ")
-		if len(value) >= 3 {
-			results = append(results, value[2])
-			continue
+		if res, ok := result.(*redis.StringCmd); ok {
+			value, _ := res.Result()
+			results = append(results, value)
 		}
-		results = append(results, "")
 	}
 	return results, nil
 }
