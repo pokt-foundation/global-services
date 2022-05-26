@@ -86,7 +86,7 @@ functions:
     events:
       - schedule:
           rate: rate(5 minutes)
-          enabled: true
+          enabled: false
   
   snap-cherry-picker-data-canary:
     handler: bin/snap-data

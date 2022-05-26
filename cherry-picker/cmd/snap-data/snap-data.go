@@ -26,6 +26,9 @@ var (
 	sessionRegionTableName  = environment.GetString("SESSION_REGION_TABLE_NAME", "cherry_picker_session_region")
 	minPoolSize             = environment.GetInt64("MIN_POOL_SIZE", 100)
 	maxPoolSize             = environment.GetInt64("MAX_POOL_SIZE", 200)
+
+	storeConns = []cpicker.CherryPickerStore{}
+	cacheConns = []string{}
 )
 
 // CherryPickerData represents the info that can be obtained from the cherry picker for an application
@@ -78,8 +81,9 @@ func (sn *SnapCherryPicker) Init(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		sn.Stores = append(sn.Stores, connection)
+		storeConns = append(storeConns, connection)
 	}
+	sn.Stores = storeConns
 
 	return nil
 }
@@ -95,12 +99,11 @@ func (sn *SnapCherryPicker) initRegionCaches(ctx context.Context) error {
 		return shared.ErrNoCacheClientProvided
 	}
 
-	conns := []string{}
 	for _, connStr := range cacheRegionConns {
-		conns = append(conns, connStr)
+		cacheConns = append(cacheConns, connStr)
 	}
 
-	caches, err := cache.ConnectoCacheClients(ctx, conns, "", isRedisCluster)
+	caches, err := cache.ConnectoCacheClients(ctx, cacheConns, "", isRedisCluster)
 	if err != nil {
 		return err
 	}
