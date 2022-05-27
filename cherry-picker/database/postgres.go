@@ -176,6 +176,9 @@ func (ch *CherryPickerPostgres) GetSessionRegions(ctx context.Context, publicKey
 			&region.WeightedSuccessLatency,
 			&region.AvgSuccessLatency,
 			&region.AvgWeightedSuccessLatency,
+			&region.P90Latency,
+			&region.Attempts,
+			&region.SuccessRate,
 			&region.Failure); err != nil {
 			return nil, err
 		}
@@ -208,6 +211,9 @@ func (ch *CherryPickerPostgres) GetRegion(ctx context.Context, publicKey, chain,
 		&sessionRegion.WeightedSuccessLatency,
 		&sessionRegion.AvgSuccessLatency,
 		&sessionRegion.AvgWeightedSuccessLatency,
+		&sessionRegion.P90Latency,
+		&sessionRegion.Attempts,
+		&sessionRegion.SuccessRate,
 		&sessionRegion.Failure)
 	if err != nil {
 		return nil, getCustomError(err)
@@ -232,9 +238,13 @@ func (ch *CherryPickerPostgres) CreateRegion(ctx context.Context, region *cpicke
 		weighted_success_latency,
 		avg_success_latency,
 		avg_weighted_success_latency,
+		p_90_latency,
+		attempts,
+		success_rate,
 		failure
 		)
-	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, $10, $11, $12, $13)`, ch.SessionRegionTableName),
+	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, $10, $11, $12, $13, $14, $15, $16)`,
+		ch.SessionRegionTableName),
 		region.PublicKey,
 		region.Chain,
 		region.SessionKey,
@@ -247,6 +257,9 @@ func (ch *CherryPickerPostgres) CreateRegion(ctx context.Context, region *cpicke
 		region.WeightedSuccessLatency,
 		region.AvgSuccessLatency,
 		region.AvgWeightedSuccessLatency,
+		region.P90Latency,
+		region.Attempts,
+		region.SuccessRate,
 		region.Failure)
 
 	return getCustomError(err)
@@ -264,11 +277,14 @@ func (ch *CherryPickerPostgres) UpdateRegion(ctx context.Context, region *cpicke
 		weighted_success_latency = array_append(weighted_success_latency, $4),
 		avg_success_latency = $5,
 		avg_weighted_success_latency = $6,
-		failure = $7
-	WHERE public_key = $8
-		AND chain = $9
-		AND session_key = $10
-		AND region = $11
+		p_90_latency = array_append(p_90_latency, $7),
+		attempts = array_append(attempts, $8),
+		success_rate = array_append(success_rate, $9),
+		failure = $10
+	WHERE public_key = $11
+		AND chain = $12
+		AND session_key = $13
+		AND region = $14
 	RETURNING *`,
 		ch.SessionRegionTableName),
 		region.TotalSuccess,
@@ -277,6 +293,9 @@ func (ch *CherryPickerPostgres) UpdateRegion(ctx context.Context, region *cpicke
 		region.WeightedSuccessLatency,
 		region.AvgSuccessLatency,
 		region.AvgWeightedSuccessLatency,
+		region.P90Latency,
+		region.Attempts,
+		region.SuccessRate,
 		region.Failure,
 		region.PublicKey,
 		region.Chain,
@@ -294,6 +313,9 @@ func (ch *CherryPickerPostgres) UpdateRegion(ctx context.Context, region *cpicke
 		&updatedSessionRegion.WeightedSuccessLatency,
 		&updatedSessionRegion.AvgSuccessLatency,
 		&updatedSessionRegion.AvgWeightedSuccessLatency,
+		&updatedSessionRegion.P90Latency,
+		&updatedSessionRegion.Attempts,
+		&updatedSessionRegion.SuccessRate,
 		&updatedSessionRegion.Failure)
 
 	return &updatedSessionRegion, getCustomError(err)

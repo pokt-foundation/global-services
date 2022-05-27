@@ -24,11 +24,14 @@ CREATE TABLE IF NOT EXISTS cherry_picker_session_region (
   weighted_success_latency REAL [ ],
   avg_success_latency REAL,
   avg_weighted_success_latency REAL,
+  p_90_latency REAL [ ],
+  attempts INT [ ],
+  success_rate REAL [ ],
   failure BOOLEAN,
   PRIMARY KEY(public_key, chain, session_key, region),
   FOREIGN KEY(public_key, chain, session_key) REFERENCES cherry_picker_session(public_key, chain, session_key)
 );
 -- Indexes 
 CREATE INDEX IF NOT EXISTS public_key_idx ON cherry_picker_session (public_key);
-CREATE INDEX IF NOT EXISTS chain_dix ON cherry_picker_session (chain);
+CREATE INDEX IF NOT EXISTS chain_idx ON cherry_picker_session (chain);
 CREATE INDEX IF NOT EXISTS session_height_idx ON cherry_picker_session (session_height);

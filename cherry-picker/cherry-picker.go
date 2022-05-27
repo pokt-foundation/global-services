@@ -27,6 +27,9 @@ type Region struct {
 	TotalFailure              int       `json:"aggregateFailures"`
 	MedianSuccessLatency      []float32 `json:"medianSuccessLatency"`
 	WeightedSuccessLatency    []float32 `json:"weightedSuccessLatency"`
+	P90Latency                []float32 `json:"p90Latency"`
+	SuccessRate               []float32 `json:"successRate"`
+	Attempts                  []int     `json:"attempts"`
 	AvgSuccessLatency         float32   `json:"avgSuccessLatency"`
 	AvgWeightedSuccessLatency float32   `json:"avgWeightedSuccessLatency"`
 	Failure                   bool      `json:"failure"`
@@ -39,7 +42,7 @@ type SessionUpdatePayload struct {
 	SessionKey         string  `json:"sessionKey"`
 	TotalSuccess       int     `json:"totalSuccess"`
 	TotalFailure       int     `json:"totalFailure"`
-	AverageSuccessTime float64 `json:"averageSuccessTime"`
+	AverageSuccessTime float32 `json:"averageSuccessTime"`
 	Failure            bool    `json:"failure"`
 }
 
@@ -51,10 +54,13 @@ type RegionUpdatePayload struct {
 	Region                    string  `json:"region"`
 	TotalSuccess              int     `json:"aggregateSuccesses"`
 	TotalFailure              int     `json:"aggregateFailures"`
+	Attempts                  int     `json:"attempts"`
 	MedianSuccessLatency      float32 `json:"medianSuccessLatency"`
 	WeightedSuccessLatency    float32 `json:"weightedSuccessLatency"`
 	AvgSuccessLatency         float32 `json:"avgSuccessLatency"`
 	AvgWeightedSuccessLatency float32 `json:"avgWeightedSuccessLatency"`
+	P90Latency                float32 `json:"p90Latency"`
+	SuccessRate               float32 `json:"successRate"`
 	Failure                   bool    `json:"failure"`
 }
 
@@ -65,6 +71,11 @@ type ServiceLog struct {
 	WeightedSuccessLatency string         `json:"weightedSuccessLatency"`
 	SessionKey             string         `json:"sessionKey"`
 	SessionHeight          int            `json:"sessionHeight"`
+	Metadata               struct {
+		P90         float32 `json:"p90"`
+		Attempts    int     `json:"attempts"`
+		SuccessRate float32 `json:"successRate"`
+	} `json:"metadata"`
 }
 
 // CherryPickerStore is the interface for all the operations on the cherry picker model
