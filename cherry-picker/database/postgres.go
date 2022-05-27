@@ -277,10 +277,10 @@ func (ch *CherryPickerPostgres) UpdateRegion(ctx context.Context, region *cpicke
 		weighted_success_latency = array_append(weighted_success_latency, $4),
 		avg_success_latency = $5,
 		avg_weighted_success_latency = $6,
-		failure = $7,
-		p_90_latency = array_append(p_90_latency, $8),
-		attempts = array_append(attempts, $9),
-		success_rate = array_append(attempts, $10)
+		p_90_latency = array_append(p_90_latency, $7),
+		attempts = array_append(attempts, $8),
+		success_rate = array_append(success_rate, $9),
+		failure = $10
 	WHERE public_key = $11
 		AND chain = $12
 		AND session_key = $13
@@ -293,10 +293,10 @@ func (ch *CherryPickerPostgres) UpdateRegion(ctx context.Context, region *cpicke
 		region.WeightedSuccessLatency,
 		region.AvgSuccessLatency,
 		region.AvgWeightedSuccessLatency,
-		region.Failure,
 		region.P90Latency,
 		region.Attempts,
 		region.SuccessRate,
+		region.Failure,
 		region.PublicKey,
 		region.Chain,
 		region.SessionKey,

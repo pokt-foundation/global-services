@@ -77,7 +77,7 @@ func (sn *SnapCherryPicker) getServiceLogData(ctx context.Context, cl *cache.Red
 				"chain":         chain,
 				"region":        cl.Name,
 				"rawServiceLog": rawServiceLog,
-			}).Error("error unmarshalling service log:", err.Error())
+			}).Error("error unmarshalling service log: ", err.Error())
 			continue
 		}
 
