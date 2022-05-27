@@ -119,7 +119,7 @@ func (sn *SnapCherryPicker) aggregateRegionData(ctx context.Context, sessionsInS
 					session.Failure = session.Failure || region.Failure
 					avgSuccessTimes = append(avgSuccessTimes, region.MedianSuccessLatency...)
 				}
-				session.AverageSuccessTime = utils.GetSliceAvg(avgSuccessTimes)
+				session.AverageSuccessTime = float32(utils.GetSliceAvg(avgSuccessTimes))
 
 				_, err = st.UpdateSession(ctx, session)
 				if err != nil {
@@ -155,6 +155,9 @@ func (sn *SnapCherryPicker) createOrUpdateRegion(ctx context.Context, regionName
 		WeightedSuccessLatency:    []float32{app.WeightedSuccessLatency},
 		AvgSuccessLatency:         app.MedianSuccessLatency,
 		AvgWeightedSuccessLatency: app.WeightedSuccessLatency,
+		P90Latency:                []float32{app.ServiceLog.Metadata.P90},
+		Attempts:                  []int{app.ServiceLog.Metadata.Attempts},
+		SuccessRate:               []float32{app.ServiceLog.Metadata.SuccessRate},
 		Failure:                   app.Failure,
 	}
 
@@ -180,7 +183,10 @@ func (sn *SnapCherryPicker) createOrUpdateRegion(ctx context.Context, regionName
 				append(storeRegion.MedianSuccessLatency, app.MedianSuccessLatency))),
 			AvgWeightedSuccessLatency: float32(utils.GetSliceAvg(
 				append(storeRegion.WeightedSuccessLatency, app.WeightedSuccessLatency))),
-			Failure: app.Failure || storeRegion.Failure,
+			P90Latency:  app.ServiceLog.Metadata.P90,
+			Attempts:    app.ServiceLog.Metadata.Attempts,
+			SuccessRate: app.ServiceLog.Metadata.SuccessRate,
+			Failure:     app.Failure || storeRegion.Failure,
 		}
 
 		region, err = st.UpdateRegion(ctx, updateRegion)
