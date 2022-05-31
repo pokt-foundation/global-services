@@ -23,8 +23,8 @@ type Region struct {
 	Region                    string    `json:"region"`
 	Address                   string    `json:"address"`
 	SessionHeight             int       `json:"sessionHeight"`
-	TotalSuccess              int       `json:"aggregateSuccesses"`
-	TotalFailure              int       `json:"aggregateFailures"`
+	TotalSuccess              int       `json:"totalSuccess"`
+	TotalFailure              int       `json:"totalFailure"`
 	MedianSuccessLatency      []float32 `json:"medianSuccessLatency"`
 	WeightedSuccessLatency    []float32 `json:"weightedSuccessLatency"`
 	P90Latency                []float32 `json:"p90Latency"`
@@ -52,8 +52,8 @@ type RegionUpdatePayload struct {
 	Chain                     string  `json:"chain"`
 	SessionKey                string  `json:"sessionKey"`
 	Region                    string  `json:"region"`
-	TotalSuccess              int     `json:"aggregateSuccesses"`
-	TotalFailure              int     `json:"aggregateFailures"`
+	TotalSuccess              int     `json:"totalSuccess"`
+	TotalFailure              int     `json:"totalFailure"`
 	Attempts                  int     `json:"attempts"`
 	MedianSuccessLatency      float32 `json:"medianSuccessLatency"`
 	WeightedSuccessLatency    float32 `json:"weightedSuccessLatency"`
