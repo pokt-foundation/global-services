@@ -8,6 +8,7 @@ import (
 	"github.com/Pocket/global-services/shared/cache"
 	logger "github.com/Pocket/global-services/shared/logger"
 	"github.com/Pocket/global-services/shared/utils"
+	"github.com/pkg/errors"
 	poktutils "github.com/pokt-foundation/pocket-go/utils"
 	log "github.com/sirupsen/logrus"
 )
@@ -115,22 +116,22 @@ func (sn *SnapCherryPicker) getServiceLogData(ctx context.Context, cl *cache.Red
 func (sn *SnapCherryPicker) getSuccessAndFailureData(ctx context.Context, cl *cache.Redis) error {
 	successKeys, err := cl.Client.Keys(ctx, "*"+successKey).Result()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "err getting success keys")
 	}
 	failuresKeys, err := cl.Client.Keys(ctx, "*"+failuresKey).Result()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "err getting failures keys")
 	}
 	failureKeys, err := cl.Client.Keys(ctx, "*"+failureKey).Result()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "err getting failure keys")
 	}
 
 	allKeys := append(successKeys, failuresKeys...)
 	allKeys = append(allKeys, failureKeys...)
 	results, err := cl.MGetPipe(ctx, allKeys)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "err getting success/failure values")
 	}
 
 	for idx, rawResult := range results {
