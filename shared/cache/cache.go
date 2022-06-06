@@ -12,6 +12,8 @@ import (
 )
 
 var poolSize = int(environment.GetInt64("CACHE_CONNECTION_POOL_SIZE", 10))
+var readTimeout = time.Duration(int(environment.GetInt64("CACHE_READ_TIMEOUT", 30)) *
+	int(time.Second))
 
 // RedisClientOptions is the struct for the baseOptions of the library client and
 // any additional one for the Redis struct
@@ -30,14 +32,19 @@ type Redis struct {
 
 // NewRedisClient returns a client for a non-cluster instance
 func NewRedisClient(ctx context.Context, options *RedisClientOptions) (*Redis, error) {
-	return connectToRedis(ctx, redis.NewClient(options.BaseOptions), options)
+	return connectToRedis(ctx, redis.NewClient(&redis.Options{
+		ReadTimeout: readTimeout,
+		PoolSize:    poolSize,
+		Addr:        options.BaseOptions.Addr,
+	}), options)
 }
 
 // NewRedisClusterClient returns a client for a cluster instance
 func NewRedisClusterClient(ctx context.Context, options *RedisClientOptions) (*Redis, error) {
 	return connectToRedis(ctx, redis.NewClusterClient(&redis.ClusterOptions{
-		PoolSize: poolSize,
-		Addrs:    []string{options.BaseOptions.Addr},
+		ReadTimeout: readTimeout,
+		PoolSize:    poolSize,
+		Addrs:       []string{options.BaseOptions.Addr},
 	}), options)
 }
 
