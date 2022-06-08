@@ -14,6 +14,16 @@ provider:
           Action:
             - "lambda:InvokeFunction"
           Resource: "*"
+        # Enable this when creating a lambda inside a VPC
+        # - Effect: Allow
+        #   Action:
+        #     - ec2:DescribeNetworkInterfaces
+        #     - ec2:CreateNetworkInterface
+        #     - ec2:DeleteNetworkInterface
+        #     - ec2:DescribeInstances
+        #     - ec2:AttachNetworkInterface
+        #   Resource:
+        #     - "*"
 
 package:
   patterns:
@@ -81,18 +91,29 @@ functions:
     handler: bin/snap-data
     environment: ${file(.env.snap-cherry-picker-data.yml)}
     memorySize: 1256
-    timeout: 120
+    timeout: 360
     maximumRetryAttempts: 2
     events:
       - schedule:
           rate: rate(5 minutes)
           enabled: true
   
+  snap-cherry-picker-data-canary-node-runners:
+    handler: bin/snap-data
+    environment: ${file(.env.snap-cherry-picker-data.node-runners.yml)}
+    memorySize: 1256
+    timeout: 600
+    maximumRetryAttempts: 2
+    events:
+      - schedule:
+          rate: rate(5 minutes)
+          enabled: true
+
   snap-cherry-picker-data-canary:
     handler: bin/snap-data
     environment: ${file(.env.snap-cherry-picker-data.canary.yml)}
-    memorySize: 256
-    timeout: 120
+    memorySize: 1256
+    timeout: 360
 
   flush-cache:
     handler: bin/flush
