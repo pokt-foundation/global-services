@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -37,10 +36,13 @@ func NewPostgresDatabase(ctx context.Context, options *PostgresOptions) (*Postgr
 		return nil, ErrValueOverMax
 	}
 
-	config, err := pgxpool.ParseConfig(fmt.Sprintf("%s?pool_min_conns=%d&pool_max_conns=%d", options.Connection, options.MinPoolSize, options.MaxPoolSize))
+	config, err := pgxpool.ParseConfig(options.Connection)
 	if err != nil {
 		return nil, err
 	}
+
+	config.MinConns = int32(options.MinPoolSize)
+	config.MaxConns = int32(options.MaxPoolSize)
 
 	conn, err := pgxpool.ConnectConfig(ctx, config)
 	if err != nil {
