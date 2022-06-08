@@ -26,8 +26,8 @@ Is the aggregate data of all the regions of a session.
 
 Individual cherry picker data of a session for a single region.
 
-| Field            | Description                                                                                  |
-|------------------|----------------------------------------------------------------------------------------------|
+| Field                        | Description                                                                                                                               |
+|------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
 | public_key                   | Node's public key                                                                                                                         |
 | chain                        | Session's chain                                                                                                                           |
 | session_key                  | Session's key                                                                                                                             |
