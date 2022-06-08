@@ -98,7 +98,7 @@ functions:
           rate: rate(5 minutes)
           enabled: true
   
-  snap-cherry-picker-data-canary-node-runners:
+  snap-cherry-picker-data-node-runners:
     handler: bin/snap-data
     environment: ${file(.env.snap-cherry-picker-data.node-runners.yml)}
     memorySize: 1256
