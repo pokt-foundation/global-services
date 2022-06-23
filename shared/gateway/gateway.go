@@ -21,8 +21,6 @@ var sessionKeyPrefix = environment.GetString("SESSION_KEY_PREFIX", "session-cach
 const versionPath = "/version"
 
 // GetGatewayCommitHash returns the current gateway commit hash
-// TODO: Consumers have badly configured the commithash prefix and right now they
-// don't use any kind of prefix on their cache keys.
 func GetGatewayCommitHash() (string, error) {
 	httpClient := *httpClient.NewClient()
 	res, err := httpClient.Get(gatewayURL+versionPath, nil)
