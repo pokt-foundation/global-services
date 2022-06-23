@@ -42,7 +42,7 @@ func FilterStakedAppsNotOnDB(dbApps []*models.Application, pocket *provider.Prov
 	var stakedApps []provider.GetAppOutput
 	var stakedAppsDB []models.Application
 
-	networkApps, err := pocket.GetApps(0, &provider.GetAppsOptions{
+	networkApps, err := pocket.GetApps(&provider.GetAppsOptions{
 		PerPage: 3000,
 		Page:    1,
 	})
