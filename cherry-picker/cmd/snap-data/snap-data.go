@@ -11,7 +11,6 @@ import (
 	"github.com/Pocket/global-services/shared/database"
 	"github.com/Pocket/global-services/shared/environment"
 	shared "github.com/Pocket/global-services/shared/error"
-	"github.com/Pocket/global-services/shared/gateway"
 	"golang.org/x/exp/slices"
 )
 
@@ -67,12 +66,6 @@ type SnapCherryPicker struct {
 
 // Init initalizes all the needed dependencies for the service
 func (sn *SnapCherryPicker) Init(ctx context.Context) error {
-	hash, err := gateway.GetGatewayCommitHash()
-	if err != nil {
-		return err
-	}
-	sn.CommitHash = hash
-
 	if err := sn.initRegionCaches(ctx); err != nil {
 		return err
 	}
