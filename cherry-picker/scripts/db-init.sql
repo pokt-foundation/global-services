@@ -35,3 +35,8 @@ CREATE TABLE IF NOT EXISTS cherry_picker_session_region (
 CREATE INDEX IF NOT EXISTS public_key_idx ON cherry_picker_session (public_key);
 CREATE INDEX IF NOT EXISTS chain_idx ON cherry_picker_session (chain);
 CREATE INDEX IF NOT EXISTS session_height_idx ON cherry_picker_session (session_height);
+CREATE INDEX IF NOT EXISTS session_key_idx ON cherry_picker_session (session_key);
+CREATE INDEX IF NOT EXISTS public_key_idx ON cherry_picker_session_region (public_key);
+CREATE INDEX IF NOT EXISTS chain_idx ON cherry_picker_session_region (chain);
+CREATE INDEX IF NOT EXISTS session_height_idx ON cherry_picker_session_region (session_height);
+CREATE INDEX IF NOT EXISTS session_key_idx ON cherry_picker_session_region (session_key);
