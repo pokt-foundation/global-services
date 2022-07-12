@@ -57,10 +57,11 @@ type SessionKeys struct {
 
 // SnapCherryPicker is the struct to setup and obtain cherry picker data
 type SnapCherryPicker struct {
-	Regions   map[string]*Region
-	Caches    []*cache.Redis
-	Stores    []cpicker.CherryPickerStore
-	RequestID string
+	Regions    map[string]*Region
+	Caches     []*cache.Redis
+	Stores     []cpicker.CherryPickerStore
+	RequestID  string
+	CommitHash string
 }
 
 // Init initalizes all the needed dependencies for the service
@@ -100,7 +101,7 @@ func (sn *SnapCherryPicker) initRegionCaches(ctx context.Context) error {
 		cacheConns = append(cacheConns, connStr)
 	}
 
-	caches, err := cache.ConnectToCacheClients(ctx, cacheConns, "", isRedisCluster)
+	caches, err := cache.ConnectToCacheClients(ctx, cacheConns, sn.CommitHash, isRedisCluster)
 	if err != nil {
 		return err
 	}
