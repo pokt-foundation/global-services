@@ -273,12 +273,12 @@ func (ac *ApplicationData) getSession(ctx context.Context, publicKey, chain stri
 // a significant amount of relays
 func EraseNodesFailureMark(nodes []string, blockchain, commitHash string, cacheBatch chan *cache.Item) {
 	nodeFailureKey := func(blockchain, commitHash, node string) string {
-		return fmt.Sprintf("%s%s-%s-failure", commitHash, blockchain, node)
+		return fmt.Sprintf("%s{%s}-%s-failure", commitHash, blockchain, node)
 	}
 	for _, node := range nodes {
 		cacheBatch <- &cache.Item{
 			Key:   nodeFailureKey(blockchain, commitHash, node),
-			Value: node,
+			Value: false,
 			TTL:   1 * time.Hour,
 		}
 	}
