@@ -5,11 +5,11 @@ CREATE TABLE IF NOT EXISTS cherry_picker_session (
   session_key CHAR(44),
   session_height INT,
   address CHAR(40),
-  application_public_key CHAR(64),
   total_success INT,
   total_failure INT,
   avg_success_time REAL,
   failure BOOLEAN,
+  application_public_key CHAR(64),
   PRIMARY KEY(public_key, chain, session_key)
 );
 CREATE TABLE IF NOT EXISTS cherry_picker_session_region (
@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS cherry_picker_session_region (
   session_height INT,
   region VARCHAR(20),
   address CHAR(40),
-  application_public_key CHAR(64),
   total_success INT,
   total_failure INT,
   median_success_latency REAL [ ],
@@ -30,6 +29,7 @@ CREATE TABLE IF NOT EXISTS cherry_picker_session_region (
   attempts INT [ ],
   success_rate REAL [ ],
   failure BOOLEAN,
+  application_public_key CHAR(64),
   PRIMARY KEY(public_key, chain, session_key, region),
   FOREIGN KEY(public_key, chain, session_key) REFERENCES cherry_picker_session(public_key, chain, session_key)
 );

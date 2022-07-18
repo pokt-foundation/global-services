@@ -72,11 +72,11 @@ func (ch *CherryPickerPostgres) GetSession(ctx context.Context, publicKey, chain
 		&session.SessionKey,
 		&session.SessionHeight,
 		&session.Address,
-		&session.ApplicationPublicKey,
 		&session.TotalSuccess,
 		&session.TotalFailure,
 		&session.AverageSuccessTime,
-		&session.Failure)
+		&session.Failure,
+		&session.ApplicationPublicKey)
 	if err != nil {
 		return nil, getCustomError(err)
 	}
@@ -99,13 +99,13 @@ func (ch *CherryPickerPostgres) CreateSession(ctx context.Context, session *cpic
 		avg_success_time,
 		failure
 		)
-	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, ch.SessionTableName),
+	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, $10)`, ch.SessionTableName),
 		session.PublicKey,
 		session.Chain,
 		session.SessionKey,
 		session.SessionHeight,
 		session.Address,
-		&session.ApplicationPublicKey,
+		session.ApplicationPublicKey,
 		session.TotalSuccess,
 		session.TotalFailure,
 		session.AverageSuccessTime,
@@ -144,7 +144,9 @@ func (ch *CherryPickerPostgres) UpdateSession(ctx context.Context, session *cpic
 		&updatedSession.TotalSuccess,
 		&updatedSession.TotalFailure,
 		&updatedSession.AverageSuccessTime,
-		&updatedSession.Failure)
+		&updatedSession.Failure,
+		&updatedSession.ApplicationPublicKey,
+	)
 
 	return &updatedSession, getCustomError(err)
 }
@@ -173,7 +175,6 @@ func (ch *CherryPickerPostgres) GetSessionRegions(ctx context.Context, publicKey
 			&region.SessionHeight,
 			&region.Region,
 			&region.Address,
-			&region.ApplicationPublicKey,
 			&region.TotalSuccess,
 			&region.TotalFailure,
 			&region.MedianSuccessLatency,
@@ -183,7 +184,9 @@ func (ch *CherryPickerPostgres) GetSessionRegions(ctx context.Context, publicKey
 			&region.P90Latency,
 			&region.Attempts,
 			&region.SuccessRate,
-			&region.Failure); err != nil {
+			&region.Failure,
+			&region.ApplicationPublicKey,
+		); err != nil {
 			return nil, err
 		}
 		regions = append(regions, &region)
@@ -209,7 +212,6 @@ func (ch *CherryPickerPostgres) GetRegion(ctx context.Context, publicKey, chain,
 		&sessionRegion.SessionHeight,
 		&sessionRegion.Region,
 		&sessionRegion.Address,
-		&sessionRegion.ApplicationPublicKey,
 		&sessionRegion.TotalSuccess,
 		&sessionRegion.TotalFailure,
 		&sessionRegion.MedianSuccessLatency,
@@ -219,7 +221,8 @@ func (ch *CherryPickerPostgres) GetRegion(ctx context.Context, publicKey, chain,
 		&sessionRegion.P90Latency,
 		&sessionRegion.Attempts,
 		&sessionRegion.SuccessRate,
-		&sessionRegion.Failure)
+		&sessionRegion.Failure,
+		&sessionRegion.ApplicationPublicKey)
 	if err != nil {
 		return nil, getCustomError(err)
 	}
@@ -249,7 +252,7 @@ func (ch *CherryPickerPostgres) CreateRegion(ctx context.Context, region *cpicke
 		success_rate,
 		failure
 		)
-	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, $10, $11, $12, $13, $14, $15, $16)`,
+	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, $10, $11, $12, $13, $14, $15, $16, $17)`,
 		ch.SessionRegionTableName),
 		region.PublicKey,
 		region.Chain,
@@ -257,7 +260,7 @@ func (ch *CherryPickerPostgres) CreateRegion(ctx context.Context, region *cpicke
 		region.Region,
 		region.SessionHeight,
 		region.Address,
-		&region.ApplicationPublicKey,
+		region.ApplicationPublicKey,
 		region.TotalSuccess,
 		region.TotalFailure,
 		region.MedianSuccessLatency,
@@ -323,7 +326,9 @@ func (ch *CherryPickerPostgres) UpdateRegion(ctx context.Context, region *cpicke
 		&updatedSessionRegion.P90Latency,
 		&updatedSessionRegion.Attempts,
 		&updatedSessionRegion.SuccessRate,
-		&updatedSessionRegion.Failure)
+		&updatedSessionRegion.Failure,
+		&updatedSessionRegion.ApplicationPublicKey,
+	)
 
 	return &updatedSessionRegion, getCustomError(err)
 }
