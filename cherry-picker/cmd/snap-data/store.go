@@ -147,6 +147,7 @@ func (sn *SnapCherryPicker) createOrUpdateRegion(ctx context.Context, regionName
 		Chain:                     app.Chain,
 		SessionKey:                app.ServiceLog.SessionKey,
 		Address:                   app.Address,
+		ApplicationPublicKey:      app.ServiceLog.Metadata.ApplicationPublicKey,
 		Region:                    regionName,
 		SessionHeight:             app.ServiceLog.SessionHeight,
 		TotalSuccess:              app.Successes,
@@ -201,11 +202,12 @@ func (sn *SnapCherryPicker) createSessionIfDoesntExist(ctx context.Context, app 
 		_, err := st.GetSession(ctx, app.PublicKey, app.Chain, app.ServiceLog.SessionKey)
 		if err == database.ErrNotFound {
 			return st.CreateSession(ctx, &cpicker.Session{
-				PublicKey:     app.PublicKey,
-				Chain:         app.Chain,
-				SessionKey:    app.ServiceLog.SessionKey,
-				SessionHeight: app.ServiceLog.SessionHeight,
-				Address:       app.Address,
+				PublicKey:            app.PublicKey,
+				Chain:                app.Chain,
+				SessionKey:           app.ServiceLog.SessionKey,
+				SessionHeight:        app.ServiceLog.SessionHeight,
+				Address:              app.Address,
+				ApplicationPublicKey: app.ServiceLog.Metadata.ApplicationPublicKey,
 			})
 		}
 		return err

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS cherry_picker_session (
   total_failure INT,
   avg_success_time REAL,
   failure BOOLEAN,
+  application_public_key CHAR(64),
   PRIMARY KEY(public_key, chain, session_key)
 );
 CREATE TABLE IF NOT EXISTS cherry_picker_session_region (
@@ -28,6 +29,7 @@ CREATE TABLE IF NOT EXISTS cherry_picker_session_region (
   attempts INT [ ],
   success_rate REAL [ ],
   failure BOOLEAN,
+  application_public_key CHAR(64),
   PRIMARY KEY(public_key, chain, session_key, region),
   FOREIGN KEY(public_key, chain, session_key) REFERENCES cherry_picker_session(public_key, chain, session_key)
 );
@@ -36,7 +38,9 @@ CREATE INDEX IF NOT EXISTS public_key_idx ON cherry_picker_session (public_key);
 CREATE INDEX IF NOT EXISTS chain_idx ON cherry_picker_session (chain);
 CREATE INDEX IF NOT EXISTS session_height_idx ON cherry_picker_session (session_height);
 CREATE INDEX IF NOT EXISTS session_key_idx ON cherry_picker_session (session_key);
+CREATE INDEX IF NOT EXISTS app_public_key_idx on cherry_picker_session (application_public_key);
 CREATE INDEX IF NOT EXISTS public_key_idx ON cherry_picker_session_region (public_key);
 CREATE INDEX IF NOT EXISTS chain_idx ON cherry_picker_session_region (chain);
 CREATE INDEX IF NOT EXISTS session_height_idx ON cherry_picker_session_region (session_height);
 CREATE INDEX IF NOT EXISTS session_key_idx ON cherry_picker_session_region (session_key);
+CREATE INDEX IF NOT EXISTS app_public_key_idx on cherry_picker_session_region (application_public_key);
