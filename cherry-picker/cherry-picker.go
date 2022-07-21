@@ -4,15 +4,16 @@ import "context"
 
 // Session model of the aggregated data of cherry picker of all regions
 type Session struct {
-	PublicKey          string  `json:"publicKey"`
-	Chain              string  `json:"chain"`
-	SessionKey         string  `json:"sessionKey"`
-	Address            string  `json:"address"`
-	SessionHeight      int     `json:"sessionHeight"`
-	TotalSuccess       int     `json:"totalSuccess"`
-	TotalFailure       int     `json:"totalFailure"`
-	AverageSuccessTime float64 `json:"averageSuccessTime"`
-	Failure            bool    `json:"failure"`
+	PublicKey            string  `json:"publicKey"`
+	Chain                string  `json:"chain"`
+	SessionKey           string  `json:"sessionKey"`
+	Address              string  `json:"address"`
+	ApplicationPublicKey string  `json:"applicationPublicKey"`
+	SessionHeight        int     `json:"sessionHeight"`
+	TotalSuccess         int     `json:"totalSuccess"`
+	TotalFailure         int     `json:"totalFailure"`
+	AverageSuccessTime   float64 `json:"averageSuccessTime"`
+	Failure              bool    `json:"failure"`
 }
 
 // Region model of data of cherry picker for a single region
@@ -22,6 +23,7 @@ type Region struct {
 	SessionKey                string    `json:"sessionKey"`
 	Region                    string    `json:"region"`
 	Address                   string    `json:"address"`
+	ApplicationPublicKey      string    `json:"applicationPublicKey"`
 	SessionHeight             int       `json:"sessionHeight"`
 	TotalSuccess              int       `json:"totalSuccess"`
 	TotalFailure              int       `json:"totalFailure"`
@@ -72,9 +74,10 @@ type ServiceLog struct {
 	SessionKey             string         `json:"sessionKey"`
 	SessionHeight          int            `json:"sessionHeight"`
 	Metadata               struct {
-		P90         float32 `json:"p90"`
-		Attempts    int     `json:"attempts"`
-		SuccessRate float32 `json:"successRate"`
+		P90                  float32 `json:"p90"`
+		Attempts             int     `json:"attempts"`
+		SuccessRate          float32 `json:"successRate"`
+		ApplicationPublicKey string  `json:"applicationPublicKey"`
 	} `json:"metadata"`
 }
 
