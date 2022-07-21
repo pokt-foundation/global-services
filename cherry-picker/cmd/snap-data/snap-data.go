@@ -111,6 +111,11 @@ func (sn *SnapCherryPicker) initRegionCaches(ctx context.Context) error {
 			return ch.Addrs()[0] == connStr
 		})
 
+		// ConnectToCacheClients function already logs the error
+		if idx < 0 {
+			continue
+		}
+
 		ch := caches[idx]
 		ch.Name = region
 		sn.Regions[region] = &Region{
