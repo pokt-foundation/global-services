@@ -20,7 +20,7 @@ func ParseIntegerFromPayload(r io.Reader, key string) (int64, error) {
 		return 0, errors.New("error decoding payload: " + err.Error())
 	}
 
-	value, err := nestedMapLookup(res, key)
+	value, err := NestedMapLookup(res, key)
 	if err != nil {
 		return 0, err
 	}
@@ -56,7 +56,7 @@ func ParseIntegerJSONString(r string, key string) (int64, error) {
 		return 0, errors.New("error decoding payload: " + err.Error())
 	}
 
-	value, err := nestedMapLookup(res, key)
+	value, err := NestedMapLookup(res, key)
 	if err != nil {
 		return 0, err
 	}
@@ -80,9 +80,9 @@ func ParseIntegerJSONString(r string, key string) (int64, error) {
 	return valueDecimal, nil
 }
 
-// nestedMapLookup returns the value of a map with an arbitrary number of nested
+// NestedMapLookup returns the value of a map with an arbitrary number of nested
 // fields. Keys must be given in the form: "key1.nestedKey1.nestedKey2"
-func nestedMapLookup(m map[string]any, keys string) (any, error) {
+func NestedMapLookup(m map[string]any, keys string) (any, error) {
 	ks := strings.Split(keys, ".")
 	if len(ks) == 0 {
 		return nil, fmt.Errorf("no keys given to find on map")
@@ -100,5 +100,5 @@ func nestedMapLookup(m map[string]any, keys string) (any, error) {
 		return nil, fmt.Errorf("nested key is not of type map[string]any")
 	}
 
-	return nestedMapLookup(nestedMap, strings.Join(ks[1:], "."))
+	return NestedMapLookup(nestedMap, strings.Join(ks[1:], "."))
 }
