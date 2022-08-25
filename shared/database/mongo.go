@@ -56,7 +56,7 @@ func (m *Mongo) GetSettlersApplications(ctx context.Context) ([]*models.Applicat
 }
 
 // GetAppsFromList takes a list of app ids and returns the collections of these.
-func (m *Mongo) GetAppsFromList(appIDs []string, ctx context.Context) ([]*models.Application, error) {
+func (m *Mongo) GetAppsFromList(ctx context.Context, appIDs []string) ([]*models.Application, error) {
 	var applicationIDs []*primitive.ObjectID
 	for _, appID := range appIDs {
 		objectID, err := primitive.ObjectIDFromHex(appID)
@@ -95,7 +95,7 @@ func (m *Mongo) GetGigastakedApplications(ctx context.Context) ([]*models.Applic
 		applicationIDs = append(applicationIDs, lb.ApplicationIDs...)
 	}
 
-	return m.GetAppsFromList(applicationIDs, ctx)
+	return m.GetAppsFromList(ctx, applicationIDs)
 }
 
 // GetBlockchains returns the blockchains on the db

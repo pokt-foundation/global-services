@@ -44,5 +44,5 @@ type ApplicationStore interface {
 	GetStakedApplications(ctx context.Context) ([]*Application, error)
 	GetGigastakedApplications(ctx context.Context) ([]*Application, error)
 	GetSettlersApplications(ctx context.Context) ([]*Application, error)
-	GetAppsFromList(appIDs []string, ctx context.Context) ([]*Application, error)
+	GetAppsFromList(ctx context.Context, appIDs []string) ([]*Application, error)
 }

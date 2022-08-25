@@ -35,7 +35,7 @@ func GetApplicationsFromDB(ctx context.Context, store models.ApplicationStore, p
 	// Some apps do not belong to either a gigastake or settle but still need to perform chekcs on
 	singleApps := []*models.Application{}
 	if len(apps) > 0 {
-		singleApps, err = store.GetAppsFromList(apps, ctx)
+		singleApps, err = store.GetAppsFromList(ctx, apps)
 		if err != nil {
 			return nil, nil, err
 		}
