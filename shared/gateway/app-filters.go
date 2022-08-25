@@ -18,8 +18,8 @@ func GetStakedApplicationsOnDB(ctx context.Context, gigastaked bool, store model
 	return FilterStakedAppsNotOnDB(databaseApps, pocket)
 }
 
-// GetGigastakedApplicationsOnDB returns applications that belong to a load balancer marked as 'gigastake'
-func GetGigastakedApplicationsOnDB(ctx context.Context, store models.ApplicationStore, pocket *provider.Provider) ([]provider.GetAppOutput, []models.Application, error) {
+// GetApplicationsFromDB returns all the needed applications to perform checks on
+func GetApplicationsFromDB(ctx context.Context, store models.ApplicationStore, pocket *provider.Provider, apps []string) ([]provider.GetAppOutput, []models.Application, error) {
 	databaseApps, err := store.GetGigastakedApplications(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -32,7 +32,17 @@ func GetGigastakedApplicationsOnDB(ctx context.Context, store models.Application
 		return nil, nil, err
 	}
 
+	// Some apps do not belong to either a gigastake or settle but still need to perform chekcs on
+	singleApps := []*models.Application{}
+	if len(apps) > 0 {
+		singleApps, err = store.GetAppsFromList(ctx, apps)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
 	databaseApps = append(databaseApps, settlers...)
+	databaseApps = append(databaseApps, singleApps...)
 
 	return FilterStakedAppsNotOnDB(databaseApps, pocket)
 }

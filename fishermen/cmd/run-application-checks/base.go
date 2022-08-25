@@ -47,6 +47,7 @@ var (
 	maxMetricsPoolSize     = environment.GetInt64("MAX_METRICS_POOL_SIZE", 20)
 	defaultTimeOut         = environment.GetInt64("DEFAULT_TIMEOUT", 8)
 	cacheBatchSize         = environment.GetInt64("CACHE_BATCH_SIZE", 50)
+	singleApps             = strings.Split(environment.GetString("SINGLE_APPS", ""), ",")
 
 	caches          []*cache.Redis
 	metricsRecorder *metrics.Recorder
@@ -124,7 +125,7 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 		return err
 	}
 
-	ntApps, dbApps, err := gateway.GetGigastakedApplicationsOnDB(ctx, db, rpcProvider)
+	ntApps, dbApps, err := gateway.GetApplicationsFromDB(ctx, db, rpcProvider, singleApps)
 	if err != nil {
 		return errors.New("error obtaining staked apps on db: " + err.Error())
 	}

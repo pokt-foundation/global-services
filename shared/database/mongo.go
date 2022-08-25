@@ -55,6 +55,28 @@ func (m *Mongo) GetSettlersApplications(ctx context.Context) ([]*models.Applicat
 	})
 }
 
+// GetAppsFromList takes a list of app ids and returns the collections of these.
+func (m *Mongo) GetAppsFromList(ctx context.Context, appIDs []string) ([]*models.Application, error) {
+	var applicationIDs []*primitive.ObjectID
+	for _, appID := range appIDs {
+		objectID, err := primitive.ObjectIDFromHex(appID)
+		if err != nil {
+			logger.Log.WithFields(logrus.Fields{
+				"typeID": appID,
+				"error":  err.Error(),
+			}).Warn("error converting from string to Object id: " + err.Error())
+		}
+		applicationIDs = append(applicationIDs, &objectID)
+	}
+
+	return filterCollection[models.Application](ctx, *m.client, m.Database, "Applications", bson.D{
+		{
+			Key:   "_id",
+			Value: bson.M{"$in": applicationIDs},
+		},
+	})
+}
+
 // GetGigastakedApplications returns the applications that belong to a
 // gigastake load balancer
 func (m *Mongo) GetGigastakedApplications(ctx context.Context) ([]*models.Application, error) {
@@ -68,26 +90,12 @@ func (m *Mongo) GetGigastakedApplications(ctx context.Context) ([]*models.Applic
 		return nil, err
 	}
 
-	var applicationIDs []*primitive.ObjectID
+	var applicationIDs []string
 	for _, lb := range loadBalancers {
-		for _, appID := range lb.ApplicationIDs {
-			objectID, err := primitive.ObjectIDFromHex(appID)
-			if err != nil {
-				logger.Log.WithFields(logrus.Fields{
-					"typeID": appID,
-					"error":  err.Error(),
-				}).Warn("error converting from string to Object id: " + err.Error())
-			}
-			applicationIDs = append(applicationIDs, &objectID)
-		}
+		applicationIDs = append(applicationIDs, lb.ApplicationIDs...)
 	}
 
-	return filterCollection[models.Application](ctx, *m.client, m.Database, "Applications", bson.D{
-		{
-			Key:   "_id",
-			Value: bson.M{"$in": applicationIDs},
-		},
-	})
+	return m.GetAppsFromList(ctx, applicationIDs)
 }
 
 // GetBlockchains returns the blockchains on the db
