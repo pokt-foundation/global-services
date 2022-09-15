@@ -76,8 +76,6 @@ type nodeMergeLog struct {
 
 func (mc *MergeChecker) Check(ctx context.Context, options MergeCheckOptions) []string {
 	mergedNodes := []string{}
-	// if (nodeDifficulty === TERMINAL_TOTAL_DIFFICULTY && nodeBlockNumber > MERGE_BLOCK_NUMBER) {
-
 	nodeLogs := mc.getNodeMergeLogs(ctx, &options)
 
 	for _, node := range nodeLogs {
