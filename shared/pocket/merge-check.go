@@ -174,5 +174,4 @@ func (mc *MergeChecker) getNodeMergeLog(ctx context.Context, node *provider.Node
 		Difficulty:  relayResult.Result.Difficulty,
 		BlockNumber: blockNumber,
 	}
-
 }
