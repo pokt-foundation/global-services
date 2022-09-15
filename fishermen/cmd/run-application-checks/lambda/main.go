@@ -138,6 +138,19 @@ func performChecks(apps map[string]applicationData, ctx aws.Context, requestID s
 		}
 	}
 
+	for publicKey, nodes := range nodeSet.MergeCheckNodes {
+		options := apps[publicKey].config
+
+		if err = base.CacheNodes(nodes, options.Ac.CacheBatch, options.MergeCheckKey, options.CacheTTL); err != nil {
+			logger.Log.WithFields(log.Fields{
+				"error":        err.Error(),
+				"requestID":    options.Ac.RequestID,
+				"blockchainID": options.Blockchain.ID,
+				"sessionKey":   options.Session.Key,
+			}).Error("perform checks: error caching merge check nodes: " + err.Error())
+		}
+	}
+
 	for publicKey, nodes := range nodeSet.SyncCheckedNodes {
 		options := apps[publicKey].config
 

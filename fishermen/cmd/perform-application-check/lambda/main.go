@@ -37,7 +37,7 @@ const (
 )
 
 func lambdaHandler(ctx context.Context, payload []models.Payload) (events.APIGatewayProxyResponse, error) {
-	syncChecks, chainChecks, err := performApplicationChecks(ctx, payload, payload[0].RequestID)
+	syncChecks, chainChecks, mergeChecks, err := performApplicationChecks(ctx, payload, payload[0].RequestID)
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
 			"error":     err.Error(),
@@ -49,13 +49,15 @@ func lambdaHandler(ctx context.Context, payload []models.Payload) (events.APIGat
 	return *apigateway.NewJSONResponse(http.StatusOK, models.Response{
 		SyncCheckedNodes:  syncChecks,
 		ChainCheckedNodes: chainChecks,
+		MergeCheckNodes:   mergeChecks,
 	}), err
 }
 
 func performApplicationChecks(ctx context.Context, payload []models.Payload, requestID string) (
-	syncChecks map[string][]string, chainChecks map[string][]string, err error) {
+	syncChecks map[string][]string, chainChecks map[string][]string, mergeChecks map[string][]string, err error) {
 	syncChecks = make(map[string][]string)
 	chainChecks = make(map[string][]string)
+	mergeChecks = make(map[string][]string)
 
 	metricsRecorder, err := metrics.NewMetricsRecorder(ctx, &database.PostgresOptions{
 		Connection:  metricsConnection,
@@ -79,7 +81,7 @@ func performApplicationChecks(ctx context.Context, payload []models.Payload, req
 		wg.Add(1)
 		go func(idx int, app models.Payload) {
 			defer wg.Done()
-			syncCheck, chainCheck, err := doPerformApplicationChecks(ctx, &app, metricsRecorder, relayer, requestID)
+			syncCheck, chainCheck, mergeCheck := doPerformApplicationChecks(ctx, &app, metricsRecorder, relayer, requestID)
 			if err != nil {
 				logger.Log.WithFields(log.Fields{
 					"error":        err.Error(),
@@ -90,6 +92,7 @@ func performApplicationChecks(ctx context.Context, payload []models.Payload, req
 			}
 			syncChecks[app.Session.Header.AppPublicKey] = syncCheck
 			chainChecks[app.Session.Header.AppPublicKey] = chainCheck
+			mergeChecks[app.Session.Header.AppPublicKey] = mergeCheck
 		}(index, application)
 	}
 	wg.Wait()
@@ -97,7 +100,7 @@ func performApplicationChecks(ctx context.Context, payload []models.Payload, req
 	return
 }
 
-func doPerformApplicationChecks(ctx context.Context, payload *models.Payload, metricsRecorder *metrics.Recorder, pocketRelayer *relayer.Relayer, requestID string) ([]string, []string, error) {
+func doPerformApplicationChecks(ctx context.Context, payload *models.Payload, metricsRecorder *metrics.Recorder, pocketRelayer *relayer.Relayer, requestID string) ([]string, []string, []string) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	syncCheckNodes := []string{}
@@ -152,7 +155,29 @@ func doPerformApplicationChecks(ctx context.Context, payload *models.Payload, me
 
 	wg.Wait()
 
-	return syncCheckNodes, chainCheckNodes, nil
+	wg.Add(1)
+	mergedNodes := []string{}
+	go func() {
+		defer wg.Done()
+		if payload.Blockchain.ChainID != "0021" {
+			return
+		}
+
+		mergeChecker := &pocket.MergeChecker{
+			Relayer:         pocketRelayer,
+			MetricsRecorder: metricsRecorder,
+			RequestID:       requestID,
+		}
+		mergedNodes = mergeChecker.Check(ctx, pocket.MergeCheckOptions{
+			Session:    payload.Session,
+			PocketAAT:  payload.AAT,
+			Blockchain: payload.Blockchain.ID,
+			ChainID:    payload.Blockchain.ChainID,
+			Path:       payload.Blockchain.Path,
+		})
+	}()
+
+	return syncCheckNodes, chainCheckNodes, mergedNodes
 }
 
 func main() {
