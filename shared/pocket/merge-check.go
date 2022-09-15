@@ -69,9 +69,9 @@ type MergeCheckOptions struct {
 }
 
 type nodeMergeLog struct {
-	Node        *provider.Node
-	Difficulty  string
-	BlockNumber int64
+	Node            *provider.Node
+	TotalDifficulty string
+	BlockNumber     int64
 }
 
 func (mc *MergeChecker) Check(ctx context.Context, options MergeCheckOptions) []string {
@@ -90,12 +90,12 @@ func (mc *MergeChecker) Check(ctx context.Context, options MergeCheckOptions) []
 			"appplicationPublicKey": options.Session.Header.AppPublicKey,
 		}
 
-		if node.Difficulty != terminalTotalDifficulty || node.BlockNumber < mergeBlockNumber {
-			logger.Log.WithFields(logData).Warn(fmt.Sprintf("MERGE CHECK FAILURE: %s difficulty: %s block number: %d", publicKey, node.Difficulty, node.BlockNumber))
+		if node.TotalDifficulty != terminalTotalDifficulty || node.BlockNumber < mergeBlockNumber {
+			logger.Log.WithFields(logData).Warn(fmt.Sprintf("MERGE CHECK FAILURE: %s difficulty: %s block number: %d", publicKey, node.TotalDifficulty, node.BlockNumber))
 			continue
 		}
 
-		logger.Log.WithFields(logData).Info(fmt.Sprintf("MERGE CHECK SUCCES: %s difficulty: %s block number: %d", publicKey, node.Difficulty, node.BlockNumber))
+		logger.Log.WithFields(logData).Info(fmt.Sprintf("MERGE CHECK SUCCES: %s difficulty: %s block number: %d", publicKey, node.TotalDifficulty, node.BlockNumber))
 
 		mergedNodes = append(mergedNodes, publicKey)
 	}
@@ -168,8 +168,8 @@ func (mc *MergeChecker) getNodeMergeLog(ctx context.Context, node *provider.Node
 	}
 
 	nodeLogs <- &nodeMergeLog{
-		Node:        node,
-		Difficulty:  relayResult.Result.Difficulty,
-		BlockNumber: blockNumber,
+		Node:            node,
+		TotalDifficulty: relayResult.Result.TotalDifficulty,
+		BlockNumber:     blockNumber,
 	}
 }
