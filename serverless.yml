@@ -5,7 +5,7 @@ provider:
   name: aws
   runtime: go1.x
   region: us-west-2
-  vpc: ${file(.env.global.yml):vpc}
+  # vpc: ${file(.env.global.yml):vpc}
 
   iam:
     role:
@@ -15,15 +15,15 @@ provider:
             - "lambda:InvokeFunction"
           Resource: "*"
         # Enable this when creating a lambda inside a VPC
-        # - Effect: Allow
-        #   Action:
-        #     - ec2:DescribeNetworkInterfaces
-        #     - ec2:CreateNetworkInterface
-        #     - ec2:DeleteNetworkInterface
-        #     - ec2:DescribeInstances
-        #     - ec2:AttachNetworkInterface
-        #   Resource:
-        #     - "*"
+        - Effect: Allow
+          Action:
+            - ec2:DescribeNetworkInterfaces
+            - ec2:CreateNetworkInterface
+            - ec2:DeleteNetworkInterface
+            - ec2:DescribeInstances
+            - ec2:AttachNetworkInterface
+          Resource:
+            - "*"
 
 package:
   patterns:
@@ -120,3 +120,10 @@ functions:
     environment: ${file(.env.flush-cache.yml)}
     memorySize: 128
     timeout: 20
+
+  migrate-postgres-to-mongo:
+    vpc: ~
+    handler: bin/migrate-postgres-to-mongo
+    environment: ${file(.env.migrate-postgres-to-mongo.yml)}
+    memorySize: 1256
+    timeout: 360
