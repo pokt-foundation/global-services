@@ -42,6 +42,14 @@ func (m *Mongo) GetStakedApplications(ctx context.Context) ([]*models.Applicatio
 	})
 }
 
+func (m *Mongo) GetApplications(ctx context.Context) ([]*models.Application, error) {
+	return filterCollection[models.Application](ctx, *m.client, m.Database, "Applications", bson.D{})
+}
+
+func (m *Mongo) GetLoadBalancers(ctx context.Context) ([]*models.LoadBalancer, error) {
+	return filterCollection[models.LoadBalancer](ctx, *m.client, m.Database, "LoadBalancers", bson.D{})
+}
+
 // GetSettlersApplications returns only the applications marked as 'Settlers'
 func (m *Mongo) GetSettlersApplications(ctx context.Context) ([]*models.Application, error) {
 	return filterCollection[models.Application](ctx, *m.client, m.Database, "Applications", bson.D{

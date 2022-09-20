@@ -1,5 +1,7 @@
 package models
 
+import "context"
+
 // LoadBalancer is the schema of the Load Balancer data
 type LoadBalancer struct {
 	ID                string   `json:"_id"`
@@ -14,4 +16,8 @@ type LoadBalancer struct {
 		StickyOrigins  []string `json:"stickyOrigins"`
 	} `json:"stickinessOptions"`
 	Gigastake bool `json:"gigastake"`
+}
+
+type LoadBalancerStore interface {
+	GetLoadBalancers(ctx context.Context) ([]*LoadBalancer, error)
 }
