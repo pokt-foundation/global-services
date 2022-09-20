@@ -1,21 +1,24 @@
 package models
 
-import "context"
+import (
+	"context"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
 
 // LoadBalancer is the schema of the Load Balancer data
 type LoadBalancer struct {
-	ID                string   `json:"_id"`
-	Name              string   `json:"name"`
-	ApplicationIDs    []string `json:"applicationIDs"`
+	ID                primitive.ObjectID `json:"_id" bson:"_id"`
+	Name              string             `json:"name" bson:"name"`
+	ApplicationIDs    []string           `json:"applicationIDs" bson:"applicationIDs"`
 	StickinessOptions struct {
-		Stickiness     bool     `json:"stickiness"`
-		Duration       int      `json:"duration"`
-		UseRPCID       bool     `json:"useRPCID"`
-		RelaysLimit    int      `json:"relaysLimit"`
-		StickinessTemp bool     `json:"stickinessTemp"`
-		StickyOrigins  []string `json:"stickyOrigins"`
-	} `json:"stickinessOptions"`
-	Gigastake bool `json:"gigastake"`
+		Stickiness    bool     `json:"stickiness" bson:"stickiness"`
+		Duration      any      `json:"duration" bson:"duration"`
+		UseRPCID      bool     `json:"useRPCID" bson:"useRPCID"`
+		RelaysLimit   int      `json:"relaysLimit" bson:"relaysLimit"`
+		StickyOrigins []string `json:"stickyOrigins" bson:"stickyOrigins"`
+	} `json:"stickinessOptions" bson:"stickinessOptions"`
+	Gigastake bool `json:"gigastake" bson:"stickyOrigins"`
 }
 
 type LoadBalancerStore interface {

@@ -6,7 +6,7 @@ import (
 
 // Blockchain is the schema of the Blockchain data
 type Blockchain struct {
-	ID                string           `bson:"_id"`
+	ID                string           `json:"_id"`
 	Ticker            string           `json:"ticker"`
 	ChainID           string           `json:"chainID"`
 	Network           string           `json:"network"`
