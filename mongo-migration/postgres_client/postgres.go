@@ -1,4 +1,4 @@
-package postgresclient
+package postgresgateway
 
 import (
 	"encoding/json"
@@ -16,14 +16,14 @@ const (
 	GetAllLoadBalancers GatewayPostgresRoutes = "/load_balancer"
 )
 
-type GatewayPostgres struct {
+type Client struct {
 	client              *http.Client
 	url                 string
 	authenticationToken string
 }
 
-func NewPostgresClient(url, authenticationToken string) *GatewayPostgres {
-	return &GatewayPostgres{
+func NewPostgresClient(url, authenticationToken string) *Client {
+	return &Client{
 		client: &http.Client{
 			Timeout: 20 * time.Second,
 		},
@@ -32,20 +32,20 @@ func NewPostgresClient(url, authenticationToken string) *GatewayPostgres {
 	}
 }
 
-func (gp *GatewayPostgres) GetAllLoadBalancers() ([]repository.LoadBalancer, error) {
+func (gp *Client) GetAllLoadBalancers() ([]*repository.LoadBalancer, error) {
 	return getAllItems[repository.LoadBalancer](gp.url+string(GetAllLoadBalancers), gp.client, gp.authenticationToken)
 }
 
-func (gp *GatewayPostgres) GetAllApplications() ([]repository.Application, error) {
+func (gp *Client) GetAllApplications() ([]*repository.Application, error) {
 	return getAllItems[repository.Application](gp.url+string(GetAllApplications), gp.client, gp.authenticationToken)
 }
 
-func (gp *GatewayPostgres) GetAllBlockchains() ([]repository.Blockchain, error) {
+func (gp *Client) GetAllBlockchains() ([]*repository.Blockchain, error) {
 	return getAllItems[repository.Blockchain](gp.url+string(GetAllBlockchains), gp.client, gp.authenticationToken)
 }
 
-func getAllItems[T any](path string, client *http.Client, authToken string) ([]T, error) {
-	var items []T
+func getAllItems[T any](path string, client *http.Client, authToken string) ([]*T, error) {
+	var items []*T
 
 	req, err := http.NewRequest(http.MethodGet, path, nil)
 	if err != nil {
