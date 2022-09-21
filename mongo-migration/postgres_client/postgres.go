@@ -32,16 +32,16 @@ func NewPostgresClient(url, authenticationToken string) *Client {
 	}
 }
 
-func (gp *Client) GetAllLoadBalancers() ([]*repository.LoadBalancer, error) {
-	return getAllItems[repository.LoadBalancer](gp.url+string(GetAllLoadBalancers), gp.client, gp.authenticationToken)
+func (cl *Client) GetAllLoadBalancers() ([]*repository.LoadBalancer, error) {
+	return getAllItems[repository.LoadBalancer](cl.url+string(GetAllLoadBalancers), cl.client, cl.authenticationToken)
 }
 
-func (gp *Client) GetAllApplications() ([]*repository.Application, error) {
-	return getAllItems[repository.Application](gp.url+string(GetAllApplications), gp.client, gp.authenticationToken)
+func (cl *Client) GetAllApplications() ([]*repository.Application, error) {
+	return getAllItems[repository.Application](cl.url+string(GetAllApplications), cl.client, cl.authenticationToken)
 }
 
-func (gp *Client) GetAllBlockchains() ([]*repository.Blockchain, error) {
-	return getAllItems[repository.Blockchain](gp.url+string(GetAllBlockchains), gp.client, gp.authenticationToken)
+func (cl *Client) GetAllBlockchains() ([]*repository.Blockchain, error) {
+	return getAllItems[repository.Blockchain](cl.url+string(GetAllBlockchains), cl.client, cl.authenticationToken)
 }
 
 func getAllItems[T any](path string, client *http.Client, authToken string) ([]*T, error) {
