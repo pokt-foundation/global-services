@@ -65,14 +65,18 @@ func migrateToMongo(ctx context.Context) (int, int, error) {
 	appsToWrite := convertRepositoryToMongo(getItemsNotInMongo(postgresApps, mongoApps), models.RepositoryToModelApp)
 	lbsToWrite := convertRepositoryToMongo(getItemsNotInMongo(postgresLBs, mongoLBs), models.RepositoryToModelLoadBalancer)
 
-	err = mongo.InsertMany(ctx, database.ApplicationCollection, appsToWrite)
-	if err != nil {
-		return 0, 0, err
+	if len(appsToWrite) > 0 {
+		err = mongo.InsertMany(ctx, database.ApplicationCollection, appsToWrite)
+		if err != nil {
+			return 0, 0, err
+		}
 	}
 
-	err = mongo.InsertMany(ctx, database.LoadBalancersCollection, lbsToWrite)
-	if err != nil {
-		return 0, 0, err
+	if len(lbsToWrite) > 0 {
+		err = mongo.InsertMany(ctx, database.LoadBalancersCollection, lbsToWrite)
+		if err != nil {
+			return 0, 0, err
+		}
 	}
 
 	return len(appsToWrite), len(lbsToWrite), nil
