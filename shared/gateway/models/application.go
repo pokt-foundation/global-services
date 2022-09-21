@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 
+	"github.com/pokt-foundation/portal-api-go/repository"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -54,6 +55,52 @@ type Application struct {
 	Limits                     Limits                     `json:"limits" bson:"limits"`
 	NotificationSettings       NotificationSettings       `json:"notificationSettings" bson:"notificationSettings"`
 	Dummy                      bool                       `json:"dummy" bson:"dummy"`
+}
+
+func RepositoryToModelApp(app *repository.Application) (*Application, error) {
+	id := primitive.NewObjectID()
+	var err error
+	if app.ID != "" {
+		id, err = primitive.ObjectIDFromHex(app.ID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &Application{
+		ID:    id,
+		Name:  app.Name,
+		User:  app.UserID,
+		Dummy: app.Dummy,
+		GatewayAAT: GatewayAAT{
+			Address:              app.GatewayAAT.Address,
+			ClientPublicKey:      app.GatewayAAT.ClientPublicKey,
+			ApplicationPublicKey: app.GatewayAAT.ApplicationPublicKey,
+			ApplicationSignature: app.GatewayAAT.ApplicationSignature,
+			Version:              "0.0.1",
+		},
+		GatewaySettings: GatewaySettings{
+			WhitelistOrigins:    app.GatewaySettings.WhitelistOrigins,
+			WhitelistUserAgents: app.GatewaySettings.WhitelistUserAgents,
+			SecretKey:           app.GatewaySettings.SecretKey,
+			SecretKeyRequired:   app.GatewaySettings.SecretKeyRequired,
+		},
+		NotificationSettings: NotificationSettings{
+			SignedUp:      app.NotificationSettings.SignedUp,
+			Quarter:       app.NotificationSettings.Quarter,
+			Half:          app.NotificationSettings.Half,
+			ThreeQuarters: app.NotificationSettings.ThreeQuarters,
+			Full:          app.NotificationSettings.Full,
+		},
+		Limits: Limits{
+			PlanType:   string(app.Limits.PlanType),
+			DailyLimit: app.Limits.DailyLimit,
+		},
+		FreeTierApplicationAccount: FreeTierApplicationAccount{
+			Address:   app.GatewayAAT.Address,
+			PublicKey: app.GatewayAAT.ClientPublicKey,
+		},
+	}, nil
 }
 
 // ApplicationStore is the interface for all the operations to retrieve data of applications

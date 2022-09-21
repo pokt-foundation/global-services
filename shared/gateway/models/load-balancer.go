@@ -2,7 +2,9 @@ package models
 
 import (
 	"context"
+	"strconv"
 
+	"github.com/pokt-foundation/portal-api-go/repository"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -10,6 +12,7 @@ import (
 type LoadBalancer struct {
 	ID                primitive.ObjectID `json:"_id" bson:"_id"`
 	Name              string             `json:"name" bson:"name"`
+	User              string             `json:"user" bson:"user"`
 	ApplicationIDs    []string           `json:"applicationIDs" bson:"applicationIDs"`
 	StickinessOptions struct {
 		Stickiness    bool     `json:"stickiness" bson:"stickiness"`
@@ -18,7 +21,35 @@ type LoadBalancer struct {
 		RelaysLimit   int      `json:"relaysLimit" bson:"relaysLimit"`
 		StickyOrigins []string `json:"stickyOrigins" bson:"stickyOrigins"`
 	} `json:"stickinessOptions" bson:"stickinessOptions"`
-	Gigastake bool `json:"gigastake" bson:"stickyOrigins"`
+	Gigastake         bool   `json:"gigastake" bson:"gigastake"`
+	GigastakeRedirect bool   `json:"gigastakeRedirect" bson:"gigastakeRedirect"`
+	RequestTimeout    string `json:"requestTimeout" bson:"requestTimeout"`
+}
+
+func RepositoryToModelLoadBalancer(lb *repository.LoadBalancer) (*LoadBalancer, error) {
+	id := primitive.NewObjectID()
+	var err error
+	if lb.ID != "" {
+		id, err = primitive.ObjectIDFromHex(lb.ID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	appIDs := make([]string, len(lb.ApplicationIDs))
+	for _, app := range lb.Applications {
+		appIDs = append(appIDs, app.ID)
+	}
+
+	return &LoadBalancer{
+		ID:                id,
+		Name:              lb.Name,
+		User:              lb.UserID,
+		ApplicationIDs:    appIDs,
+		Gigastake:         lb.Gigastake,
+		GigastakeRedirect: lb.GigastakeRedirect,
+		RequestTimeout:    strconv.Itoa(lb.RequestTimeout),
+	}, nil
 }
 
 type LoadBalancerStore interface {
