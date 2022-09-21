@@ -15,15 +15,15 @@ provider:
             - "lambda:InvokeFunction"
           Resource: "*"
         # Enable this when creating a lambda inside a VPC
-        - Effect: Allow
-          Action:
-            - ec2:DescribeNetworkInterfaces
-            - ec2:CreateNetworkInterface
-            - ec2:DeleteNetworkInterface
-            - ec2:DescribeInstances
-            - ec2:AttachNetworkInterface
-          Resource:
-            - "*"
+        # - Effect: Allow
+        #   Action:
+        #     - ec2:DescribeNetworkInterfaces
+        #     - ec2:CreateNetworkInterface
+        #     - ec2:DeleteNetworkInterface
+        #     - ec2:DescribeInstances
+        #     - ec2:AttachNetworkInterface
+        #   Resource:
+        #     - "*"
 
 package:
   patterns:
@@ -127,3 +127,8 @@ functions:
     environment: ${file(.env.migrate-postgres-to-mongo.yml)}
     memorySize: 1256
     timeout: 360
+    maximumRetryAttempts: 2
+    events:
+      - schedule:
+          rate: rate(5 minutes)
+          enabled: true
