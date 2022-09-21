@@ -9,10 +9,11 @@ import (
 	"github.com/Pocket/global-services/shared/apigateway"
 	"github.com/Pocket/global-services/shared/database"
 	"github.com/Pocket/global-services/shared/gateway/models"
+	logger "github.com/Pocket/global-services/shared/logger"
 	"github.com/Pocket/global-services/shared/utils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/pokt-foundation/portal-api-go/repository"
 	"github.com/pokt-foundation/utils-go/environment"
@@ -27,7 +28,7 @@ var (
 
 // LambdaHandler manages the process of getting the postgres apps migrated to mongo
 func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) {
-	m, p, err := migrateToMongo(ctx)
+	appsCount, lbsCount, err := migrateToMongo(ctx)
 
 	if err != nil {
 		return *apigateway.NewJSONResponse(http.StatusOK, map[string]any{
@@ -35,8 +36,8 @@ func LambdaHandler(ctx context.Context) (events.APIGatewayProxyResponse, error) 
 		}), nil
 	}
 	return *apigateway.NewJSONResponse(http.StatusOK, map[string]any{
-		"m": m,
-		"p": p,
+		"newApps": appsCount,
+		"newLbs":  lbsCount,
 	}), nil
 }
 
@@ -61,10 +62,20 @@ func migrateToMongo(ctx context.Context) (int, int, error) {
 		return 0, 0, err
 	}
 
-	lbsNotInMongo := getItemsNotInMongo(postgresLBs, mongoLBs)
-	appsNotInMongo := getItemsNotInMongo(postgresApps, mongoApps)
+	appsToWrite := convertRepositoryToMongo(getItemsNotInMongo(postgresApps, mongoApps), models.RepositoryToModelApp)
+	lbsToWrite := convertRepositoryToMongo(getItemsNotInMongo(postgresLBs, mongoLBs), models.RepositoryToModelLoadBalancer)
 
-	return len(lbsNotInMongo), len(appsNotInMongo), nil
+	err = mongo.InsertMany(ctx, database.Collection("TestApps"), appsToWrite)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	err = mongo.InsertMany(ctx, database.Collection("TestLBs"), lbsToWrite)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return len(appsToWrite), len(lbsToWrite), nil
 }
 
 func getApplications(ctx context.Context, mongo *database.Mongo, postgres *postgresgateway.Client) (map[string]*models.Application, map[string]*repository.Application, error) {
@@ -111,59 +122,31 @@ func getLoadBalancers(ctx context.Context, mongo *database.Mongo, postgres *post
 	return mongoLBs, postgresLBs, nil
 }
 
-func getItemsNotInMongo[T any, V any](pgItems map[string]*T, mongoItems map[string]*V) []*T {
-	items := make([]*T, 0)
+func getItemsNotInMongo[T any, V any](pgItems map[string]*T, mongoItems map[string]*V) []T {
+	items := make([]T, 0)
 	for key, item := range pgItems {
 		_, ok := mongoItems[key]
 		if ok {
 			continue
 		}
-		items = append(items, item)
+		items = append(items, *item)
 	}
 	return items
 }
 
-func postgresAppToMongoApp(pgApps []*repository.Application) ([]*models.Application, error) {
-	mongoApps := make([]*models.Application, 0)
-
-	for _, pgApp := range pgApps {
-		id, err := primitive.ObjectIDFromHex(pgApp.ID)
+func convertRepositoryToMongo[T any, V any](items []T, convertFn func(*T) (V, error)) []any {
+	convertedItems := make([]any, 0)
+	for _, item := range items {
+		convertedItem, err := convertFn(&item)
 		if err != nil {
-			return nil, err
+			logger.Log.WithFields(log.Fields{
+				"error": err.Error(),
+			}).Error("could not convert repository item to a mongo type")
+			continue
 		}
-		mongoApps = append(mongoApps, &models.Application{
-			ID:    id,
-			Dummy: pgApp.Dummy,
-			GatewayAAT: models.GatewayAAT{
-				Address:              pgApp.GatewayAAT.Address,
-				ClientPublicKey:      pgApp.GatewayAAT.ClientPublicKey,
-				ApplicationPublicKey: pgApp.GatewayAAT.ApplicationPublicKey,
-				ApplicationSignature: pgApp.GatewayAAT.ApplicationSignature,
-				Version:              "0.0.1",
-			},
-			GatewaySettings: models.GatewaySettings{
-				WhitelistOrigins:    pgApp.GatewaySettings.WhitelistOrigins,
-				WhitelistUserAgents: pgApp.GatewaySettings.WhitelistUserAgents,
-				SecretKey:           pgApp.GatewaySettings.SecretKey,
-				SecretKeyRequired:   pgApp.GatewaySettings.SecretKeyRequired,
-			},
-			NotificationSettings: models.NotificationSettings{
-				SignedUp:      pgApp.NotificationSettings.SignedUp,
-				Quarter:       pgApp.NotificationSettings.Quarter,
-				Half:          pgApp.NotificationSettings.Half,
-				ThreeQuarters: pgApp.NotificationSettings.ThreeQuarters,
-				Full:          pgApp.NotificationSettings.Full,
-			},
-			Limits: models.Limits{
-				PlanType:   string(pgApp.Limits.PlanType),
-				DailyLimit: pgApp.Limits.DailyLimit,
-			},
-			FreeTierApplicationAccount: models.FreeTierApplicationAccount{
-				Address:   pgApp.GatewayAAT.Address,
-				PublicKey: pgApp.GatewayAAT.ClientPublicKey,
-			},
-		})
+
+		convertedItems = append(convertedItems, convertedItem)
 	}
 
-	return mongoApps, nil
+	return convertedItems
 }
