@@ -68,10 +68,11 @@ func RepositoryToModelApp(app *repository.Application) (*Application, error) {
 	}
 
 	return &Application{
-		ID:    id,
-		Name:  app.Name,
-		User:  app.UserID,
-		Dummy: app.Dummy,
+		ID:     id,
+		Name:   app.Name,
+		User:   app.UserID,
+		Dummy:  app.Dummy,
+		Status: string(app.Status),
 		GatewayAAT: GatewayAAT{
 			Address:              app.GatewayAAT.Address,
 			ClientPublicKey:      app.GatewayAAT.ClientPublicKey,
