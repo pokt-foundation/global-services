@@ -21,9 +21,10 @@ type LoadBalancer struct {
 		RelaysLimit   int      `json:"relaysLimit" bson:"relaysLimit"`
 		StickyOrigins []string `json:"stickyOrigins" bson:"stickyOrigins"`
 	} `json:"stickinessOptions" bson:"stickinessOptions"`
-	Gigastake         bool   `json:"gigastake" bson:"gigastake"`
-	GigastakeRedirect bool   `json:"gigastakeRedirect" bson:"gigastakeRedirect"`
-	RequestTimeout    string `json:"requestTimeout" bson:"requestTimeout"`
+	Gigastake         bool `json:"gigastake" bson:"gigastake"`
+	GigastakeRedirect bool `json:"gigastakeRedirect" bson:"gigastakeRedirect"`
+	// Value is currently set in both string and int forms in the database
+	RequestTimeout any `json:"requestTimeout" bson:"requestTimeout"`
 }
 
 func RepositoryToModelLoadBalancer(lb *repository.LoadBalancer) (*LoadBalancer, error) {
