@@ -12,9 +12,17 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type Collection string
+
+var (
+	ApplicationCollection   Collection = "Applications"
+	LoadBalancersCollection Collection = "LoadBalancers"
+	BlockchainsCollection   Collection = "Blockchains"
+)
+
 // Mongo Represents a mongo client and gateway related operations
 type Mongo struct {
-	client   *mongo.Client
+	Client   *mongo.Client
 	Database string
 }
 
@@ -27,14 +35,14 @@ func ClientFromURI(ctx context.Context, uri string, database string) (*Mongo, er
 	}
 
 	return &Mongo{
-		client:   client,
+		Client:   client,
 		Database: database,
 	}, nil
 }
 
 // GetStakedApplications returns the applications that are staked on the db
 func (m *Mongo) GetStakedApplications(ctx context.Context) ([]*models.Application, error) {
-	return filterCollection[models.Application](ctx, *m.client, m.Database, "Applications", bson.D{
+	return filterCollection[models.Application](ctx, *m.Client, m.Database, string(ApplicationCollection), bson.D{
 		{
 			Key:   "dummy",
 			Value: bson.M{"$exists": false},
@@ -44,7 +52,7 @@ func (m *Mongo) GetStakedApplications(ctx context.Context) ([]*models.Applicatio
 
 // GetSettlersApplications returns only the applications marked as 'Settlers'
 func (m *Mongo) GetSettlersApplications(ctx context.Context) ([]*models.Application, error) {
-	return filterCollection[models.Application](ctx, *m.client, m.Database, "Applications", bson.D{
+	return filterCollection[models.Application](ctx, *m.Client, m.Database, string(ApplicationCollection), bson.D{
 		{
 			Key: "name",
 			Value: bson.M{"$regex": primitive.Regex{
@@ -69,7 +77,7 @@ func (m *Mongo) GetAppsFromList(ctx context.Context, appIDs []string) ([]*models
 		applicationIDs = append(applicationIDs, &objectID)
 	}
 
-	return filterCollection[models.Application](ctx, *m.client, m.Database, "Applications", bson.D{
+	return filterCollection[models.Application](ctx, *m.Client, m.Database, string(ApplicationCollection), bson.D{
 		{
 			Key:   "_id",
 			Value: bson.M{"$in": applicationIDs},
@@ -80,7 +88,7 @@ func (m *Mongo) GetAppsFromList(ctx context.Context, appIDs []string) ([]*models
 // GetGigastakedApplications returns the applications that belong to a
 // gigastake load balancer
 func (m *Mongo) GetGigastakedApplications(ctx context.Context) ([]*models.Application, error) {
-	loadBalancers, err := filterCollection[models.LoadBalancer](ctx, *m.client, m.Database, "LoadBalancers", bson.D{
+	loadBalancers, err := filterCollection[models.LoadBalancer](ctx, *m.Client, m.Database, string(LoadBalancersCollection), bson.D{
 		{
 			Key:   "gigastake",
 			Value: true,
@@ -100,7 +108,17 @@ func (m *Mongo) GetGigastakedApplications(ctx context.Context) ([]*models.Applic
 
 // GetBlockchains returns the blockchains on the db
 func (m *Mongo) GetBlockchains(ctx context.Context) ([]*models.Blockchain, error) {
-	return filterCollection[models.Blockchain](ctx, *m.client, m.Database, "Blockchains", bson.D{})
+	return filterCollection[models.Blockchain](ctx, *m.Client, m.Database, string(BlockchainsCollection), bson.D{})
+}
+
+// GetBlockchains returns the applications on the db
+func (m *Mongo) GetApplications(ctx context.Context) ([]*models.Application, error) {
+	return filterCollection[models.Application](ctx, *m.Client, m.Database, string(ApplicationCollection), bson.D{})
+}
+
+// GetBlockchains returns the load balancers on the db
+func (m *Mongo) GetLoadBalancers(ctx context.Context) ([]*models.LoadBalancer, error) {
+	return filterCollection[models.LoadBalancer](ctx, *m.Client, m.Database, string(LoadBalancersCollection), bson.D{})
 }
 
 // filterCollection returns a collection marshalled to a struct given the filter
@@ -129,4 +147,18 @@ func filterCollection[T any](ctx context.Context, client mongo.Client, database,
 	cursor.Close(ctx)
 
 	return documents, nil
+}
+
+// InsertOne inserts one document to the specified collection
+func (m *Mongo) InsertOne(ctx context.Context, collectionName Collection, document any) error {
+	collection := m.Client.Database(m.Database).Collection(string(collectionName))
+	_, err := collection.InsertOne(ctx, document)
+	return err
+}
+
+// InsertManyCollection inserts N document to the specified collection
+func (m *Mongo) InsertMany(ctx context.Context, collectionName Collection, documents []any) error {
+	collection := m.Client.Database(m.Database).Collection(string(collectionName))
+	_, err := collection.InsertMany(ctx, documents)
+	return err
 }
