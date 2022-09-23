@@ -5,7 +5,7 @@ provider:
   name: aws
   runtime: go1.x
   region: us-west-2
-  # vpc: ${file(.env.global.yml):vpc}
+  vpc: ${file(.env.global.yml):vpc}
 
   iam:
     role:
