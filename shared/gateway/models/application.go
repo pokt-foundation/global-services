@@ -99,7 +99,7 @@ func RepositoryToModelApp(app *repository.Application) (*Application, error) {
 		},
 		FreeTierApplicationAccount: FreeTierApplicationAccount{
 			Address:   app.GatewayAAT.Address,
-			PublicKey: app.GatewayAAT.ClientPublicKey,
+			PublicKey: app.GatewayAAT.ApplicationPublicKey,
 		},
 	}, nil
 }
