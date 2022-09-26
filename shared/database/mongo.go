@@ -12,12 +12,16 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// Collection represents a collection name from mongodb
 type Collection string
 
 var (
-	ApplicationCollection   Collection = "Applications"
+	// ApplicationCollection is the mongodb collection of Applications
+	ApplicationCollection Collection = "Applications"
+	// LoadBalancersCollection is the mongodb collection of Load Balancers
 	LoadBalancersCollection Collection = "LoadBalancers"
-	BlockchainsCollection   Collection = "Blockchains"
+	// BlockchainsCollection is the mongodb collection of Blockchains
+	BlockchainsCollection Collection = "Blockchains"
 )
 
 // Mongo Represents a mongo client and gateway related operations
@@ -111,12 +115,12 @@ func (m *Mongo) GetBlockchains(ctx context.Context) ([]*models.Blockchain, error
 	return filterCollection[models.Blockchain](ctx, *m.Client, m.Database, string(BlockchainsCollection), bson.D{})
 }
 
-// GetBlockchains returns the applications on the db
+// GetApplications returns the applications on the db
 func (m *Mongo) GetApplications(ctx context.Context) ([]*models.Application, error) {
 	return filterCollection[models.Application](ctx, *m.Client, m.Database, string(ApplicationCollection), bson.D{})
 }
 
-// GetBlockchains returns the load balancers on the db
+// GetLoadBalancers returns the load balancers on the db
 func (m *Mongo) GetLoadBalancers(ctx context.Context) ([]*models.LoadBalancer, error) {
 	return filterCollection[models.LoadBalancer](ctx, *m.Client, m.Database, string(LoadBalancersCollection), bson.D{})
 }
@@ -156,7 +160,7 @@ func (m *Mongo) InsertOne(ctx context.Context, collectionName Collection, docume
 	return err
 }
 
-// InsertManyCollection inserts N document to the specified collection
+// InsertMany inserts N document to the specified collection
 func (m *Mongo) InsertMany(ctx context.Context, collectionName Collection, documents []any) error {
 	collection := m.Client.Database(m.Database).Collection(string(collectionName))
 	_, err := collection.InsertMany(ctx, documents)

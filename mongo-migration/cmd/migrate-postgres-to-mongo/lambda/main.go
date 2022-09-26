@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	postgresClientUrl     = environment.MustGetString("POSTGRES_CLIENT_URL")
+	postgresClientURL     = environment.MustGetString("POSTGRES_CLIENT_URL")
 	authenticationToken   = environment.MustGetString("AUTHENTICATION_TOKEN")
 	mongoConnectionString = environment.MustGetString("MONGO_CONNECTION_STRING")
 	mongoDatabase         = environment.GetString("MONGO_DATABASE", "gateway")
@@ -51,7 +51,7 @@ func migrateToMongo(ctx context.Context) (int, int, error) {
 		return 0, 0, errors.New("error connecting to mongo: " + err.Error())
 	}
 
-	postgres := postgresgateway.NewPostgresClient(postgresClientUrl, authenticationToken)
+	postgres := postgresgateway.NewPostgresClient(postgresClientURL, authenticationToken)
 
 	mongoApps, postgresApps, err := getApplications(ctx, mongo, postgres)
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// GatewayAAT is the application's authentication token data
 type GatewayAAT struct {
 	Version              string `json:"version" bson:"version"`
 	Address              string `json:"address" bson:"address"`
@@ -15,6 +16,7 @@ type GatewayAAT struct {
 	ApplicationSignature string `json:"applicationSignature" bson:"applicationSignature"`
 }
 
+// GatewaySettings are the application settings within the portal-api
 type GatewaySettings struct {
 	WhitelistOrigins    []string `json:"whitelistOrigins" bson:"whitelistOrigins"`
 	WhitelistUserAgents []string `json:"whitelistUserAgents" bson:"whitelistUserAgents"`
@@ -22,6 +24,7 @@ type GatewaySettings struct {
 	SecretKey           string   `json:"secretKey" bson:"secretKey"`
 }
 
+// NotificationSettings are the thresholds of notifying users their allowed relays usage
 type NotificationSettings struct {
 	SignedUp      bool `json:"signedUp" bson:"signedUp"`
 	Quarter       bool `json:"quarter" bson:"quarter"`
@@ -30,11 +33,13 @@ type NotificationSettings struct {
 	Full          bool `json:"full" bson:"full"`
 }
 
+// Limits is the application limit config
 type Limits struct {
 	PlanType   string `json:"planType" bson:"planType"`
 	DailyLimit int    `json:"dailyLimit" bson:"dailyLimit"`
 }
 
+// FreeTierApplicationAccount holds the data regarding the application's identifying information
 type FreeTierApplicationAccount struct {
 	Address    string `json:"address" bson:"address"`
 	PublicKey  string `json:"publicKey" bson:"publicKey"`
@@ -57,6 +62,7 @@ type Application struct {
 	Dummy                      bool                       `json:"dummy" bson:"dummy"`
 }
 
+// RepositoryToModelApp converts the migrated application struct to one of mongodb
 func RepositoryToModelApp(app *repository.Application) (*Application, error) {
 	id := primitive.NewObjectID()
 	var err error

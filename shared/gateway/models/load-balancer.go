@@ -27,6 +27,7 @@ type LoadBalancer struct {
 	RequestTimeout any `json:"requestTimeout" bson:"requestTimeout"`
 }
 
+// RepositoryToModelLoadBalancer converts the migrated Load Balancer struct to one of mongodb
 func RepositoryToModelLoadBalancer(lb *repository.LoadBalancer) (*LoadBalancer, error) {
 	id := primitive.NewObjectID()
 	var err error
@@ -53,6 +54,7 @@ func RepositoryToModelLoadBalancer(lb *repository.LoadBalancer) (*LoadBalancer, 
 	}, nil
 }
 
+// LoadBalancerStore is the interface for all the operations to retrieve data of load balancers
 type LoadBalancerStore interface {
 	GetLoadBalancers(ctx context.Context) ([]*LoadBalancer, error)
 }
