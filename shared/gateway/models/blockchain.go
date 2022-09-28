@@ -6,6 +6,7 @@ import (
 	"github.com/pokt-foundation/portal-api-go/repository"
 )
 
+// Redirects represent the data of a blockchain redirect
 type Redirects struct {
 	Alias          string `json:"alias"`
 	Domain         string `json:"domain"`
@@ -42,6 +43,7 @@ type Blockchain struct {
 	Redirects         []Redirects      `json:"redirects" bson:"redirects"`
 }
 
+// RepositoryToModelBlockchain converts the migrated blockchain struct to one of mongodb
 func RepositoryToModelBlockchain(bl *repository.Blockchain) *Blockchain {
 	redirects := make([]Redirects, len(bl.Redirects))
 	for _, rd := range bl.Redirects {
