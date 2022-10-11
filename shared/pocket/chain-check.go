@@ -46,9 +46,9 @@ func (cc *ChainChecker) Check(ctx context.Context, options ChainCheckOptions) []
 	chainID, err := strconv.Atoi(options.ChainID)
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
-			"sessionKey":  options.Session.Key,
-			"blockhainID": options.Blockchain,
-			"requestID":   cc.RequestID,
+			"sessionKey":   options.Session.Key,
+			"blockchainID": options.Blockchain,
+			"requestID":    cc.RequestID,
 		}).Errorf("chain check: error parsing blockchain's chainID: %s", err.Error())
 
 		return checkedNodes
@@ -62,7 +62,7 @@ func (cc *ChainChecker) Check(ctx context.Context, options ChainCheckOptions) []
 		if nodeChainID != int64(chainID) {
 			logger.Log.WithFields(log.Fields{
 				"sessionKey":            options.Session.Key,
-				"blockhainID":           options.Blockchain,
+				"blockchainID":          options.Blockchain,
 				"requestID":             cc.RequestID,
 				"serviceURL":            node.Node.ServiceURL,
 				"serviceDomain":         utils.GetDomainFromURL(node.Node.ServiceURL),
@@ -74,7 +74,7 @@ func (cc *ChainChecker) Check(ctx context.Context, options ChainCheckOptions) []
 
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":            options.Session.Key,
-			"blockhainID":           options.Blockchain,
+			"blockchainID":          options.Blockchain,
 			"requestID":             cc.RequestID,
 			"serviceURL":            node.Node.ServiceURL,
 			"serviceDomain":         utils.GetDomainFromURL(node.Node.ServiceURL),
@@ -87,7 +87,7 @@ func (cc *ChainChecker) Check(ctx context.Context, options ChainCheckOptions) []
 
 	logger.Log.WithFields(log.Fields{
 		"sessionKey":            options.Session.Key,
-		"blockhainID":           options.Blockchain,
+		"blockchainID":          options.Blockchain,
 		"requestID":             cc.RequestID,
 		"appplicationPublicKey": options.Session.Header.AppPublicKey,
 	}).Info(fmt.Sprintf("CHAIN CHECK COMPLETE: %d nodes on chain", len(checkedNodes)))
@@ -135,7 +135,7 @@ func (cc *ChainChecker) getNodeChainLog(ctx context.Context, node *provider.Node
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":    options.Session.Key,
-			"blockhainID":   options.Blockchain,
+			"blockchainID":  options.Blockchain,
 			"requestID":     cc.RequestID,
 			"serviceURL":    node.ServiceURL,
 			"serviceDomain": utils.GetDomainFromURL(node.ServiceURL),

@@ -86,7 +86,7 @@ func (sc *SyncChecker) Check(ctx context.Context, options SyncCheckOptions) []st
 		if !isValidNode {
 			logger.Log.WithFields(log.Fields{
 				"sessionKey":            options.Session.Key,
-				"blockhainID":           options.Blockchain,
+				"blockchainID":          options.Blockchain,
 				"requestID":             sc.RequestID,
 				"serviceURL":            node.Node.ServiceURL,
 				"serviceDomain":         utils.GetDomainFromURL(node.Node.ServiceURL),
@@ -98,7 +98,7 @@ func (sc *SyncChecker) Check(ctx context.Context, options SyncCheckOptions) []st
 
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":            options.Session.Key,
-			"blockhainID":           options.Blockchain,
+			"blockchainID":          options.Blockchain,
 			"requestID":             sc.RequestID,
 			"serviceURL":            node.Node.ServiceURL,
 			"serviceDomain":         utils.GetDomainFromURL(node.Node.ServiceURL),
@@ -112,7 +112,7 @@ func (sc *SyncChecker) Check(ctx context.Context, options SyncCheckOptions) []st
 
 	logger.Log.WithFields(log.Fields{
 		"sessionKey":            options.Session.Key,
-		"blockhainID":           options.Blockchain,
+		"blockchainID":          options.Blockchain,
 		"requestID":             sc.RequestID,
 		"appplicationPublicKey": options.Session.Header.AppPublicKey,
 	}).Info(fmt.Sprintf("SYNC CHECK COMPLETE: %d nodes in sync", len(checkedNodes)))
@@ -161,7 +161,7 @@ func (sc *SyncChecker) getNodeSyncLog(ctx context.Context, node *provider.Node, 
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":    options.Session.Key,
-			"blockhainID":   options.Blockchain,
+			"blockchainID":  options.Blockchain,
 			"requestID":     sc.RequestID,
 			"serviceURL":    node.ServiceURL,
 			"serviceDomain": utils.GetDomainFromURL(node.ServiceURL),
@@ -208,9 +208,9 @@ func (sc *SyncChecker) getAltruistDataAndHighestBlockHeight(nodeLogs []*nodeSync
 
 	if !isAltruistTrustworthy {
 		logger.Log.WithFields(log.Fields{
-			"sessionKey":  options.Session.Key,
-			"blockhainID": options.Blockchain,
-			"requestID":   sc.RequestID,
+			"sessionKey":   options.Session.Key,
+			"blockchainID": options.Blockchain,
+			"requestID":    sc.RequestID,
 		},
 		).Error(fmt.Sprintf("sync check: altruist failure: %d out of %d sync nodes are ahead of altruist", nodesAheadOfAltruist, validNodes))
 
@@ -241,10 +241,10 @@ func (sc *SyncChecker) getValidNodesCountAndHighestNode(nodeLogs []*nodeSyncLog,
 	errMsg := "sync check error: fewer than 3 nodes returned sync"
 	if validNodes <= 2 {
 		logger.Log.WithFields(log.Fields{
-			"sessionKey":  options.Session.Key,
-			"blockhainID": options.Blockchain,
-			"requestID":   sc.RequestID,
-			"error":       errMsg,
+			"sessionKey":   options.Session.Key,
+			"blockchainID": options.Blockchain,
+			"requestID":    sc.RequestID,
+			"error":        errMsg,
 		}).Error(errMsg)
 	}
 
@@ -252,10 +252,10 @@ func (sc *SyncChecker) getValidNodesCountAndHighestNode(nodeLogs []*nodeSyncLog,
 	highestBlockHeight = nodeLogs[0].BlockHeight
 	if highestBlockHeight <= 0 {
 		logger.Log.WithFields(log.Fields{
-			"sessionKey":  options.Session.Key,
-			"blockhainID": options.Blockchain,
-			"requestID":   sc.RequestID,
-			"error":       "sync check: top synced node result is invalid",
+			"sessionKey":   options.Session.Key,
+			"blockchainID": options.Blockchain,
+			"requestID":    sc.RequestID,
+			"error":        "sync check: top synced node result is invalid",
 		}).Error(errMsg)
 	}
 
@@ -268,18 +268,18 @@ func (sc *SyncChecker) getValidatedAltruist(nodeLogs []*nodeSyncLog, options *Sy
 	altruistBlockHeight, err := getAltruistBlockHeight(options.SyncCheckOptions, options.AltruistURL, options.SyncCheckOptions.Path)
 	if altruistBlockHeight == 0 || err != nil {
 		logger.Log.WithFields(log.Fields{
-			"sessionKey":  options.Session.Key,
-			"blockhainID": options.Blockchain,
-			"requestID":   sc.RequestID,
-			"serviceNode": "ALTRUIST",
+			"sessionKey":   options.Session.Key,
+			"blockchainID": options.Blockchain,
+			"requestID":    sc.RequestID,
+			"serviceNode":  "ALTRUIST",
 		}).Error("sync check: altruist failure: ", err)
 	}
 	logger.Log.WithFields(log.Fields{
-		"sessionKey":  options.Session.Key,
-		"blockhainID": options.Blockchain,
-		"requestID":   sc.RequestID,
-		"relayType":   "FALLBACK",
-		"blockHeight": altruistBlockHeight,
+		"sessionKey":   options.Session.Key,
+		"blockchainID": options.Blockchain,
+		"requestID":    sc.RequestID,
+		"relayType":    "FALLBACK",
+		"blockHeight":  altruistBlockHeight,
 	}).Info("sync check: altruist check: ", altruistBlockHeight)
 
 	nodesAheadOfAltruist := func() int {
