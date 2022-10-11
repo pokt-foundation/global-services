@@ -32,3 +32,6 @@ main
 # AWS SAM template layout, not used in prod but is useful to perform local tests 
 # that require to invoke other lambdas
 template.yaml
+
+# vscode local config
+.vscode

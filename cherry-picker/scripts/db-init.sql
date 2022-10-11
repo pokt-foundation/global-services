@@ -44,3 +44,4 @@ CREATE INDEX IF NOT EXISTS chain_idx ON cherry_picker_session_region (chain);
 CREATE INDEX IF NOT EXISTS session_height_idx ON cherry_picker_session_region (session_height);
 CREATE INDEX IF NOT EXISTS session_key_idx ON cherry_picker_session_region (session_key);
 CREATE INDEX IF NOT EXISTS app_public_key_idx on cherry_picker_session_region (application_public_key);
+-- File changed on purpose
