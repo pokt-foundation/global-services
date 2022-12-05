@@ -41,7 +41,8 @@ var (
 	defaultSyncAllowance   = environment.GetInt64("DEFAULT_SYNC_ALLOWANCE", 5)
 	altruistTrustThreshold = environment.GetFloat64("ALTRUIST_TRUST_THRESHOLD", 0.5)
 	syncCheckKeyPrefix     = environment.GetString("SYNC_CHECK_KEY_PREFIX", "")
-	chainheckKeyPrefix     = environment.GetString("CHAIN_CHECK_KEY_PREFIX", "")
+	chaincheckKeyPrefix    = environment.GetString("CHAIN_CHECK_KEY_PREFIX", "")
+	mergeCheckKeyPrefix    = environment.GetString("MERGE_CHECK_KEY_PREFIX", "")
 	metricsConnection      = environment.GetString("METRICS_CONNECTION", "")
 	minMetricsPoolSize     = environment.GetInt64("MIN_METRICS_POOL_SIZE", 5)
 	maxMetricsPoolSize     = environment.GetInt64("MAX_METRICS_POOL_SIZE", 20)
@@ -68,6 +69,7 @@ type ApplicationData struct {
 	RequestID       string
 	SyncChecker     *pocket.SyncChecker
 	ChainChecker    *pocket.ChainChecker
+	MergeChecker    *pocket.MergeChecker
 	CacheBatch      chan *cache.Item
 }
 
@@ -82,6 +84,7 @@ type PerformChecksOptions struct {
 	CacheTTL       int
 	SyncCheckKey   string
 	ChainCheckKey  string
+	MergeCheckKey  string
 	TotalApps      int
 	Invalid        bool
 }
@@ -168,6 +171,11 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 			MetricsRecorder: metricsRecorder,
 			RequestID:       requestID,
 		},
+		MergeChecker: &pocket.MergeChecker{
+			Relayer:         relayer,
+			MetricsRecorder: metricsRecorder,
+			RequestID:       requestID,
+		},
 	}
 
 	totalApps := 0
@@ -233,7 +241,8 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 							PocketAAT:  pocketAAT,
 						},
 						SyncCheckKey:  appChecks.CommitHash + syncCheckKeyPrefix + session.Key,
-						ChainCheckKey: appChecks.CommitHash + chainheckKeyPrefix + session.Key,
+						ChainCheckKey: appChecks.CommitHash + chaincheckKeyPrefix + session.Key,
+						MergeCheckKey: appChecks.CommitHash + mergeCheckKeyPrefix + session.Key,
 						CacheTTL:      int(cacheTTL),
 						Blockchain:    *blockchain,
 						Session:       session,

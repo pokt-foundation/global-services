@@ -19,4 +19,5 @@ type Payload struct {
 type Response struct {
 	SyncCheckedNodes  map[string][]string `json:"syncCheckedNodes"`
 	ChainCheckedNodes map[string][]string `json:"chainCheckedNodes"`
+	MergeCheckNodes   map[string][]string `json:"mergeCheckedNodes"`
 }
