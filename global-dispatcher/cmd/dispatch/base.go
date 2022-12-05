@@ -23,8 +23,8 @@ import (
 )
 
 var (
-	errMaxDispatchErrorsExceeded = errors.New("exceeded maximun allowance of dispatcher errors")
-	errNoCacheClientProvided     = errors.New("no cache clients were provided")
+	errMaxDispatchErrorsExceeded = errors.New("exceeded maximum allowance of dispatcher errors")
+	errLessThanMinimumNodes      = errors.New("there are less than the minimum session nodes found")
 
 	rpcURL                      = environment.GetString("RPC_URL", "")
 	dispatchURLs                = strings.Split(environment.GetString("DISPATCH_URLS", ""), ",")
@@ -100,6 +100,11 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 
 				dispatch, err := rpcProvider.Dispatch(publicKey, ch, nil)
 				if err != nil {
+					// Such sessions cannot be dispatched so not an actual error
+					if strings.Contains(err.Error(), errLessThanMinimumNodes.Error()) {
+						return
+					}
+
 					atomic.AddUint32(&failedDispatcherCalls, 1)
 					logger.Log.WithFields(log.Fields{
 						"appPublicKey": publicKey,
