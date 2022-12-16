@@ -28,6 +28,8 @@ import (
 )
 
 var (
+	errLessThanMinimumNodes = errors.New("there are less than the minimum session nodes found")
+
 	rpcURL                 = environment.GetString("RPC_URL", "")
 	dispatchURLs           = strings.Split(environment.GetString("DISPATCH_URLS", ""), ",")
 	redisConnectionStrings = strings.Split(environment.GetString("REDIS_CONNECTION_STRINGS", ""), ",")
@@ -181,19 +183,29 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 	sem := semaphore.NewWeighted(dispatchConcurrency)
 
 	for index, app := range ntApps {
+		app := app
+		index := index
 		for _, chain := range app.Chains {
 			wg.Add(1)
+			sem.Acquire(ctx, 1)
 			go func(publicKey, ch string, idx int) {
 				defer wg.Done()
+				defer sem.Release(1)
 
 				session, err := appChecks.getSession(ctx, publicKey, ch)
+
 				if err != nil {
+					// Such sessions cannot be dispatched so not an actual error
+					if strings.Contains(err.Error(), errLessThanMinimumNodes.Error()) {
+						return
+					}
+
 					logger.Log.WithFields(log.Fields{
 						"appPublicKey": publicKey,
 						"chain":        ch,
 						"error":        err.Error(),
 					}).Errorf("error dispatching: %s", err.Error())
-					session = &provider.Session{}
+					return
 				}
 
 				dbApp := dbApps[idx]
@@ -208,40 +220,32 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 					blockchain = &models.Blockchain{}
 				}
 
-				sem.Acquire(ctx, 1)
-				wg.Add(1)
-
-				go func() {
-					defer sem.Release(1)
-					defer wg.Done()
-
-					performChecks(ctx, &PerformChecksOptions{
-						Ac: &appChecks,
-						SyncCheckOpts: &pocket.SyncCheckOptions{
-							Session:          *session,
-							PocketAAT:        pocketAAT,
-							SyncCheckOptions: blockchain.SyncCheckOptions,
-							AltruistURL:      blockchain.Altruist,
-							Blockchain:       blockchain.ID,
-						},
-						ChainCheckOpts: &pocket.ChainCheckOptions{
-							Session:    *session,
-							Blockchain: blockchain.ID,
-							Data:       blockchain.ChainIDCheck,
-							ChainID:    blockchain.ChainID,
-							Path:       blockchain.Path,
-							PocketAAT:  pocketAAT,
-						},
-						SyncCheckKey:  appChecks.CommitHash + syncCheckKeyPrefix + session.Key,
-						ChainCheckKey: appChecks.CommitHash + chainheckKeyPrefix + session.Key,
-						CacheTTL:      int(cacheTTL),
-						Blockchain:    *blockchain,
-						Session:       session,
-						PocketAAT:     &pocketAAT,
-						TotalApps:     totalApps,
-						Invalid:       err != nil,
-					})
-				}()
+				performChecks(ctx, &PerformChecksOptions{
+					Ac: &appChecks,
+					SyncCheckOpts: &pocket.SyncCheckOptions{
+						Session:          *session,
+						PocketAAT:        pocketAAT,
+						SyncCheckOptions: blockchain.SyncCheckOptions,
+						AltruistURL:      blockchain.Altruist,
+						Blockchain:       blockchain.ID,
+					},
+					ChainCheckOpts: &pocket.ChainCheckOptions{
+						Session:    *session,
+						Blockchain: blockchain.ID,
+						Data:       blockchain.ChainIDCheck,
+						ChainID:    blockchain.ChainID,
+						Path:       blockchain.Path,
+						PocketAAT:  pocketAAT,
+					},
+					SyncCheckKey:  appChecks.CommitHash + syncCheckKeyPrefix + session.Key,
+					ChainCheckKey: appChecks.CommitHash + chainheckKeyPrefix + session.Key,
+					CacheTTL:      int(cacheTTL),
+					Blockchain:    *blockchain,
+					Session:       session,
+					PocketAAT:     &pocketAAT,
+					TotalApps:     totalApps,
+					Invalid:       err != nil,
+				})
 			}(app.PublicKey, chain, index)
 		}
 	}
@@ -265,6 +269,10 @@ func (ac *ApplicationData) getSession(ctx context.Context, publicKey, chain stri
 	dispatch, err := ac.Provider.Dispatch(publicKey, chain, nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if dispatch.Session.Key == "" {
+		return nil, errors.New("empty session")
 	}
 
 	return dispatch.Session, nil
