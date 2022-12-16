@@ -10,9 +10,7 @@ RUN cd global-dispatcher/cmd/dispatch/cli/ && go build main.go
 FROM alpine:3.17
 
 WORKDIR /app
-COPY --chown=65534:65534 --from=builder /app/fishermen/cmd/run-application-checks/cli/main.go ./fishermen/main
-COPY --chown=65534:65534 --from=builder /app/global-dispatcher/cmd/dispatch/cli/main.go ./dispatch/main
-
-USER 65534
+COPY --from=builder /app/fishermen/cmd/run-application-checks/cli/main.go ./fishermen/main
+COPY --from=builder /app/global-dispatcher/cmd/dispatch/cli/main.go ./dispatch/main
 
 #ENTRYPOINT [ "/app/fishermen/main" ]
