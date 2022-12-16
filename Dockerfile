@@ -4,8 +4,9 @@ WORKDIR /app
 COPY . .
 
 RUN go mod vendor
-RUN cd fishermen/cmd/run-application-checks/cli && go build main.go
-RUN cd global-dispatcher/cmd/dispatch/cli/ && go build main.go
+ENV  GO111MODULE=on
+RUN cd fishermen/cmd/run-application-checks/cli && GOARCH=amd64 GOOS=linux go build main.go
+RUN cd global-dispatcher/cmd/dispatch/cli/ && GOARCH=amd64 GOOS=linux go build main.go
 
 FROM alpine:3.17
 
