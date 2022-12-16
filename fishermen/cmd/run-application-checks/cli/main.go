@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"sync"
 	"time"
 
 	base "github.com/Pocket/global-services/fishermen/cmd/run-application-checks"
@@ -19,7 +20,10 @@ import (
 var timeout = time.Duration(environment.GetInt64("TIMEOUT", 360)) * time.Second
 
 func performChecks(ctx context.Context, options *base.PerformChecksOptions) {
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
+		defer wg.Done()
 		chainCheck(ctx, options.Ac, pocket.ChainCheckOptions{
 			Session:    *options.Session,
 			Blockchain: options.Blockchain.ID,
@@ -31,6 +35,7 @@ func performChecks(ctx context.Context, options *base.PerformChecksOptions) {
 	}()
 
 	go func() {
+		defer wg.Done()
 		syncCheck(ctx, options.Ac, pocket.SyncCheckOptions{
 			Session:          *options.Session,
 			SyncCheckOptions: options.Blockchain.SyncCheckOptions,
@@ -39,6 +44,7 @@ func performChecks(ctx context.Context, options *base.PerformChecksOptions) {
 			PocketAAT:        *options.PocketAAT,
 		}, options.Blockchain, options.CacheTTL, options.SyncCheckKey)
 	}()
+	wg.Wait()
 }
 
 func chainCheck(ctx context.Context, ac *base.ApplicationData, options pocket.ChainCheckOptions, blockchain models.Blockchain, cacheTTL int, cacheKey string) []string {
