@@ -14,6 +14,10 @@ func GetDomainFromURL(url string) string {
 	}
 
 	parts := strings.Split(u.Hostname(), ".")
+	if len(parts) < 2 {
+		return url
+	}
+
 	domain := parts[len(parts)-2] + "." + parts[len(parts)-1]
 
 	return domain
