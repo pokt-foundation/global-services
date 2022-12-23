@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	_url "net/url"
 	"strings"
 )
@@ -21,7 +20,6 @@ func GetDomainFromURL(url string) string {
 	}
 
 	domain := parts[len(parts)-2] + "." + parts[len(parts)-1]
-	fmt.Println("AFTER PARTS")
 
 	return domain
 }
