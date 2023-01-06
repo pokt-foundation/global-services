@@ -84,7 +84,6 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, uint32, er
 
 	totalSessions := 0
 	for _, app := range apps {
-		totalSessions += len(app.Chains)
 		for _, chain := range app.Chains {
 			sem.Acquire(ctx, 1)
 			wg.Add(1)
@@ -116,6 +115,7 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, uint32, er
 					}).Error("error dispatching: " + err.Error())
 					return
 				}
+				totalSessions++
 
 				session := pocket.NewSessionCamelCase(dispatch.Session)
 				// Embedding current block height within session so can be checked for cache
