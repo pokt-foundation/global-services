@@ -42,31 +42,31 @@ var (
 // DispatchSessions obtains applications from the database, asserts they're staked
 // and dispatch the sessions of the chains from the applications, writing the results
 // to the cache clients provided while also  reporting any failure from the dispatchers.
-func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
+func DispatchSessions(ctx context.Context, requestID string) (uint32, uint32, error) {
 	if len(redisConnectionStrings) <= 0 {
-		return 0, shared.ErrNoCacheClientProvided
+		return 0, 0, shared.ErrNoCacheClientProvided
 	}
 
 	db, err := database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
 	if err != nil {
-		return 0, errors.New("error connecting to mongo: " + err.Error())
+		return 0, 0, errors.New("error connecting to mongo: " + err.Error())
 	}
 
 	caches, err := cache.ConnectToCacheClients(ctx, redisConnectionStrings, "", isRedisCluster)
 	if err != nil {
-		return 0, errors.New("error connecting to redis: " + err.Error())
+		return 0, 0, errors.New("error connecting to redis: " + err.Error())
 	}
 
 	rpcProvider := provider.NewProvider(rpcURL, dispatchURLs)
 
 	blockHeight, err := rpcProvider.GetBlockHeight()
 	if err != nil {
-		return 0, errors.New("error obtaining block height: " + err.Error())
+		return 0, 0, errors.New("error obtaining block height: " + err.Error())
 	}
 
 	apps, _, err := gateway.GetApplicationsFromDB(ctx, db, rpcProvider, []string{})
 	if err != nil {
-		return 0, errors.New("error obtaining staked apps on db: " + err.Error())
+		return 0, 0, errors.New("error obtaining staked apps on db: " + err.Error())
 	}
 
 	var cacheWg sync.WaitGroup
@@ -82,7 +82,9 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 	var sem = semaphore.NewWeighted(dispatchConcurrency)
 	var wg sync.WaitGroup
 
+	totalSessions := 0
 	for _, app := range apps {
+		totalSessions += len(app.Chains)
 		for _, chain := range app.Chains {
 			sem.Acquire(ctx, 1)
 			wg.Add(1)
@@ -145,13 +147,13 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 	cacheWg.Wait()
 
 	if failedDispatcherCalls > uint32(maxDispatchersErrorsAllowed) {
-		return failedDispatcherCalls, errMaxDispatchErrorsExceeded
+		return uint32(totalSessions), failedDispatcherCalls, errMaxDispatchErrorsExceeded
 	}
 
 	err = cache.CloseConnections(caches)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	return failedDispatcherCalls, nil
+	return uint32(totalSessions), failedDispatcherCalls, nil
 }

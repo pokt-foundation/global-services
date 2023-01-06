@@ -19,7 +19,7 @@ func main() {
 	defer cancel()
 
 	requestID, _ := utils.RandomHex(32)
-	failedDispatcherCalls, err := base.DispatchSessions(ctx, requestID)
+	totalSessions, failedDispatcherCalls, err := base.DispatchSessions(ctx, requestID)
 	if err != nil {
 		logger.Log.WithFields(log.Fields{
 			"requestID":      requestID,
@@ -28,6 +28,7 @@ func main() {
 		}).Error("ERROR DISPATCHING SESSION: " + err.Error())
 	}
 	logger.Log.WithFields(log.Fields{
+		"totalSessions":  totalSessions,
 		"requestID":      requestID,
 		"failedDispatch": failedDispatcherCalls,
 	}).Info("GLOBAL DISPATCHER RESULT")
