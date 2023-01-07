@@ -1,0 +1,64 @@
+service: global-services
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: go1.x
+  region: eu-central-1
+  vpc:
+    securityGroupIds:
+    - sg-023fcef5460b56436
+    subnetIds:
+    - subnet-02d0f921abce87758
+
+  iam:
+    role:
+      statements: 
+        - Effect: 'Allow'
+          Action:
+            - "lambda:InvokeFunction"
+          Resource: "*"
+        # Enable this when creating a lambda inside a VPC
+        - Effect: Allow
+          Action:
+            - ec2:DescribeNetworkInterfaces
+            - ec2:CreateNetworkInterface
+            - ec2:DeleteNetworkInterface
+            - ec2:DescribeInstances
+            - ec2:AttachNetworkInterface
+          Resource:
+            - "*"
+
+package:
+  patterns:
+    - '!./**'
+    - ./bin/**
+
+functions:
+  dispatch-globally:
+    handler: bin/dispatch
+    environment: ${file(.env.dispatch-globally.k8s.yml)}
+    memorySize: 256
+    timeout: 360
+    maximumRetryAttempts: 2
+    events:
+      - schedule:
+          rate: rate(1 minute)
+          enabled: true
+
+  run-application-checks:
+    handler: bin/run-application-checks
+    environment: ${file(.env.run-application-checks.yml)}
+    memorySize: 350
+    timeout: 360
+    maximumRetryAttempts: 2
+    events:
+      - schedule:
+          rate: rate(3 minutes)
+          enabled: true
+
+  perform-application-check:
+    handler: bin/perform-application-check
+    environment: ${file(.env.perform-application-check.yml)}
+    memorySize: 128
+    timeout: 60
