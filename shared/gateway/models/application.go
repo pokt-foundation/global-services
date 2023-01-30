@@ -99,10 +99,6 @@ func RepositoryToModelApp(app *repository.Application) (*Application, error) {
 			ThreeQuarters: app.NotificationSettings.ThreeQuarters,
 			Full:          app.NotificationSettings.Full,
 		},
-		Limits: Limits{
-			PlanType:   string(app.Limits.PlanType),
-			DailyLimit: app.Limits.DailyLimit,
-		},
 		FreeTierApplicationAccount: FreeTierApplicationAccount{
 			Address:   app.GatewayAAT.Address,
 			PublicKey: app.GatewayAAT.ApplicationPublicKey,
