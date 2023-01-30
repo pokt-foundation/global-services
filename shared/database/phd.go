@@ -12,9 +12,8 @@ type PostgresDBClient struct {
 	*dbclient.DBClient
 }
 
-// NewPostgresDBClient returns an augmented HTTP client for the pocket http db which adheres with the
-// current model filters interface.
-func NewPostgresDBClient(config dbclient.Config) (*PostgresDBClient, error) {
+// NewPHDClient returns an augmented HTTP client for the pocket http db which adheres which adds app filters
+func NewPHDClient(config dbclient.Config) (*PostgresDBClient, error) {
 	client, err := dbclient.NewDBClient(config)
 	if err != nil {
 		return nil, err
