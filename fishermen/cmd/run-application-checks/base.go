@@ -11,10 +11,12 @@ import (
 
 	"github.com/Pocket/global-services/shared/cache"
 	"github.com/Pocket/global-services/shared/database"
-	"github.com/Pocket/global-services/shared/environment"
+	dbclient "github.com/pokt-foundation/db-client/client"
+	"github.com/pokt-foundation/portal-db/types"
+	"github.com/pokt-foundation/utils-go/environment"
+
 	shared "github.com/Pocket/global-services/shared/error"
 	"github.com/Pocket/global-services/shared/gateway"
-	"github.com/Pocket/global-services/shared/gateway/models"
 	"github.com/Pocket/global-services/shared/metrics"
 	"github.com/Pocket/global-services/shared/pocket"
 	"github.com/Pocket/global-services/shared/utils"
@@ -30,33 +32,35 @@ import (
 var (
 	errLessThanMinimumNodes = errors.New("there are less than the minimum session nodes found")
 
-	rpcURL                 = environment.GetString("RPC_URL", "")
-	dispatchURLs           = strings.Split(environment.GetString("DISPATCH_URLS", ""), ",")
-	redisConnectionStrings = strings.Split(environment.GetString("REDIS_CONNECTION_STRINGS", ""), ",")
+	rpcURL                 = environment.MustGetString("RPC_URL")
+	dispatchURLs           = strings.Split(environment.MustGetString("DISPATCH_URLS"), ",")
+	redisConnectionStrings = strings.Split(environment.MustGetString("REDIS_CONNECTION_STRINGS"), ",")
 	isRedisCluster         = environment.GetBool("IS_REDIS_CLUSTER", false)
-	mongoConnectionString  = environment.GetString("MONGODB_CONNECTION_STRING", "")
-	mongoDatabase          = environment.GetString("MONGODB_DATABASE", "gateway")
 	cacheTTL               = environment.GetInt64("CACHE_TTL", 300)
 	dispatchConcurrency    = environment.GetInt64("DISPATCH_CONCURRENCY", 30)
 	maxClientsCacheCheck   = environment.GetInt64("MAX_CLIENTS_CACHE_CHECK", 3)
-	appPrivateKey          = environment.GetString("APPLICATION_PRIVATE_KEY", "")
+	appPrivateKey          = environment.MustGetString("APPLICATION_PRIVATE_KEY")
 	defaultSyncAllowance   = environment.GetInt64("DEFAULT_SYNC_ALLOWANCE", 5)
-	altruistTrustThreshold = environment.GetFloat64("ALTRUIST_TRUST_THRESHOLD", 0.5)
-	syncCheckKeyPrefix     = environment.GetString("SYNC_CHECK_KEY_PREFIX", "")
-	chainheckKeyPrefix     = environment.GetString("CHAIN_CHECK_KEY_PREFIX", "")
+	syncCheckKeyPrefix     = environment.GetString("SYNC_CHECK_KEY_PREFIX", "sync-check-")
+	chainheckKeyPrefix     = environment.GetString("CHAIN_CHECK_KEY_PREFIX", "chain-check-")
 	metricsConnection      = environment.GetString("METRICS_CONNECTION", "")
 	minMetricsPoolSize     = environment.GetInt64("MIN_METRICS_POOL_SIZE", 5)
 	maxMetricsPoolSize     = environment.GetInt64("MAX_METRICS_POOL_SIZE", 20)
 	defaultTimeOut         = environment.GetInt64("DEFAULT_TIMEOUT", 8)
 	cacheBatchSize         = environment.GetInt64("CACHE_BATCH_SIZE", 50)
 	singleApps             = strings.Split(environment.GetString("SINGLE_APPS", ""), ",")
+	phdBaseURL             = environment.MustGetString("PHD_BASE_URL")
+	phdAPIKey              = environment.MustGetString("PHD_API_KEY")
 
 	caches          []*cache.Redis
 	metricsRecorder *metrics.Recorder
 	rpcProvider     *provider.Provider
 )
 
-const emptyNodesTTL = 30
+const (
+	emptyNodesTTL          = 30
+	altruistTrustThreshold = 0.5
+)
 
 // ApplicationData saves all the info needed to run QoS checks on it
 type ApplicationData struct {
@@ -66,7 +70,7 @@ type ApplicationData struct {
 	MetricsRecorder *metrics.Recorder
 	BlockHeight     int
 	CommitHash      string
-	Blockchains     map[string]*models.Blockchain
+	Blockchains     map[string]*types.Blockchain
 	RequestID       string
 	SyncChecker     *pocket.SyncChecker
 	ChainChecker    *pocket.ChainChecker
@@ -78,7 +82,7 @@ type PerformChecksOptions struct {
 	Ac             *ApplicationData
 	SyncCheckOpts  *pocket.SyncCheckOptions
 	ChainCheckOpts *pocket.ChainCheckOptions
-	Blockchain     models.Blockchain
+	Blockchain     types.Blockchain
 	Session        *provider.Session
 	PocketAAT      *provider.PocketAAT
 	CacheTTL       int
@@ -94,9 +98,13 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 	if len(redisConnectionStrings) <= 0 {
 		return shared.ErrNoCacheClientProvided
 	}
-	db, err := database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
+	dbClient, err := database.NewPHDClient(dbclient.Config{
+		BaseURL: phdBaseURL,
+		APIKey:  phdAPIKey,
+		Version: dbclient.V0,
+	})
 	if err != nil {
-		return errors.New("error connecting to mongo: " + err.Error())
+		return errors.New("error connecting to phd: " + err.Error())
 	}
 
 	metricsRecorder, err = metrics.NewMetricsRecorder(ctx, &database.PostgresOptions{
@@ -127,17 +135,17 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 		return err
 	}
 
-	ntApps, dbApps, err := gateway.GetApplicationsFromDB(ctx, db, rpcProvider, singleApps)
+	ntApps, dbApps, err := gateway.GetApplicationsFromDB(ctx, dbClient, rpcProvider, singleApps)
 	if err != nil {
 		return errors.New("error obtaining staked apps on db: " + err.Error())
 	}
 
-	blockchainsDB, err := db.GetBlockchains(ctx)
+	blockchainsDB, err := dbClient.GetBlockchains(ctx)
 	if err != nil {
 		return errors.New("error obtaining blockchains: " + err.Error())
 	}
 
-	blockchains := utils.SliceToMappedStruct(blockchainsDB, func(bc *models.Blockchain) string {
+	blockchains := utils.SliceToMappedStruct(blockchainsDB, func(bc *types.Blockchain) string {
 		return bc.ID
 	})
 
@@ -217,7 +225,7 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 				}
 				blockchain, ok := blockchains[ch]
 				if !ok {
-					blockchain = &models.Blockchain{}
+					return
 				}
 
 				performChecks(ctx, &PerformChecksOptions{

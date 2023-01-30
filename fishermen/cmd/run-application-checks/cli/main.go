@@ -9,9 +9,9 @@ import (
 	base "github.com/Pocket/global-services/fishermen/cmd/run-application-checks"
 	"github.com/Pocket/global-services/shared/cache"
 	"github.com/Pocket/global-services/shared/environment"
-	"github.com/Pocket/global-services/shared/gateway/models"
 	"github.com/Pocket/global-services/shared/pocket"
 	"github.com/Pocket/global-services/shared/utils"
+	"github.com/pokt-foundation/portal-db/types"
 
 	logger "github.com/Pocket/global-services/shared/logger"
 	log "github.com/sirupsen/logrus"
@@ -47,7 +47,7 @@ func performChecks(ctx context.Context, options *base.PerformChecksOptions) {
 	wg.Wait()
 }
 
-func chainCheck(ctx context.Context, ac *base.ApplicationData, options pocket.ChainCheckOptions, blockchain models.Blockchain, cacheTTL int, cacheKey string) []string {
+func chainCheck(ctx context.Context, ac *base.ApplicationData, options pocket.ChainCheckOptions, blockchain types.Blockchain, cacheTTL int, cacheKey string) []string {
 	if blockchain.ChainIDCheck == "" {
 		return []string{}
 	}
@@ -78,7 +78,7 @@ func chainCheck(ctx context.Context, ac *base.ApplicationData, options pocket.Ch
 	return nodes
 }
 
-func syncCheck(ctx context.Context, ac *base.ApplicationData, options pocket.SyncCheckOptions, blockchain models.Blockchain, cacheTTL int, cacheKey string) []string {
+func syncCheck(ctx context.Context, ac *base.ApplicationData, options pocket.SyncCheckOptions, blockchain types.Blockchain, cacheTTL int, cacheKey string) []string {
 	if blockchain.SyncCheckOptions.Body == "" && blockchain.SyncCheckOptions.Path == "" {
 		return []string{}
 	}
