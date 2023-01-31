@@ -48,7 +48,6 @@ var (
 	maxMetricsPoolSize     = environment.GetInt64("MAX_METRICS_POOL_SIZE", 20)
 	defaultTimeOut         = environment.GetInt64("DEFAULT_TIMEOUT", 8)
 	cacheBatchSize         = environment.GetInt64("CACHE_BATCH_SIZE", 50)
-	singleApps             = strings.Split(environment.GetString("SINGLE_APPS", ""), ",")
 	phdBaseURL             = environment.MustGetString("PHD_BASE_URL")
 	phdAPIKey              = environment.MustGetString("PHD_API_KEY")
 
@@ -135,7 +134,7 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 		return err
 	}
 
-	ntApps, dbApps, err := gateway.GetApplicationsFromDB(ctx, dbClient, rpcProvider, singleApps)
+	ntApps, dbApps, err := dbClient.GetStakedApplications(ctx, rpcProvider)
 	if err != nil {
 		return errors.New("error obtaining staked apps on db: " + err.Error())
 	}

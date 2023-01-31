@@ -70,7 +70,7 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 		return 0, errors.New("error obtaining block height: " + err.Error())
 	}
 
-	apps, _, err := gateway.GetApplicationsFromDB(ctx, dbClient, rpcProvider, []string{})
+	apps, _, err := dbClient.GetStakedApplications(ctx, rpcProvider)
 	if err != nil {
 		return 0, errors.New("error obtaining staked apps on db: " + err.Error())
 	}
