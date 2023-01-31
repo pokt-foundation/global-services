@@ -3,7 +3,9 @@ package database
 import (
 	"context"
 
+	"github.com/Pocket/global-services/shared/utils"
 	dbclient "github.com/pokt-foundation/db-client/client"
+	"github.com/pokt-foundation/pocket-go/provider"
 	"github.com/pokt-foundation/portal-db/types"
 	"golang.org/x/exp/slices"
 )
@@ -25,15 +27,13 @@ func NewPHDClient(config dbclient.Config) (*PostgresDBClient, error) {
 }
 
 // GetStakedApplications returns all the staked applications on the database
-func (pg PostgresDBClient) GetStakedApplications(ctx context.Context) ([]*types.Application, error) {
+func (pg PostgresDBClient) GetStakedApplications(ctx context.Context, pocket *provider.Provider) ([]*provider.App, []*types.Application, error) {
 	apps, err := pg.GetApplications(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return filter(apps, func(a *types.Application) bool {
-		return !a.Dummy
-	}), nil
+	return FilterStakedAppsNotOnDB(apps, pocket)
 }
 
 func (pg PostgresDBClient) GetGigastakedApplications(ctx context.Context) ([]*types.Application, error) {
@@ -63,6 +63,32 @@ func (pg PostgresDBClient) GetAppsFromList(ctx context.Context, appIDs []string)
 	return filter(apps, func(a *types.Application) bool {
 		return slices.Contains(appIDs, a.ID)
 	}), nil
+}
+
+// FilterStakedAppsNotOnDB takes a list of database apps and only returns those that are staked on the network
+func FilterStakedAppsNotOnDB(dbApps []*types.Application, pocket *provider.Provider) ([]*provider.App, []*types.Application, error) {
+	var stakedApps []*provider.App
+	var stakedAppsDB []*types.Application
+
+	networkApps, err := pocket.GetApps(&provider.GetAppsOptions{
+		PerPage: 3000,
+		Page:    1,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	publicKeyToApps := utils.SliceToMappedStruct(dbApps, func(app *types.Application) string {
+		return app.GatewayAAT.ApplicationPublicKey
+	})
+
+	for _, ntApp := range networkApps.Result {
+		if _, ok := publicKeyToApps[ntApp.PublicKey]; ok {
+			stakedApps = append(stakedApps, ntApp)
+			stakedAppsDB = append(stakedAppsDB, publicKeyToApps[ntApp.PublicKey])
+		}
+	}
+	return stakedApps, stakedAppsDB, nil
 }
 
 // filter calls a function on each element of a slice, returning a new slice whose elements returned true from the function
