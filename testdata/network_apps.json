@@ -1,0 +1,40 @@
+{
+  "result": [
+    {
+      "address": "test_address_557e9ccaf0e71d46df49f300b17",
+      "public_key": "test_app_pub_key_c88022df98fd0423823df6d24af19031a1b319d44e3ed3a",
+      "jailed": false,
+      "chains": [
+        "0021"
+      ],
+      "max_relays": "2000",
+      "status": 2,
+      "staked_tokens": "1000000",
+      "unstaking_time": "0001-01-01T00:00:00Z"
+    },
+    {
+      "address": "test_address_b3b1f48acb8bc3270874de9ba6a",
+      "public_key": "test_app_pub_key_5b1f368062197154e28a9ccc2997538dadae2a9fe03de52",
+      "jailed": false,
+      "chains": [
+        "0021"
+      ],
+      "max_relays": "2000",
+      "status": 2,
+      "staked_tokens": "1000000",
+      "unstaking_time": "0001-01-01T00:00:00Z"
+    },
+    {
+      "address": "test_address_6e08f562b68c65ef8e9bef2d62f",
+      "public_key": "test_app_pub_key_adae2a9fe03de52e9b309b355e75b1f368062frsf4nsctv",
+      "jailed": false,
+      "chains": [
+        "0021"
+      ],
+      "max_relays": "2000",
+      "status": 2,
+      "staked_tokens": "1000000",
+      "unstaking_time": "0001-01-01T00:00:00Z"
+    }
+  ]
+}
