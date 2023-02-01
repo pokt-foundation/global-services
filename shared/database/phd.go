@@ -36,24 +36,7 @@ func (pg PostgresDBClient) GetStakedApplications(ctx context.Context, pocket *pr
 	return FilterStakedAppsNotOnDB(apps, pocket)
 }
 
-func (pg PostgresDBClient) GetGigastakedApplications(ctx context.Context) ([]*types.Application, error) {
-	lbs, err := pg.GetLoadBalancers(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	gigastakeLBs := filter(lbs, func(lb *types.LoadBalancer) bool {
-		return lb.Gigastake
-	})
-
-	var gigastakeApps []*types.Application
-	for _, lb := range gigastakeLBs {
-		gigastakeApps = append(gigastakeApps, lb.Applications...)
-	}
-
-	return gigastakeApps, nil
-}
-
+// GetAppsFromList returns only the applications provided in the slice of app IDs
 func (pg PostgresDBClient) GetAppsFromList(ctx context.Context, appIDs []string) ([]*types.Application, error) {
 	apps, err := pg.GetApplications(ctx)
 	if err != nil {
