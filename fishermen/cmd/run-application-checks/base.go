@@ -100,7 +100,7 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 	dbClient, err := database.NewPHDClient(dbclient.Config{
 		BaseURL: phdBaseURL,
 		APIKey:  phdAPIKey,
-		Version: dbclient.V0,
+		Version: dbclient.V1,
 	})
 	if err != nil {
 		return errors.New("error connecting to phd: " + err.Error())

@@ -52,7 +52,7 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 	dbClient, err := database.NewPHDClient(dbclient.Config{
 		BaseURL: phdBaseURL,
 		APIKey:  phdAPIKey,
-		Version: dbclient.V0,
+		Version: dbclient.V1,
 	})
 	if err != nil {
 		return 0, errors.New("error connecting to phd: " + err.Error())
