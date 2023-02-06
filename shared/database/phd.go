@@ -12,12 +12,12 @@ import (
 
 // PostgresDBClient holds the phd client lib and additional methods for filtering applications
 type PostgresDBClient struct {
-	*dbclient.DBClient
+	dbclient.IDBReader
 }
 
 // NewPHDClient returns an augmented HTTP client for the pocket http db which adheres which adds app filters
 func NewPHDClient(config dbclient.Config) (*PostgresDBClient, error) {
-	client, err := dbclient.NewDBClient(config)
+	client, err := dbclient.NewReadOnlyDBClient(config)
 	if err != nil {
 		return nil, err
 	}
