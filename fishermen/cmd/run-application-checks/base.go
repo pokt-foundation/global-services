@@ -103,7 +103,7 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 		Version: dbclient.V1,
 	})
 	if err != nil {
-		return errors.New("error connecting to phd: " + err.Error())
+		return errors.New("error validating phd config: " + err.Error())
 	}
 
 	metricsRecorder, err = metrics.NewMetricsRecorder(ctx, &database.PostgresOptions{

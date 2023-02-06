@@ -55,7 +55,7 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 		Version: dbclient.V1,
 	})
 	if err != nil {
-		return 0, errors.New("error connecting to phd: " + err.Error())
+		return 0, errors.New("error validating phd config: " + err.Error())
 	}
 
 	caches, err := cache.ConnectToCacheClients(ctx, redisConnectionStrings, "", isRedisCluster)
