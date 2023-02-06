@@ -10,6 +10,7 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+// PostgresDBClient holds the phd client lib and additional methods for filtering applications
 type PostgresDBClient struct {
 	*dbclient.DBClient
 }
