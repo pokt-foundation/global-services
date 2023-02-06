@@ -18,7 +18,7 @@ require (
 	golang.org/x/sync v0.1.0
 )
 
-require github.com/jarcoal/httpmock v1.2.0 // indirect
+require github.com/jarcoal/httpmock v1.2.0
 
 require (
 	github.com/gojek/heimdall/v7 v7.0.2 // indirect
