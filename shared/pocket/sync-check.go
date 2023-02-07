@@ -12,12 +12,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Pocket/global-services/shared/gateway/models"
 	logger "github.com/Pocket/global-services/shared/logger"
 	"github.com/Pocket/global-services/shared/metrics"
 	"github.com/Pocket/global-services/shared/utils"
 	"github.com/pokt-foundation/pocket-go/provider"
 	"github.com/pokt-foundation/pocket-go/relayer"
+	"github.com/pokt-foundation/portal-db/types"
 	log "github.com/sirupsen/logrus"
 
 	_http "github.com/Pocket/global-services/shared/http"
@@ -38,7 +38,7 @@ type SyncChecker struct {
 type SyncCheckOptions struct {
 	Session          provider.Session
 	PocketAAT        provider.PocketAAT
-	SyncCheckOptions models.SyncCheckOptions
+	SyncCheckOptions types.SyncCheckOptions
 	AltruistURL      string
 	Blockchain       string
 }
@@ -195,7 +195,6 @@ func (sc *SyncChecker) getNodeSyncLog(ctx context.Context, node *provider.Node, 
 
 func (sc *SyncChecker) getAltruistDataAndHighestBlockHeight(nodeLogs []*nodeSyncLog, options *SyncCheckOptions) (altruistBlockHeight, highestBlockHeight int64, isAltruistTrustworthy bool) {
 	validNodes, highestBlockHeight := sc.getValidNodesCountAndHighestNode(nodeLogs, options)
-
 	altruistBlockHeight, nodesAheadOfAltruist := sc.getValidatedAltruist(nodeLogs, options)
 
 	// Prevents division by 0 in case all nodes fail
@@ -295,17 +294,18 @@ func (sc *SyncChecker) getValidatedAltruist(nodeLogs []*nodeSyncLog, options *Sy
 	return altruistBlockHeight, nodesAheadOfAltruist
 }
 
-func getAltruistBlockHeight(options models.SyncCheckOptions, altruistURL string, path string) (int64, error) {
+func getAltruistBlockHeight(options types.SyncCheckOptions, altruistURL string, path string) (int64, error) {
 	regex := regexp.MustCompile(`/[\w]*:\/\/[^\/]*@/g`)
 	regex.ReplaceAllString(altruistURL, "")
 
 	req, err := http.NewRequest(http.MethodPost, altruistURL+path,
 		bytes.NewBuffer([]byte(strings.Replace(options.Body, `\`, "", -1))))
-	defer utils.CloseOrLog(req.Response)
 
 	if err != nil {
 		return 0, errors.New("error making altruist request: " + err.Error())
 	}
+	defer utils.CloseOrLog(req.Response)
+
 	req.Header.Add("Content-Type", "application/json")
 
 	res, err := httpClient.Do(req)

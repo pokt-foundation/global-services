@@ -11,7 +11,9 @@ import (
 
 	"github.com/Pocket/global-services/shared/cache"
 	"github.com/Pocket/global-services/shared/database"
-	"github.com/Pocket/global-services/shared/environment"
+	dbclient "github.com/pokt-foundation/db-client/client"
+	"github.com/pokt-foundation/utils-go/environment"
+
 	shared "github.com/Pocket/global-services/shared/error"
 	"github.com/Pocket/global-services/shared/gateway"
 	"github.com/Pocket/global-services/shared/pocket"
@@ -26,17 +28,17 @@ var (
 	errMaxDispatchErrorsExceeded = errors.New("exceeded maximum allowance of dispatcher errors")
 	errLessThanMinimumNodes      = errors.New("there are less than the minimum session nodes found")
 
-	rpcURL                      = environment.GetString("RPC_URL", "")
-	dispatchURLs                = strings.Split(environment.GetString("DISPATCH_URLS", ""), ",")
-	redisConnectionStrings      = strings.Split(environment.GetString("REDIS_CONNECTION_STRINGS", ""), ",")
+	rpcURL                      = environment.MustGetString("RPC_URL")
+	dispatchURLs                = strings.Split(environment.MustGetString("DISPATCH_URLS"), ",")
+	redisConnectionStrings      = strings.Split(environment.MustGetString("REDIS_CONNECTION_STRINGS"), ",")
 	isRedisCluster              = environment.GetBool("IS_REDIS_CLUSTER", false)
-	mongoConnectionString       = environment.GetString("MONGODB_CONNECTION_STRING", "")
-	mongoDatabase               = environment.GetString("MONGODB_DATABASE", "gateway")
 	cacheTTL                    = environment.GetInt64("CACHE_TTL", 3600)
 	dispatchConcurrency         = environment.GetInt64("DISPATCH_CONCURRENCY", 200)
 	maxDispatchersErrorsAllowed = environment.GetInt64("MAX_DISPATCHER_ERRORS_ALLOWED", 2000)
 	maxClientsCacheCheck        = environment.GetInt64("MAX_CLIENTS_CACHE_CHECK", 3)
 	cacheBatchSize              = environment.GetInt64("CACHE_BATCH_SIZE", 100)
+	phdBaseURL                  = environment.MustGetString("PHD_BASE_URL")
+	phdAPIKey                   = environment.MustGetString("PHD_API_KEY")
 )
 
 // DispatchSessions obtains applications from the database, asserts they're staked
@@ -47,9 +49,13 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 		return 0, shared.ErrNoCacheClientProvided
 	}
 
-	db, err := database.ClientFromURI(ctx, mongoConnectionString, mongoDatabase)
+	dbClient, err := database.NewPHDClient(dbclient.Config{
+		BaseURL: phdBaseURL,
+		APIKey:  phdAPIKey,
+		Version: dbclient.V1,
+	})
 	if err != nil {
-		return 0, errors.New("error connecting to mongo: " + err.Error())
+		return 0, errors.New("error validating phd config: " + err.Error())
 	}
 
 	caches, err := cache.ConnectToCacheClients(ctx, redisConnectionStrings, "", isRedisCluster)
@@ -64,7 +70,7 @@ func DispatchSessions(ctx context.Context, requestID string) (uint32, error) {
 		return 0, errors.New("error obtaining block height: " + err.Error())
 	}
 
-	apps, _, err := gateway.GetApplicationsFromDB(ctx, db, rpcProvider, []string{})
+	apps, _, err := dbClient.GetStakedApplications(ctx, rpcProvider)
 	if err != nil {
 		return 0, errors.New("error obtaining staked apps on db: " + err.Error())
 	}
