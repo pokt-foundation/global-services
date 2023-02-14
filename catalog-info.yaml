@@ -1,0 +1,56 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: global-dispatcher-service
+  annotations:
+    github.com/project-slug: pokt-foundation/global-services
+    github.com/team-slug: pokt-foundation/backend
+    backstage.io/techdocs-ref: dir:.
+  tags:
+  - go
+spec:
+  type: service
+  lifecycle: production
+  owner: backend
+  system: portal
+  dependsOn:
+    - pocket-http-db
+    - portal-api-go
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: fishermen-service
+  annotations:
+    github.com/project-slug: pokt-foundation/global-services
+    github.com/team-slug: pokt-foundation/backend
+    backstage.io/techdocs-ref: dir:.
+  tags:
+  - go
+spec:
+  type: service
+  lifecycle: production
+  owner: backend
+  system: portal
+  dependsOn:
+    - pocket-http-db
+    - portal-api-go
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: cherry-picker-data-service
+  annotations:
+    github.com/project-slug: pokt-foundation/global-services
+    github.com/team-slug: pokt-foundation/backend
+    backstage.io/techdocs-ref: dir:.
+  tags:
+  - go
+spec:
+  type: service
+  lifecycle: production
+  owner: backend
+  system: portal
+  dependsOn:
+    - pocket-http-db
+    - portal-api-go
