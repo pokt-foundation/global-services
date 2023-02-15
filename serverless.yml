@@ -120,15 +120,4 @@ functions:
     environment: ${file(.env.flush-cache.yml)}
     memorySize: 128
     timeout: 20
-
-  migrate-postgres-to-mongo:
-    vpc: ~
-    handler: bin/migrate-postgres-to-mongo
-    environment: ${file(.env.migrate-postgres-to-mongo.yml)}
-    memorySize: 1256
-    timeout: 360
-    maximumRetryAttempts: 2
-    events:
-      - schedule:
-          rate: rate(5 minutes)
-          enabled: true
+    
