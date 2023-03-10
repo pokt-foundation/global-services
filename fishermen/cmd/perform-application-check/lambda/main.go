@@ -106,7 +106,7 @@ func doPerformApplicationChecks(ctx context.Context, payload *models.Payload, me
 		defer wg.Done()
 
 		syncCheckOptions := payload.Blockchain.SyncCheckOptions
-		if syncCheckOptions.Body == "" && syncCheckOptions.Path == "" {
+		if syncCheckOptions.Body == "" {
 			return
 		}
 

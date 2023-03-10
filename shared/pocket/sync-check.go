@@ -41,6 +41,7 @@ type SyncCheckOptions struct {
 	SyncCheckOptions types.SyncCheckOptions
 	AltruistURL      string
 	Blockchain       string
+	Path             string
 }
 
 type nodeSyncLog struct {
@@ -155,7 +156,7 @@ func (sc *SyncChecker) getNodeSyncLog(ctx context.Context, node *provider.Node, 
 		PocketAAT:  &options.PocketAAT,
 		Session:    &options.Session,
 		Node:       node,
-		Path:       options.SyncCheckOptions.Path,
+		Path:       options.Path,
 	}, options.SyncCheckOptions.ResultKey)
 
 	if err != nil {
@@ -264,7 +265,7 @@ func (sc *SyncChecker) getValidNodesCountAndHighestNode(nodeLogs []*nodeSyncLog,
 // getValidatedAltruist obtains and validates altruist block height and also returns,
 // how many nodes are ahead of it
 func (sc *SyncChecker) getValidatedAltruist(nodeLogs []*nodeSyncLog, options *SyncCheckOptions) (int64, int) {
-	altruistBlockHeight, err := getAltruistBlockHeight(options.SyncCheckOptions, options.AltruistURL, options.SyncCheckOptions.Path)
+	altruistBlockHeight, err := getAltruistBlockHeight(options.SyncCheckOptions, options.AltruistURL, options.Path)
 	if altruistBlockHeight == 0 || err != nil {
 		logger.Log.WithFields(log.Fields{
 			"sessionKey":   options.Session.Key,

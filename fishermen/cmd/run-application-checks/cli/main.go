@@ -79,7 +79,7 @@ func chainCheck(ctx context.Context, ac *base.ApplicationData, options pocket.Ch
 }
 
 func syncCheck(ctx context.Context, ac *base.ApplicationData, options pocket.SyncCheckOptions, blockchain types.Blockchain, cacheTTL int, cacheKey string) []string {
-	if blockchain.SyncCheckOptions.Body == "" && blockchain.SyncCheckOptions.Path == "" {
+	if blockchain.SyncCheckOptions.Body == "" {
 		return []string{}
 	}
 

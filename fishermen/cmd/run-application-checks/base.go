@@ -235,6 +235,7 @@ func RunApplicationChecks(ctx context.Context, requestID string, performChecks f
 						SyncCheckOptions: blockchain.SyncCheckOptions,
 						AltruistURL:      blockchain.Altruist,
 						Blockchain:       blockchain.ID,
+						Path:             blockchain.Path,
 					},
 					ChainCheckOpts: &pocket.ChainCheckOptions{
 						Session:    *session,

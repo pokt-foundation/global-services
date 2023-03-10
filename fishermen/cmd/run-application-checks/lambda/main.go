@@ -142,7 +142,7 @@ func performChecks(apps map[string]applicationData, ctx aws.Context, requestID s
 		options := apps[publicKey].config
 
 		syncCheckOptions := options.Blockchain.SyncCheckOptions
-		if !(syncCheckOptions.Body == "" && syncCheckOptions.Path == "") {
+		if !(syncCheckOptions.Body == "") {
 			if err = base.CacheNodes(nodes, options.Ac.CacheBatch, options.SyncCheckKey, options.CacheTTL); err != nil {
 				logger.Log.WithFields(log.Fields{
 					"error":        err.Error(),
